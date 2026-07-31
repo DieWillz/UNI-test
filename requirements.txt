@@ -1,14 +1,16 @@
-# Build 1 — Skeleton & Config
-pydantic>=2.0
-pydantic-settings>=2.0
+pydantic>=2.6
+pydantic-settings>=2.1
 pyyaml>=6.0
+openai>=1.30
+playwright>=1.40
+pyautogui>=0.9
+comtypes>=1.2
+opencv-python>=4.10,<5
+faster-whisper>=1.0
+piper-tts>=1.2
+sounddevice>=0.4
+soundfile>=0.12
+pillow>=10.0
 rich>=13.0
-
-# Зависимости следующих билдов (закомментированы — раскомментировать по мере готовности):
-# openai              # Build 2 — Brain Client (DeepSeek)
-# faster-whisper      # Build 5 — Speech STT (Nemotron)
-# piper-tts           # Build 5 — Speech TTS (Nemotron)
-# pyautogui           # Build 6 — Computer (Nemotron)
-# comtypes            # Build 6 — Windows UI Automation (Nemotron)
-# pillow              # Build 6 — Screenshots (Nemotron)
-# playwright          # Build 7 — Browser (Nemotron)
+gradio_client>=1.3
+torch>=2.0

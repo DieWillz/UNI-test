@@ -1,53 +1,60 @@
-"""
-uni.__main__ — точка входа для `python -m uni`.
-
-Запуск:
-    python -m uni [путь_к_config.yaml]
-
-По умолчанию читает ./config.yaml.
-"""
+"""UNI interactive MVP. Run with: py -3.12 -m uni"""
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import sys
 
 from rich.console import Console
 from rich.panel import Panel
 
+from uni.agent import Agent
 from uni.config import load_config
 
 console = Console()
 
-BANNER = (
-    "[bold cyan]UNI[/bold cyan]\n"
-    "[dim]Локальный автономный AI-агент — MVP 0.1[/dim]"
-)
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+async def async_main() -> int:
+    parser = argparse.ArgumentParser(description="UNI — локальный голосовой помощник")
+    parser.add_argument("command", nargs="*", help="Одна команда; без неё запускается непрерывный цикл")
+    parser.add_argument("-c", "--config", default="config.yaml")
+    parser.add_argument("--text", action="store_true", help="Текстовый интерактивный режим вместо микрофона")
+    parser.add_argument("--voice", action="store_true", help="Только голосовой ввод")
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    if args.text:
+        config.agent.input_mode = "text"
+    elif args.voice:
+        config.agent.input_mode = "voice"
+    command = " ".join(args.command).strip() or None
+
+    console.print(
+        Panel(
+            "[bold cyan]UNI Fast-track MVP[/bold cyan]\n"
+            "[dim]Голос • Browser • XToys • Vision • Web search[/dim]",
+            border_style="cyan",
+        )
+    )
+    agent = Agent(config)
+    try:
+        await agent.initialize()
+        await agent.run(command)
+        return 0
+    finally:
+        await agent.shutdown()
 
 
 def main() -> None:
-    console.print(Panel.fit(BANNER, border_style="cyan"))
-
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
-
     try:
-        cfg = load_config(config_path)
-    except FileNotFoundError as e:
-        console.print(f"[bold red]✗ Ошибка конфигурации:[/bold red] {e}")
-        sys.exit(1)
-    except Exception as e:  # noqa: BLE001 — CLI top-level, показываем пользователю
-        console.print(f"[bold red]✗ Некорректный config.yaml:[/bold red] {e}")
-        sys.exit(1)
-
-    console.print(f"[green]✓[/green] Config загружен из [bold]{config_path}[/bold]")
-    console.print(f"  Brain: [yellow]{cfg.brain.model}[/yellow] @ {cfg.brain.base_url}")
-    console.print(f"  Role по умолчанию: [yellow]{cfg.agent.default_role}[/yellow]")
-    console.print(
-        f"  Capabilities сконфигурированы: "
-        f"[yellow]{', '.join(cfg.capabilities.keys())}[/yellow]"
-    )
-    console.print(
-        "\n[dim]Event loop ещё не подключён — ждёт Build 10 (DeepSeek).[/dim]"
-    )
+        raise SystemExit(asyncio.run(async_main()))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]UNI остановлена[/yellow]")
 
 
 if __name__ == "__main__":
