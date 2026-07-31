@@ -1,0 +1,38 @@
+# UNI — конфигурация для голосового управления XToys
+
+brain:
+  base_url: "http://localhost:1234/v1"
+  model: "qwen2.5-7b-instruct-1m"
+  vision_model: "qwen3.5-9b"
+  temperature: 0.3
+  max_tokens: 2000
+
+capabilities:
+  browser:
+    headless: false
+    viewport:
+      width: 1280
+      height: 720
+  computer:
+    use_uia: true
+    failsafe: true
+  speech:
+    stt_model: "base"                # faster-whisper
+    tts_voice: "ru_RU-irina-medium"  # Piper
+    sample_rate: 16000
+  vision:
+    enabled: false                   # Отключаем для скорости
+    model: "qwen3.5-9b"
+    resize_width: 320
+    resize_height: 240
+    save_screenshots: false
+
+agent:
+  default_role: "assistant"
+  cycle_interval: 2.0
+  max_retries: 3
+  verification_enabled: false        # Без проверки
+
+memory:
+  path: "memory/working.json"
+  max_context_tokens: 4000

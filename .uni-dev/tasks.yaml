@@ -1,0 +1,90 @@
+version: 1
+canonical_source: uni
+
+tasks:
+  - id: GOV-001
+    title: Establish canonical project governance
+    status: complete
+    owner_role: coordinator
+    allowed_paths:
+      - AGENTS.md
+      - ARCHITECTURE.md
+      - BUILD_STATUS.md
+      - ROADMAP.md
+      - docs/decisions
+      - .uni-dev
+      - scripts/check_architecture.py
+    acceptance:
+      - canonical source is explicit
+      - variants are reference-only
+      - architecture audit runs
+
+  - id: CORE-001
+    title: Specify canonical runtime contracts
+    status: needs_architecture
+    owner_role: architect
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/decisions/ADR-0004-runtime-contracts.md
+    acceptance:
+      - Action schema is unambiguous
+      - ActionResult schema covers success failure timeout and verification
+      - Observation schema is bounded
+      - AgentContext ownership and mutation rules are explicit
+      - Task dependency identifiers are specified
+
+  - id: CORE-002
+    title: Implement accepted runtime contracts
+    status: blocked
+    owner_role: developer
+    depends_on: [CORE-001]
+    allowed_paths:
+      - uni/contracts.py
+      - tests/unit/test_contracts.py
+    acceptance:
+      - one canonical definition per contract
+      - contract unit tests pass
+      - architecture audit reports no contract duplication in canonical source
+
+  - id: ROUTER-001
+    title: Specify capability manifest and router behavior
+    status: needs_architecture
+    owner_role: architect
+    depends_on: [CORE-001]
+    allowed_paths:
+      - docs/decisions/ADR-0005-capability-router.md
+    acceptance:
+      - manifest schema is explicit
+      - routing errors map to ActionResult
+      - capability dependency boundaries are explicit
+
+  - id: PLAN-001
+    title: Repair planner IDs validation retry and recovery algorithm
+    status: needs_algorithm
+    owner_role: algorithms
+    depends_on: [CORE-001, ROUTER-001]
+    allowed_paths:
+      - docs/specs/planner-algorithm.md
+    acceptance:
+      - stable step IDs and dependency mapping are defined
+      - unknown actions are rejected before execution
+      - retry replan and ask-user transitions terminate
+      - LLM calls are bounded
+
+  - id: INTEGRATE-001
+    title: Implement one canonical autonomous event loop
+    status: blocked
+    owner_role: lead_implementation
+    depends_on: [CORE-002, ROUTER-001, PLAN-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/event_loop.py
+      - uni/planner.py
+      - uni/tools
+      - uni/capabilities/registry.py
+      - tests/integration
+    acceptance:
+      - planner router and verifier use AgentContext
+      - every action produces ActionResult
+      - transient retry permanent replan and user escalation are tested
+      - no archived package is imported

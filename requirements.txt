@@ -1,0 +1,13 @@
+pydantic>=2.6
+pydantic-settings>=2.1
+pyyaml>=6.0
+openai>=1.30
+playwright>=1.40
+pyautogui>=0.9
+comtypes>=1.2
+faster-whisper>=1.0
+piper-tts>=1.2
+sounddevice>=0.4
+soundfile>=0.12
+pillow>=10.0
+rich>=13.0
