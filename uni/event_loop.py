@@ -21,6 +21,7 @@ from uni.tools import ToolExecutor
 from uni.tools.definitions import get_tool_schemas
 from uni.working_memory import WorkingMemory
 from uni.visual_ui_operator import VisualUIOperator
+from uni.workflows import AppLaunchWorkflow
 
 console = Console()
 
@@ -69,6 +70,13 @@ class EventLoop:
         self._background_tasks: set[asyncio.Task[None]] = set()
         self._camera_watch_task: asyncio.Task[None] | None = None
         self._last_intensity_request: int | None = None
+        self.app_launcher = AppLaunchWorkflow(
+            self.tool_executor,
+            xtoys_url=config.capabilities.xtoys.url,
+        )
+        self._screen_watch_task: asyncio.Task[None] | None = None
+        self._screen_watch_stop = asyncio.Event()
+        self._screen_observations: list[dict[str, Any]] = []
 
     def _log(self, event: str, message: object) -> None:
         if self.session_logger is not None:
@@ -240,6 +248,11 @@ class EventLoop:
             return DirectCommand("browser.save_screenshot", {"label": "manual"})
         if any(phrase in lowered for phrase in ("какая вкладка", "текущая вкладка", "где мы в браузере")):
             return DirectCommand("browser.current_tab", {})
+        # Event-driven screen watch (OFF by default; VLM only on screen change).
+        if any(phrase in lowered for phrase in ("следи за экраном", "наблюдай за экраном", "следи за экраном")):
+            return DirectCommand("internal.watch_screen", {})
+        if any(phrase in lowered for phrase in ("перестань следить за экраном", "хватит следить за экраном", "останови наблюдение")):
+            return DirectCommand("internal.watch_screen_stop", {})
         return None
 
     @staticmethod
@@ -338,6 +351,10 @@ class EventLoop:
         if command.action == "internal.camera_watch":
             seconds = command.args.get("seconds")
             return await self._start_camera_watch(float(seconds) if seconds is not None else None)
+        if command.action == "internal.watch_screen":
+            return await self._start_screen_watch()
+        if command.action == "internal.watch_screen_stop":
+            return await self._stop_screen_watch(announce=True)
         if command.action == "internal.camera_stop":
             return await self._stop_camera_watch(announce=False)
         if command.action == "internal.create_audio_message":
@@ -345,6 +362,13 @@ class EventLoop:
                 str(command.args.get("text", "")),
                 str(command.args.get("format", "wav")),
             )
+        if command.action == "xtoys.open":
+            # Orchestration-level launch: recovers BrowserSession, optional UI fallback.
+            # Not handled inside the capability (no-capability-calls-capability rule).
+            result = await self.app_launcher.open_xtoys()
+            style = "green" if result.success else "red"
+            console.print(f"[{style}]{'OK' if result.success else 'ERROR'}: {result.message}[/{style}]")
+            return result.message
         self.state = AgentState.EXECUTING
         if command.action == "xtoys.set_intensity":
             self._last_intensity_request = max(0, min(100, int(command.args.get("value", 0))))
@@ -616,7 +640,97 @@ class EventLoop:
         self._log("CAMERA_NOTICE", message)
         return message
 
+    # --- Event-driven screen watch (OFF by default) ------------------------
+    _SENSITIVE_URL_HINTS = (
+        "password", "account/login", "online-bank", "bank", "telegram",
+        "web.whatsapp", "mail", "private", "auth", "signin",
+    )
+
+    @staticmethod
+    def _is_sensitive_url(url: str) -> bool:
+        low = url.lower()
+        return any(hint in low for hint in EventLoop._SENSITIVE_URL_HINTS)
+
+    @staticmethod
+    def _screenshot_hash(path: str | None) -> str:
+        """Cheap change detector: imagehash if available, else file size."""
+        if not path:
+            return ""
+        try:
+            from pathlib import Path as _P
+            import imagehash  # type: ignore
+            from PIL import Image  # type: ignore
+
+            return str(imagehash.average_hash(Image.open(_P(path))))
+        except Exception:
+            try:
+                return str(_P := __import__("pathlib").Path(path).stat().st_size)
+            except Exception:
+                return ""
+
+    async def _start_screen_watch(self, interval: float = 15.0) -> str:
+        if self._screen_watch_task is not None and not self._screen_watch_task.done():
+            return "Я уже слежу за экраном."
+        interval = min(max(10.0, interval), 60.0)
+        announced = await self._speak(
+            "Я начинаю следить за экраном. Это можно в любой момент прервать голосом "
+            "или командой 'перестань следить за экраном'."
+        )
+        if not announced:
+            return "Наблюдение не запущено: не удалось произнести обязательное уведомление."
+        self._log("SCREEN_WATCH", f"старт, интервал {interval:g}s, VLM только при изменении")
+        self._screen_watch_task = asyncio.create_task(self._watch_screen_loop(interval))
+        return "Слежу за экраном. Буду озвучивать только существенные изменения."
+
+    async def _stop_screen_watch(self, announce: bool = True) -> str:
+        task = self._screen_watch_task
+        if task is not None and not task.done():
+            self._screen_watch_stop.set()
+            await asyncio.gather(task, return_exceptions=True)
+        self._screen_watch_task = None
+        self._screen_watch_stop.clear()
+        message = "Я перестала следить за экраном."
+        if announce:
+            await self._speak(message)
+        self._log("SCREEN_WATCH", "стоп")
+        return message
+
+    async def _watch_screen_loop(self, interval: float) -> None:
+        prev_hash = ""
+        while not self._screen_watch_stop.is_set():
+            # Pause on sensitive windows (passwords, banks, messengers).
+            tab = await self._run_tool("browser.current_tab", {})
+            if tab.success and isinstance(tab.data, dict):
+                url = str(tab.data.get("url", ""))
+                if self._is_sensitive_url(url):
+                    await asyncio.sleep(interval)
+                    continue
+            shot = await self._run_tool("browser.save_screenshot", {"label": "watch"})
+            if shot.success and isinstance(shot.data, dict):
+                h = self._screenshot_hash(shot.data.get("path"))
+                if h and h != prev_hash:
+                    prev_hash = h
+                    analysis = await self._run_tool(
+                        "vision.analyze_screen",
+                        {"prompt": "Кратко опиши, что изменилось на экране (максимум 2 предложения)."},
+                    )
+                    if analysis.success:
+                        # Temporary Observation, NOT a permanent memory fact.
+                        self._screen_observations.append(
+                            {
+                                "timestamp": time.time(),
+                                "confidence": 0.5,
+                                "analysis": analysis.message,
+                            }
+                        )
+                        if len(self._screen_observations) > 50:
+                            self._screen_observations.pop(0)
+                        await self._speak(analysis.message)
+            await asyncio.sleep(interval)
+
     async def shutdown(self) -> None:
+        if self._screen_watch_task is not None and not self._screen_watch_task.done():
+            await self._stop_screen_watch(announce=False)
         if self._camera_watch_task is not None and not self._camera_watch_task.done():
             await self._stop_camera_watch(announce=True)
         else:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus, urlparse
@@ -69,8 +70,20 @@ class BrowserSession:
         if playwright is not None:
             await playwright.stop()
 
+    async def ensure_alive(self) -> None:
+        """Re-create the browser context if it was closed by a crash/timeout."""
+        if self._context is None or getattr(self._context, "closed", False) or self._context._close_was_called:
+            if self._context is not None:
+                try:
+                    await self._context.close()
+                except Exception:
+                    pass
+                self._context = None
+                self._page = None
+            await self.start()
+
     async def active_page(self) -> Page:
-        await self.start()
+        await self.ensure_alive()
         assert self._context is not None
         if self._page is None or self._page.is_closed():
             pages = [page for page in self._context.pages if not page.is_closed()]
@@ -78,7 +91,7 @@ class BrowserSession:
         return self._page
 
     async def page_for_host(self, host: str, *, create_url: str | None = None) -> Page:
-        await self.start()
+        await self.ensure_alive()
         assert self._context is not None
         host = host.lower()
         for page in reversed(self._context.pages):
@@ -93,9 +106,20 @@ class BrowserSession:
         await page.bring_to_front()
         return page
 
-    async def navigate(self, url: str) -> Page:
+    @staticmethod
+    def _sanitize_url(raw: str) -> str:
+        """Strip voice/STT artifacts like `@url:` wrappers, backticks, stray spaces."""
+        url = raw.strip().strip("`").strip()
+        # strip a leading `@url:` (or `url:`) wrapper sometimes emitted by STT/LLM
+        m = re.match(r"^(?:@?url\s*:\s*)?(.+)$", url, flags=re.IGNORECASE)
+        if m:
+            url = m.group(1).strip().strip("`").strip()
         if not urlparse(url).scheme:
             url = f"https://{url}"
+        return url
+
+    async def navigate(self, url: str) -> Page:
+        url = self._sanitize_url(url)
         page = await self.active_page()
         await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
         await page.bring_to_front()

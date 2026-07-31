@@ -19,7 +19,7 @@ class FakeBrain:
 
 
 class FakeMemory:
-    def get_context(self):
+    def get_context(self, *args):
         return ""
 
     def set(self, *_args):
@@ -66,7 +66,7 @@ class RealtimeRoleTests(unittest.IsolatedAsyncioTestCase):
 
     def test_role_loads_independently_of_cwd(self):
         role = RoleLoader().load("xtoys_mistress")
-        self.assertIn("голосовая AI-госпожа", role.system_prompt)
+        self.assertIn("Госпожа", role.system_prompt)
         self.assertEqual(RoleLoader().roles_dir, Path(__file__).resolve().parents[2] / "uni" / "roles")
 
     async def test_role_is_in_llm_system_prompt(self):

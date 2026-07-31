@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import ctypes
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import time
+import unicodedata
 from collections import deque
 from pathlib import Path
 
@@ -63,6 +65,7 @@ class SpeechCapability(Capability):
         self.sample_rate = sample_rate
         self.input_device = input_device
         self.output_device = output_device
+        self._session_logger = None
         self._whisper: WhisperModel | None = None
         self._piper: PiperVoice | None = None
         self._silero = None
@@ -80,6 +83,100 @@ class SpeechCapability(Capability):
             if path.exists():
                 return str(path.resolve())
         return value
+
+    # --- TTS text normalization (Feature C) ---------------------------------
+    _EMOJI_RE = re.compile(
+        "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF"
+        "\U0000FE00-\U0000FE0F\U0000200D\u2066-\u2069\u2b00-\u2bff]",
+        re.UNICODE,
+    )
+    _URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+    _MARKDOWN_RE = re.compile(r"[*_`#>~\[\](){}|]", re.UNICODE)
+
+    @classmethod
+    def _clean_for_tts(cls, text: str) -> str:
+        """Make text safe for Piper/Silero phonemization.
+
+        Drops emoji, variation selectors, zero-width joiners, Markdown markup
+        and control characters; turns URLs into a spoken placeholder; keeps
+        Russian/Latin letters, digits and minimal punctuation.
+        """
+        if not text:
+            return ""
+        text = unicodedata.normalize("NFKC", text)
+        text = cls._EMOJI_RE.sub(" ", text)
+        text = cls._URL_RE.sub(" ссылка ", text)
+        text = cls._MARKDOWN_RE.sub("", text)
+        # keep only allowed characters
+        allowed = []
+        for ch in text:
+            cat = unicodedata.category(ch)
+            if cat[0] == "C" and ch not in ("\n", "\t"):
+                continue
+            if ch.isalnum() or ch in " .,!?-—…«»\n\t":
+                allowed.append(ch)
+            else:
+                allowed.append(" ")
+        cleaned = "".join(allowed)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned or " "
+
+    @staticmethod
+    def _split_sentences(text: str) -> list[str]:
+        parts = re.split(r"(?<=[.!?…])\s+", text)
+        return [p.strip() for p in parts if p.strip()]
+
+    def _synthesize_chunk(self, chunk: str) -> tuple[np.ndarray, int]:
+        """Synthesize one sentence; raises on failure."""
+        if self.tts_provider == "silero":
+            if self._silero is None:
+                raise RuntimeError("Silero не загружен")
+            audio = self._silero.apply_tts(
+                text=chunk,
+                speaker=self.silero_speaker,
+                sample_rate=self.silero_sample_rate,
+            )
+            if hasattr(audio, "detach"):
+                audio = audio.detach().cpu().numpy()
+            return np.asarray(audio, dtype=np.float32).reshape(-1), self.silero_sample_rate
+        assert self._piper is not None
+        frames = list(self._piper.synthesize(chunk))
+        if not frames:
+            raise RuntimeError("Piper не вернул аудио")
+        rates = {f.sample_rate for f in frames}
+        if len(rates) != 1:
+            raise RuntimeError(f"Piper вернул несколько sample rate: {sorted(rates)}")
+        audio = np.concatenate([f.audio_float_array.reshape(-1) for f in frames]).astype(np.float32)
+        return audio, frames[0].sample_rate
+
+    def _synthesize_audio_safe(self, text: str) -> tuple[np.ndarray, int]:
+        """Clean text, then synthesize sentence-by-sentence.
+
+        A failing sentence is logged and skipped instead of aborting the whole
+        utterance (partial success). Returns concatenated (audio, sample_rate).
+        """
+        cleaned = self._clean_for_tts(text)
+        sentences = self._split_sentences(cleaned)
+        if not sentences:
+            sentences = [cleaned]
+        chunks: list[np.ndarray] = []
+        rate = self.silero_sample_rate if self.tts_provider == "silero" else 48000
+        for sentence in sentences:
+            try:
+                audio, rate = self._synthesize_chunk(sentence)
+                chunks.append(audio)
+            except Exception as exc:  # partial success on bad fragment
+                if self._log is not None:
+                    self._log("TTS_SKIP", f"Пропущен фрагмент TTS: {exc} | текст: {sentence[:80]}")
+                else:
+                    print(f"TTS skip: {exc}")
+        if not chunks:
+            raise RuntimeError("Не удалось синтезировать ни одного фрагмента")
+        return np.concatenate(chunks).astype(np.float32), rate
+
+    @property
+    def _log(self):
+        return getattr(self, "_session_logger", None)
 
     async def _init_stt(self) -> None:
         if self._whisper is None:
@@ -292,11 +389,14 @@ class SpeechCapability(Capability):
             return False
         try:
             await self._init_tts()
-            audio, sample_rate = await asyncio.to_thread(self._synthesize_audio, text.strip())
+            audio, sample_rate = await asyncio.to_thread(self._synthesize_audio_safe, text.strip())
             await asyncio.to_thread(self._play, audio, sample_rate)
             return True
         except Exception as exc:
-            print(f"TTS error: {exc}")
+            if self._log is not None:
+                self._log("TTS_ERROR", str(exc))
+            else:
+                print(f"TTS error: {exc}")
             return False
 
     def _write_audio_file(self, audio: np.ndarray, sample_rate: int, path: Path, audio_format: str) -> None:
@@ -340,7 +440,7 @@ class SpeechCapability(Capability):
             return ToolResult(success=False, message="Расширение файла не совпадает с форматом")
         try:
             await self._init_tts()
-            audio, sample_rate = await asyncio.to_thread(self._synthesize_audio, clean_text)
+            audio, sample_rate = await asyncio.to_thread(self._synthesize_audio_safe, clean_text)
             await asyncio.to_thread(
                 self._write_audio_file,
                 audio,

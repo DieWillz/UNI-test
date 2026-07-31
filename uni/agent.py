@@ -65,6 +65,7 @@ class Agent:
             output_device=speech_config.output_device,
         )
         self.speech = speech
+        speech._session_logger = self.session_logger
         self.role = RoleLoader().load(config.agent.default_role)
         computer = ComputerCapability(
             use_uia=config.capabilities.computer.use_uia,
