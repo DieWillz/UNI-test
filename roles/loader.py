@@ -16,10 +16,12 @@ class Role:
 
 class RoleLoader:
     def __init__(self, roles_dir: Path | None = None):
-        self.roles_dir = roles_dir or Path("roles")
+        self.roles_dir = roles_dir or Path(__file__).resolve().parent
 
     def load(self, role_name: str) -> Role:
         """Load role from Markdown file."""
+        if not role_name or Path(role_name).name != role_name:
+            raise ValueError(f"Invalid role name: {role_name!r}")
         role_file = self.roles_dir / f"{role_name}.md"
         if not role_file.exists():
             raise FileNotFoundError(f"Role not found: {role_file}")

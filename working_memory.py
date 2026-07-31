@@ -1,130 +1,195 @@
-"""
-uni.working_memory — персистентная рабочая память агента.
-
-Назначение:
-    Простое key-value хранилище на JSON-файле. Используется агентом для
-    хранения контекста между циклами (последние действия, факты о задаче,
-    состояние диалога) и для сборки текстового контекста, который
-    подставляется в system/user prompt перед вызовом Brain.chat().
-
-Зависимости: стандартная библиотека (json, pathlib) — без внешних пакетов.
-
-Пример использования:
-    >>> from pathlib import Path
-    >>> wm = WorkingMemory(Path("memory/working.json"))
-    >>> wm.set("last_task", "открыть Chrome и найти видео про LM Studio")
-    >>> wm.get("last_task")
-    'открыть Chrome и найти видео про LM Studio'
-    >>> wm.get_context(max_tokens=500)
-    'last_task: открыть Chrome и найти видео про LM Studio'
-
-Известные ограничения:
-    - Не потокобезопасно и не process-safe (нет файловых блокировок).
-      Для MVP это ок: агент — один процесс, один event loop.
-    - get_context() режет по грубой оценке токенов (символы / 4), а не по
-      реальному токенайзеру модели — для MVP этого достаточно, точный
-      подсчёт токенов не входит в объём Build 3.
-    - Значения должны быть JSON-сериализуемы (str, int, float, bool, list,
-      dict, None). Попытка set() несериализуемого значения бросит TypeError
-      при следующем persist().
-"""
-
 from __future__ import annotations
 
 import json
 import os
-import tempfile
+import re
+import shutil
+import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 
 class WorkingMemory:
-    """Персистентное key-value хранилище поверх JSON-файла."""
+    """Small persistent memory for explicit facts and complete dialogue turns."""
 
-    def __init__(self, path: Path) -> None:
+    VERSION = 2
+    _SECRET_PATTERNS = (
+        re.compile(r"(?i)(парол(?:ь|я)?\s*(?:[:=]|—|-)?\s*)\S+"),
+        re.compile(r"(?i)((?:api[_ -]?key|token|секрет)\s*(?:[:=]|—|-)?\s*)\S+"),
+        re.compile(r"(?i)(authorization\s*:\s*(?:bearer\s+)?)\S+"),
+    )
+    _HALLUCINATION_MARKERS = (
+        "редактор субтитров",
+        "корректор а.",
+        "корректор н.",
+        "субтитры сделал",
+        "субтитры создавал",
+    )
+
+    def __init__(self, path: str | Path = "memory/working.json", max_dialogue_turns: int = 50):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._data: dict[str, Any] = self._load()
+        self.max_dialogue_turns = max(5, min(int(max_dialogue_turns), 500))
+        self.data: dict[str, Any] = self._empty_data()
+        self._transient: dict[str, Any] = {}
+        self._lock = threading.RLock()
+        self.load()
 
-    # ------------------------------------------------------------------
-    # Persistence
-    # ------------------------------------------------------------------
+    @classmethod
+    def _empty_data(cls) -> dict[str, Any]:
+        return {"version": cls.VERSION, "facts": {}, "dialogue": []}
 
-    def _load(self) -> dict[str, Any]:
-        if not self.path.exists():
-            return {}
-        try:
-            with self.path.open("r", encoding="utf-8") as f:
-                content = f.read().strip()
-                return json.loads(content) if content else {}
-        except json.JSONDecodeError:
-            # Повреждённый файл памяти не должен ронять агент при старте.
-            # Оставляем файл как есть (для диагностики) и стартуем с пустой памятью.
-            return {}
+    @classmethod
+    def _redact(cls, value: object) -> str:
+        text = str(value).replace("\r\n", "\n").replace("\r", "\n").strip()
+        for pattern in cls._SECRET_PATTERNS:
+            text = pattern.sub(r"\1[REDACTED]", text)
+        return text[:12_000]
 
-    def _persist(self) -> None:
-        """Атомарная запись: пишем во временный файл рядом, затем rename."""
-        fd, tmp_path = tempfile.mkstemp(
-            dir=str(self.path.parent), prefix=".tmp_", suffix=".json"
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, self.path)
-        except Exception:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-            raise
+    @classmethod
+    def _is_dialogue_text(cls, value: str) -> bool:
+        normalized = " ".join(value.casefold().split())
+        return bool(normalized) and not any(marker in normalized for marker in cls._HALLUCINATION_MARKERS)
 
-    # ------------------------------------------------------------------
-    # Public API (контракт зафиксирован координатором)
-    # ------------------------------------------------------------------
+    def _backup_legacy(self) -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup = self.path.with_name(f"{self.path.stem}.legacy-{timestamp}{self.path.suffix}")
+        counter = 1
+        while backup.exists():
+            backup = self.path.with_name(
+                f"{self.path.stem}.legacy-{timestamp}-{counter}{self.path.suffix}"
+            )
+            counter += 1
+        shutil.copy2(self.path, backup)
+        return backup
+
+    def load(self) -> None:
+        with self._lock:
+            if not self.path.exists():
+                self.data = self._empty_data()
+                return
+            try:
+                loaded = json.loads(self.path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                self._backup_legacy()
+                self.data = self._empty_data()
+                self.persist()
+                return
+
+            if isinstance(loaded, dict) and loaded.get("version") == self.VERSION:
+                facts = loaded.get("facts") if isinstance(loaded.get("facts"), dict) else {}
+                dialogue = loaded.get("dialogue") if isinstance(loaded.get("dialogue"), list) else []
+                self.data = {
+                    "version": self.VERSION,
+                    "facts": facts,
+                    "dialogue": dialogue[-self.max_dialogue_turns :],
+                }
+                return
+
+            self._backup_legacy()
+            legacy_facts = {}
+            if isinstance(loaded, dict):
+                legacy_facts = {
+                    str(key): value
+                    for key, value in loaded.items()
+                    if not str(key).startswith(("_", "last_"))
+                }
+            self.data = self._empty_data()
+            self.data["facts"] = legacy_facts
+            self.persist()
+
+    def persist(self) -> None:
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_suffix(self.path.suffix + ".tmp")
+            try:
+                temporary.write_text(
+                    json.dumps(self.data, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                os.replace(temporary, self.path)
+            finally:
+                try:
+                    temporary.unlink()
+                except FileNotFoundError:
+                    pass
 
     def set(self, key: str, value: Any) -> None:
-        self._data[key] = value
-        self._persist()
+        clean_key = str(key).strip()
+        if not clean_key:
+            return
+        if clean_key.startswith(("_", "last_")):
+            self._transient[clean_key] = value
+            return
+        if isinstance(value, str):
+            value = self._redact(value)
+        with self._lock:
+            self.data["facts"][clean_key] = value
+            self.persist()
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self._data.get(key, default)
+        if key in self._transient:
+            return self._transient[key]
+        return self.data["facts"].get(key, default)
 
     def delete(self, key: str) -> None:
-        if key in self._data:
-            del self._data[key]
-            self._persist()
+        self._transient.pop(key, None)
+        with self._lock:
+            if key in self.data["facts"]:
+                del self.data["facts"][key]
+                self.persist()
 
     def list_keys(self) -> list[str]:
-        return list(self._data.keys())
-
-    def get_context(self, max_tokens: int = 4000) -> str:
-        """
-        Форматирует память в виде текста "key: value" по одной строке,
-        для вставки в prompt. Обрезает по грубой оценке токенов
-        (~4 символа на токен), сохраняя самые НЕДАВНО изменённые записи
-        (последние set() оказываются позже в dict — Python 3.7+
-        гарантирует порядок вставки).
-        """
-        if not self._data:
-            return ""
-
-        max_chars = max_tokens * 4
-        lines: list[str] = []
-        # Идём от самых свежих записей к старым, чтобы при обрезке
-        # терялся именно устаревший контекст, а не последний.
-        for key in reversed(list(self._data.keys())):
-            value = self._data[key]
-            lines.append(f"{key}: {value}")
-
-        result_lines: list[str] = []
-        total_chars = 0
-        for line in lines:
-            total_chars += len(line) + 1  # +1 за перевод строки
-            if total_chars > max_chars:
-                break
-            result_lines.append(line)
-
-        # Возвращаем в исходном (хронологическом) порядке.
-        return "\n".join(reversed(result_lines))
+        return list(self.data["facts"].keys())
 
     def clear(self) -> None:
-        self._data = {}
-        self._persist()
+        with self._lock:
+            self._transient.clear()
+            self.data = self._empty_data()
+            self.persist()
+
+    def append_exchange(self, user: str, assistant: str) -> bool:
+        clean_user = self._redact(user)
+        clean_assistant = self._redact(assistant)
+        if not self._is_dialogue_text(clean_user) or not self._is_dialogue_text(clean_assistant):
+            return False
+        exchange = {
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "user": clean_user,
+            "assistant": clean_assistant,
+        }
+        with self._lock:
+            dialogue = self.data["dialogue"]
+            dialogue.append(exchange)
+            self.data["dialogue"] = dialogue[-self.max_dialogue_turns :]
+            self.persist()
+        return True
+
+    def recent_messages(self, limit: int = 8) -> list[dict[str, str]]:
+        messages: list[dict[str, str]] = []
+        exchanges = self.data["dialogue"][-max(0, limit // 2) :]
+        for exchange in exchanges:
+            if not isinstance(exchange, dict):
+                continue
+            user = exchange.get("user")
+            assistant = exchange.get("assistant")
+            if isinstance(user, str) and isinstance(assistant, str):
+                messages.extend(
+                    [
+                        {"role": "user", "content": user},
+                        {"role": "assistant", "content": assistant},
+                    ]
+                )
+        return messages[-limit:]
+
+    def get_context(self, max_tokens: int = 4000) -> str:
+        budget = max(100, int(max_tokens) * 4)
+        lines: list[str] = []
+        total = 0
+        for key, value in self.data["facts"].items():
+            line = f"{key}: {value}"
+            if total + len(line) + 1 > budget:
+                break
+            lines.append(line)
+            total += len(line) + 1
+        return "\n".join(lines) or "Нет сохранённых фактов"

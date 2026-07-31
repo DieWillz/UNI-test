@@ -1,50 +1,43 @@
-"""Event Loop - core autonomous cycle: Observe → Think → Speak → Act → Verify
-With Planner integration for multi-step task execution."""
-
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+import json
+import re
+import threading
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
-from enum import Enum
 
-from .brain import Brain
-from .state import AgentState
-from .working_memory import WorkingMemory
-from .capabilities.registry import CapabilityRegistry
-from .tools import ToolExecutor, get_tool_schemas
-from .roles.loader import Role
-from .config import Config
-from .planner import PlannerImpl
-from .planner_interface import Action, ActionResult, Task, TaskQueueImpl, TaskStatus, ErrorType
+from rich.console import Console
 
+from uni.brain import Brain
+from uni.capabilities.registry import CapabilityRegistry
+from uni.config import Config
+from uni.contracts import ToolResult
+from uni.state import AgentState
+from uni.session_log import SessionLogger
+from uni.tools import ToolExecutor
+from uni.tools.definitions import get_tool_schemas
+from uni.working_memory import WorkingMemory
+from uni.visual_ui_operator import VisualUIOperator
 
-class CycleResult(Enum):
-    CONTINUE = "continue"
-    COMPLETE = "complete"
-    ERROR = "error"
-    WAITING_INPUT = "waiting_input"
+console = Console()
 
 
-@dataclass
-class ExecutionStep:
-    tool_name: str
-    args: dict
-    result: dict | None = None
-    verified: bool = False
-    error: str | None = None
+@dataclass(frozen=True)
+class DirectCommand:
+    action: str
+    args: dict[str, Any]
 
 
-@dataclass
-class CycleContext:
-    user_input: str | None = None
-    screen_base64: str | None = None
-    steps: list[ExecutionStep] = field(default_factory=list)
-    cycle_count: int = 0
-    max_cycles: int = 50
-    current_goal: str | None = None
-    task_queue: TaskQueueImpl = field(default_factory=TaskQueueImpl)
-    action_history: list[ActionResult] = field(default_factory=list)
+HELP_TEXT = (
+    "Команды: открой XToys; интенсивность 20; выключи игрушку; подключи игрушку; паттерн wave; "
+    "статус XToys; найди в интернете запрос; открой сайт example.com; "
+    "что на вкладке; сделай скриншот; посмотри через камеру; "
+    "смотри через камеру 10 минут; перестань смотреть в камеру; "
+    "полёт фантазии про тему; выход."
+)
 
 
 class EventLoop:
@@ -53,198 +46,834 @@ class EventLoop:
         brain: Brain,
         capabilities: CapabilityRegistry,
         memory: WorkingMemory,
+        tool_executor: ToolExecutor,
         config: Config,
-        role: Role,
-    ):
+        role_prompt: str = "",
+        session_logger: SessionLogger | None = None,
+    ) -> None:
         self.brain = brain
         self.capabilities = capabilities
         self.memory = memory
+        self.tool_executor = tool_executor
         self.config = config
-        self.role = role
-
-        self.tool_executor = ToolExecutor(capabilities)
-        self.planner = PlannerImpl(brain, capabilities, config)
-        
+        self.role_prompt = role_prompt
+        self.session_logger = session_logger
         self.state = AgentState.IDLE
-        self.context = CycleContext()
+        self._running = False
+        recent_messages = getattr(memory, "recent_messages", None)
+        self._history: list[dict[str, str]] = recent_messages(8) if callable(recent_messages) else []
+        self._pending_message: dict[str, str] | None = None
+        self._audio_lock = asyncio.Lock()
+        self._tool_lock = asyncio.Lock()
+        self._task_slots = asyncio.Semaphore(config.agent.max_parallel_tasks)
+        self._background_tasks: set[asyncio.Task[None]] = set()
+        self._camera_watch_task: asyncio.Task[None] | None = None
+        self._last_intensity_request: int | None = None
 
-    def set_state(self, new_state: AgentState) -> None:
-        from .state import can_transition
-        if can_transition(self.state, new_state):
-            old_state = self.state
-            self.state = new_state
-            if self.config.agent.state_logging:
-                print(f"🔄 State: {old_state.value} → {new_state.value}")
-        else:
-            raise ValueError(f"Invalid state transition: {self.state} → {new_state}")
+    def _log(self, event: str, message: object) -> None:
+        if self.session_logger is not None:
+            self.session_logger.log(event, message)
 
-    async def run_cycle(self, user_input: str | None = None) -> CycleResult:
-        """Execute one full cycle with Planner integration."""
-        self.context.user_input = user_input
-        self.context.cycle_count += 1
-
-        if self.context.cycle_count > self.context.max_cycles:
-            return CycleResult.ERROR
-
-        try:
-            # 1. OBSERVE
-            self.set_state(AgentState.THINKING)
-            observation = await self._observe()
-
-            # 2. PLAN (if new goal or queue empty)
-            if user_input or self.context.task_queue.is_empty():
-                if user_input:
-                    self.context.current_goal = user_input
-                    self.context.action_history.clear()
-                
-                if self.context.current_goal:
-                    tasks = await self.planner.plan(self.context.current_goal, self.context.action_history)
-                    for task in tasks:
-                        await self.context.task_queue.push(task)
-
-            # 3. GET NEXT TASK
-            task = await self.context.task_queue.pop()
-            if not task:
-                # No tasks ready - check if complete
-                if self.context.task_queue.is_empty():
-                    if self.context.action_history:
-                        # Task sequence complete
-                        self.set_state(AgentState.SPEAKING)
-                        await self._speak("Задача выполнена.")
-                        self.context.current_goal = None
-                        return CycleResult.COMPLETE
-                    return CycleResult.WAITING_INPUT
-                # Dependencies not met yet, wait
-                await asyncio.sleep(0.5)
-                return CycleResult.CONTINUE
-
-            # 4. EXECUTE TASK
-            self.set_state(AgentState.EXECUTING)
-            action_result = await self._execute_task(task)
-
-            # 5. VERIFY & HANDLE RESULT
-            verified = await self._verify_action(task, action_result)
-            
-            # Record in history
-            action_result_data = ActionResult(
-                action=task.action,
-                status="success" if (action_result.get("success") and verified) else "failure",
-                data=action_result.get("data"),
-                error=action_result.get("error") if not (action_result.get("success") and verified) else None,
-                error_type=ErrorType.TRANSIENT,
+    @staticmethod
+    def parse_direct_command(text: str) -> DirectCommand | None:
+        original = text.strip()
+        lowered = original.lower().strip(" .!?,-")
+        mentions_xtoys = bool(
+            re.search(
+                r"(?:xtoys|xtois|x[\s-]*(?:toys|twice|2)|xpress(?:\.app)?|"
+                r"икс\s*(?:тойс|туйс|твайс)|экс\s*тойс|икстойс)",
+                lowered,
             )
-            self.context.action_history.append(action_result_data)
+        )
+        if lowered in {"помощь", "что ты умеешь", "команды"}:
+            return DirectCommand("internal.help", {})
+        if lowered in {"да отправляй", "отправляй", "подтверждаю отправку", "да, отправь"}:
+            return DirectCommand("internal.confirm_send", {})
+        audio_message = re.search(
+            r"^(?:создай|сделай|запиши)\s+(?:голосовое|аудио(?:сообщение|послание)?|послание)"
+            r"(?:\s+в\s+формате\s+)?\s*(?P<format>mp3|wav)?\s*[:—-]\s*(?P<text>.+)$",
+            original,
+            flags=re.IGNORECASE,
+        )
+        if audio_message:
+            return DirectCommand(
+                "internal.create_audio_message",
+                {
+                    "text": audio_message.group("text").strip(),
+                    "format": (audio_message.group("format") or "wav").casefold(),
+                },
+            )
+        if "камер" in lowered and any(
+            phrase in lowered for phrase in ("перестань", "хватит", "останови", "выключи")
+        ):
+            return DirectCommand("internal.camera_stop", {})
+        if "камер" in lowered and re.search(r"\b(?:смотри|наблюдай|следи)\b", lowered):
+            duration_match = re.search(
+                r"(\d+(?:[.,]\d+)?)\s*(секунд\w*|минут\w*|час\w*)",
+                lowered,
+            )
+            seconds: float | None = None
+            if "полчас" in lowered:
+                seconds = 1800.0
+            elif duration_match:
+                amount = float(duration_match.group(1).replace(",", "."))
+                unit = duration_match.group(2)
+                seconds = amount * (3600 if unit.startswith("час") else 60 if unit.startswith("мин") else 1)
+            elif re.search(r"(?:^|\s)(?:один\s+)?час(?:\s|$)", lowered):
+                seconds = 3600.0
+            return DirectCommand("internal.camera_watch", {"seconds": seconds})
+        if "камер" in lowered and any(
+            phrase in lowered
+            for phrase in (
+                "посмотри",
+                "погляди",
+                "оглядись",
+                "что у меня",
+                "что видно",
+                "запусти",
+                "включи",
+                "открой",
+            )
+        ):
+            return DirectCommand("internal.camera_look", {})
+        message = re.search(
+            r"^(?:пусть\s+юни\s+)?(?:подготовь|напиши)\s+(?:сообщение\s+)?(?:для\s+контакта\s+)?(?P<contact>[а-яёa-z0-9_ -]{1,80})\s*[:—-]\s*(?P<text>.+)$",
+            original,
+            flags=re.IGNORECASE,
+        )
+        if message:
+            contact = message.group("contact").strip()
+            if contact.casefold() == "асе":
+                contact = "Ася"
+            return DirectCommand(
+                "internal.draft_message",
+                {"contact": contact, "text": message.group("text").strip()},
+            )
+        if lowered in {
+            "стоп",
+            "красный",
+            "аварийный стоп",
+            "остановись",
+            "останови игрушку",
+        }:
+            return DirectCommand("xtoys.set_intensity", {"value": 0})
+        if any(
+            phrase in lowered
+            for phrase in (
+                "ничего не меняет",
+                "ничего не меняется",
+                "не сработало",
+                "не работает",
+            )
+        ):
+            return DirectCommand("internal.retry_intensity_visual", {})
+        imagination = re.search(r"(?:пол[её]т\s+фантазии|пофантазируй|самостоятельно\s+поисследуй)(?:\s+(?:про|на тему))?\s*(.*)$", original, flags=re.IGNORECASE)
+        if imagination:
+            topic = imagination.group(1).strip() or "необычные природные явления"
+            return DirectCommand("internal.explore", {"topic": topic})
+        if mentions_xtoys and any(word in lowered for word in ("открой", "открывай", "покажи", "перейди")):
+            return DirectCommand("xtoys.open", {})
+        intensity = re.search(
+            r"(?:интенсивност\w*|мощност\w*|скорост\w*)\D{0,30}(\d{1,3})",
+            lowered,
+        )
+        if intensity:
+            return DirectCommand("xtoys.set_intensity", {"value": int(intensity.group(1))})
+        if any(word in lowered for word in ("интенсивност", "мощност", "скорост")):
+            return DirectCommand(
+                "internal.response",
+                {"text": "Назовите конкретное значение от 0 до защитного максимума, например: интенсивность 5."},
+            )
+        pattern = re.search(r"(?:паттерн|режим)\s+(.+)$", original, flags=re.IGNORECASE)
+        if pattern:
+            return DirectCommand("xtoys.select_pattern", {"pattern": pattern.group(1).strip()})
+        if mentions_xtoys and any(word in lowered for word in ("статус", "состояние", "что с")):
+            return DirectCommand("xtoys.get_status", {})
+        if "выключи игруш" in lowered:
+            return DirectCommand("xtoys.set_intensity", {"value": 0})
+        if "включи игруш" in lowered:
+            return DirectCommand("internal.response", {"text": "Назовите безопасную интенсивность, например: интенсивность 10"})
+        if any(word in lowered for word in ("подключи игруш", "переключи игруш")):
+            return DirectCommand("xtoys.toggle", {})
+        image_search = re.search(
+            r"^(?:найди|поищи|поиск(?:ай)?|покажи)(?:\s+в\s+интернете)?\s+(?:среди\s+картинок|картинки|изображения|фото(?:графии)?)\s+(.+)$",
+            original,
+            flags=re.IGNORECASE,
+        )
+        if not image_search:
+            image_search = re.search(
+                r"^(?:найди|поищи|поиск(?:ай)?|покажи)(?:\s+в\s+интернете)?\s+(.+?)\s+(?:среди\s+картинок|в\s+картинках|в\s+изображениях)$",
+                original,
+                flags=re.IGNORECASE,
+            )
+        if image_search:
+            return DirectCommand("browser.search_images", {"query": image_search.group(1).strip()})
+        search = re.search(
+            r"^(?:найди|поищи|поиск(?:ай)?)(?:\s+в\s+интернете|\s+в\s+сети)?\s+(.+)$",
+            original,
+            flags=re.IGNORECASE,
+        )
+        if search:
+            return DirectCommand("browser.search_web", {"query": search.group(1).strip()})
+        url = re.search(
+            r"^(?:открой|перейди(?:\s+на)?)(?:\s+сайт)?\s+((?:https?://)?[\w.-]+\.[a-zа-я]{2,}(?:/\S*)?)$",
+            original,
+            flags=re.IGNORECASE,
+        )
+        if url:
+            return DirectCommand("browser.navigate", {"url": url.group(1)})
+        if any(
+            phrase in lowered
+            for phrase in (
+                "что на экране",
+                "что на вкладке",
+                "опиши экран",
+                "посмотри экран",
+                "посмотри на экран",
+                "посмотри вкладку",
+                "скажи что ты видишь",
+                "скажи, что ты видишь",
+            )
+        ):
+            return DirectCommand("vision.analyze_screen", {"prompt": original})
+        if any(phrase in lowered for phrase in ("сделай скриншот", "сними экран", "сохрани скриншот")):
+            return DirectCommand("browser.save_screenshot", {"label": "manual"})
+        if any(phrase in lowered for phrase in ("какая вкладка", "текущая вкладка", "где мы в браузере")):
+            return DirectCommand("browser.current_tab", {})
+        return None
 
-            if not (action_result.get("success") and verified):
-                # REPLAN on failure
-                if task.retry_count < task.max_retries:
-                    await self.context.task_queue.requeue(task)
-                    self.memory.set("last_error", f"Verification failed: {task.action.name}")
-                else:
-                    # Max retries exceeded - replan
-                    try:
-                        new_tasks = await self.planner.replan(
-                            self.context.current_goal or "", task, self.context.action_history
-                        )
-                        for t in new_tasks:
-                            await self.context.task_queue.push(t)
-                    except RuntimeError:
-                        await self._speak("Не удалось выполнить задачу после нескольких попыток.")
-                        return CycleResult.ERROR
+    @staticmethod
+    def is_stop_command(text: str) -> bool:
+        lowered = text.lower().strip(" .!?")
+        return lowered in {"выход", "заверши работу", "пока", "exit", "quit"}
 
-            # Check if all tasks complete
-            if self.context.task_queue.is_empty() and self.context.current_goal:
-                self.set_state(AgentState.SPEAKING)
-                await self._speak("Задача выполнена.")
-                self.context.current_goal = None
-                return CycleResult.COMPLETE
+    async def _speak(self, text: str) -> bool:
+        if not text or not self.config.agent.speak_responses:
+            return False
+        spoken = self._spoken_excerpt(text)
+        self._log("SPEECH", spoken)
+        if len(spoken) < len(text.strip()):
+            console.print("[dim]Голосовой ответ сокращён; полный текст выше. Esc прерывает речь.[/dim]")
+        async with self._audio_lock:
+            self.state = AgentState.SPEAKING
+            result = await self.tool_executor.execute("speech.speak", {"text": spoken})
+        if not result.success:
+            console.print(f"[yellow]TTS: {result.message}[/yellow]")
+        return result.success
 
-            return CycleResult.CONTINUE
+    def _spoken_excerpt(self, text: str) -> str:
+        limit = self.config.agent.spoken_response_max_chars
+        clean = " ".join(text.split())
+        if len(clean) <= limit:
+            return clean
+        candidate = clean[: limit + 1]
+        boundaries = [candidate.rfind(mark) for mark in (".", "!", "?")]
+        boundary = max(boundaries)
+        if boundary >= max(40, limit // 3):
+            return candidate[: boundary + 1]
+        return clean[: limit - 1].rstrip() + "…"
 
-        except Exception as e:
-            self.set_state(AgentState.ERROR)
-            await self._speak(f"Ошибка: {str(e)}")
-            return CycleResult.ERROR
+    def _clean_answer(self, text: str) -> str:
+        clean = re.sub(r"(?im)^\s*stile\s*=\s*[^\n]+\s*$", "", str(text)).strip()
+        clean = re.sub(r"\n{3,}", "\n\n", clean)
+        sentences = re.split(r"(?<=[.!?])\s+", clean)
+        if len(sentences) > 3:
+            clean = " ".join(sentences[:3])
+        limit = self.config.agent.response_max_chars
+        if len(clean) > limit:
+            candidate = clean[: limit + 1]
+            boundary = max(candidate.rfind("."), candidate.rfind("!"), candidate.rfind("?"))
+            clean = candidate[: boundary + 1] if boundary >= 80 else clean[: limit - 1].rstrip() + "…"
+        return clean or "Не удалось сформировать ответ."
 
-    async def _observe(self) -> dict:
-        """Capture screen and get memory context."""
-        observation = {}
+    async def _listen_once(self) -> str:
+        async with self._audio_lock:
+            self.state = AgentState.LISTENING
+            duration = self.config.capabilities.speech.listen_duration
+            console.print("[cyan]Слушаю... говорите обычным голосом[/cyan]")
+            result = await self.tool_executor.execute("speech.listen", {"duration": duration})
+        if result.success and isinstance(result.data, str):
+            console.print(f"[yellow]Вы: {result.data}[/yellow]")
+            return result.data
+        return ""
 
-        # Capture screen
-        computer = self.capabilities.get("computer")
-        if computer:
-            screen_result = await computer.execute("screenshot_region", {})
-            if screen_result.get("success"):
-                observation["screen_base64"] = screen_result.get("image_base64")
-                self.context.screen_base64 = screen_result.get("image_base64")
+    @staticmethod
+    def _result_text(action: str, result: ToolResult) -> str:
+        if not result.success:
+            return result.message
+        data = result.data
+        if action == "browser.search_web" and isinstance(data, dict):
+            results = data.get("results") or []
+            titles = [item.get("title", "") for item in results[:3] if isinstance(item, dict)]
+            suffix = ". ".join(title for title in titles if title)
+            return result.message + (f". Первые результаты: {suffix}" if suffix else "")
+        if action == "vision.analyze_screen" and isinstance(data, dict):
+            return str(data.get("analysis") or result.message)
+        if action in {"xtoys.get_status", "browser.extract_text"} and isinstance(data, dict):
+            visible = data.get("visible_text") or data.get("text")
+            if visible:
+                return str(visible)[:700]
+        return result.message
 
-        # Get memory context
-        observation["memory_context"] = self.memory.get_context()
-        observation["user_input"] = self.context.user_input
+    async def _execute_direct(self, command: DirectCommand) -> str:
+        if command.action == "internal.help":
+            return HELP_TEXT
+        if command.action == "internal.response":
+            return str(command.args.get("text", ""))
+        if command.action == "internal.draft_message":
+            return await self._draft_visual_message(
+                str(command.args.get("contact", "")),
+                str(command.args.get("text", "")),
+            )
+        if command.action == "internal.confirm_send":
+            return await self._confirm_visual_message()
+        if command.action == "internal.retry_intensity_visual":
+            if self._last_intensity_request is None:
+                return "Сначала назовите конкретную интенсивность, например: интенсивность 5."
+            return await self._set_intensity_visually(self._last_intensity_request)
+        if command.action == "internal.explore":
+            return await self._explore_web(str(command.args.get("topic", "")))
+        if command.action == "internal.camera_look":
+            return await self._camera_look()
+        if command.action == "internal.camera_watch":
+            seconds = command.args.get("seconds")
+            return await self._start_camera_watch(float(seconds) if seconds is not None else None)
+        if command.action == "internal.camera_stop":
+            return await self._stop_camera_watch(announce=False)
+        if command.action == "internal.create_audio_message":
+            return await self._create_audio_message(
+                str(command.args.get("text", "")),
+                str(command.args.get("format", "wav")),
+            )
+        self.state = AgentState.EXECUTING
+        if command.action == "xtoys.set_intensity":
+            self._last_intensity_request = max(0, min(100, int(command.args.get("value", 0))))
+        console.print(f"[blue]ACTION {command.action}({command.args})[/blue]")
+        result = await self._run_tool(command.action, command.args)
+        style = "green" if result.success else "red"
+        console.print(f"[{style}]{'OK' if result.success else 'ERROR'}: {result.message}[/{style}]")
+        if (
+            command.action == "xtoys.set_intensity"
+            and not result.success
+            and self._last_intensity_request <= self.config.capabilities.xtoys.max_intensity
+            and any(marker in result.message.casefold() for marker in ("слайдер", "intensity", "контрол"))
+        ):
+            return await self._set_intensity_visually(self._last_intensity_request)
+        answer = self._result_text(command.action, result)
+        if command.action == "vision.analyze_screen" and result.success:
+            localized = await self.brain.chat(
+                [
+                    {
+                        "role": "system",
+                        "content": "Переведи описание скриншота на русский. Сохрани факты, ответь максимум 3 предложениями.",
+                    },
+                    {"role": "user", "content": answer[:4000]},
+                ],
+                tools=None,
+                temperature=0.1,
+                max_tokens=350,
+            )
+            if not localized.error and localized.text:
+                answer = localized.text
+        return answer
 
-        return observation
+    async def _set_intensity_visually(self, value: int) -> str:
+        bounded = max(0, min(int(value), self.config.capabilities.xtoys.max_intensity))
+        operator = VisualUIOperator(
+            self.tool_executor,
+            max_steps=min(8, self.config.agent.visual_ui_max_steps),
+            log=self._log,
+        )
+        async with self._tool_lock:
+            focused = await operator._run("computer.focus_window", {"title": "XToys.app"})
+            if not focused.success:
+                return f"Визуальная попытка остановлена: окно XToys неоднозначно или недоступно — {focused.message}"
+            result = await operator.set_vertical_slider(
+                "the visible vertical XToys intensity control labelled Speed with a numeric value",
+                bounded,
+            )
+        if not result.success:
+            return f"DOM-управление не сработало, и Vision не смог безопасно нажать слайдер: {result.message}"
+        return (
+            f"Юни визуально навела мышь и нажала Speed на уровне {bounded}%. "
+            "Изменение интерфейса проверено свежим снимком; физическая реакция устройства не подтверждена."
+        )
 
-    async def _execute_task(self, task: Task) -> dict:
-        """Execute a single task (tool call)."""
-        tool_name = task.action.name
-        args = task.action.params
-        
-        print(f"🎯 Executing: {tool_name}({args})")
-        
-        result = await self.tool_executor.execute(tool_name, args)
-        
-        step = ExecutionStep(tool_name=tool_name, args=args, result=result)
-        self.context.steps.append(step)
-        
-        # Small delay between actions
-        await asyncio.sleep(0.1)
-        
+    async def _draft_visual_message(self, contact: str, text: str) -> str:
+        if not contact or not text:
+            return "Для сообщения нужны контакт и текст."
+        operator = VisualUIOperator(
+            self.tool_executor,
+            max_steps=self.config.agent.visual_ui_max_steps,
+            log=self._log,
+        )
+        async with self._tool_lock:
+            result = await operator.draft_telegram_message(contact, text, account="uni")
+        if not result.success:
+            return f"Не удалось подготовить сообщение: {result.message}"
+        self._pending_message = {
+            "app": "telegram_uni",
+            "account": "uni",
+            "contact": contact,
+            "text": text,
+        }
+        return (
+            f"Черновик для {contact} готов: «{text}». "
+            "Он ещё не отправлен. Скажите «да, отправляй» для подтверждения."
+        )
+
+    async def _confirm_visual_message(self) -> str:
+        pending = self._pending_message
+        if not isinstance(pending, dict) or pending.get("app") != "telegram_uni":
+            return "Нет подготовленного сообщения для отправки."
+        operator = VisualUIOperator(
+            self.tool_executor,
+            max_steps=4,
+            log=self._log,
+        )
+        async with self._tool_lock:
+            result = await operator.send_focused_draft(account=str(pending.get("account", "uni")))
+        if not result.success:
+            return f"Сообщение не отправлено: {result.message}"
+        contact = str(pending.get("contact", "контакту"))
+        self._pending_message = None
+        return f"Сообщение для {contact} отправлено."
+
+    async def _run_tool(self, action: str, args: dict[str, Any]) -> ToolResult:
+        self._log("ACTION", f"{action} {args}")
+        async with self._tool_lock:
+            result = await self.tool_executor.execute(action, args)
+        self._log("RESULT", f"{action}: {result.message}")
         return result
 
-    async def _verify_action(self, task: Task, result: dict) -> bool:
-        """Verify action result using vision."""
-        if not self.config.agent.verification_enabled:
-            return True
+    async def _create_audio_message(self, text: str, audio_format: str) -> str:
+        clean_text = text.strip()
+        output_format = audio_format.casefold().strip()
+        if not clean_text:
+            return "Текст аудиопослания пуст."
+        if output_format not in {"wav", "mp3"}:
+            return "Поддерживаются только WAV и MP3."
+        root = (
+            self.session_logger.session_dir
+            if self.session_logger is not None
+            else Path(self.config.logging.directory).resolve() / "audio-messages"
+        )
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        path = (root / "audio_messages" / f"uni_message_{timestamp}.{output_format}").resolve()
+        result = await self._run_tool(
+            "speech.synthesize_file",
+            {"text": clean_text, "path": str(path), "format": output_format},
+        )
+        if not result.success or not isinstance(result.data, dict):
+            return f"Не удалось создать аудиопослание: {result.message}"
+        self._log("AUDIO_MESSAGE", result.data)
+        return (
+            f"Аудиопослание создано и пока никому не отправлено: {result.data['path']}. "
+            "Для отправки назовите контакт; перед отправкой я отдельно попрошу подтверждение."
+        )
 
-        if not result.get("success"):
+    async def _camera_look(self) -> str:
+        if not self.config.capabilities.camera.enabled:
+            return "Камера отключена в config.yaml."
+        announced = await self._speak("Я включаю камеру и сейчас посмотрю, что видно в комнате.")
+        if not announced:
+            return "Камеру не включила: не удалось произнести обязательное уведомление."
+        self._log("CAMERA_NOTICE", "Однократный просмотр камеры объявлен вслух")
+        started = await self._run_tool("camera.start", {"notice_ack": True})
+        if not started.success:
+            return f"Камера не включилась: {started.message}"
+        try:
+            frame = await self._run_tool("camera.snapshot", {"label": "look"})
+        finally:
+            await self._run_tool("camera.stop", {})
+        if not frame.success or not isinstance(frame.data, dict):
+            return f"Я выключила камеру, но не получила кадр: {frame.message}"
+        path = str(frame.data.get("path", ""))
+        brightness = float(frame.data.get("brightness", 0.0))
+        self._log("CAMERA_FRAME", f"{path} brightness={brightness:.2f}")
+        if brightness < self.config.capabilities.camera.min_brightness:
+            return (
+                "Я закончила смотреть и выключила камеру. Кадр почти полностью тёмный, "
+                "поэтому надёжно определить обстановку сейчас нельзя."
+            )
+        analysis = await self._run_tool(
+            "vision.analyze_file",
+            {
+                "path": path,
+                "prompt": (
+                    "Describe only what is visibly present in this webcam frame of a room. "
+                    "Mention people, animals, major objects, lighting, and anything unusual. "
+                    "Do not infer identity, private facts, or events outside the image."
+                ),
+            },
+        )
+        if not analysis.success or not isinstance(analysis.data, dict):
+            return f"Я уже выключила камеру. Кадр сохранён, но Vision не ответил: {analysis.message}"
+        description = str(analysis.data.get("analysis", analysis.message)).strip()
+        if self.brain is not None:
+            localized = await self.brain.chat(
+                [
+                    {
+                        "role": "system",
+                        "content": "Переведи описание кадра камеры на русский. Сохрани только видимые факты, максимум 3 предложения.",
+                    },
+                    {"role": "user", "content": description[:4000]},
+                ],
+                tools=None,
+                temperature=0.1,
+                max_tokens=350,
+            )
+            if not localized.error and localized.text:
+                description = localized.text.strip()
+        self._log("CAMERA_OBSERVATION", description)
+        return f"Я закончила смотреть и выключила камеру. На кадре: {description}"
+
+    async def _camera_watch_worker(self, duration_s: float) -> None:
+        camera_config = self.config.capabilities.camera
+        started_at = asyncio.get_running_loop().time()
+        ends_at = started_at + duration_s
+        next_sample = started_at
+        next_reminder = started_at + camera_config.reminder_interval_seconds
+        completed_normally = False
+        try:
+            while True:
+                now = asyncio.get_running_loop().time()
+                if now >= ends_at:
+                    completed_normally = True
+                    break
+                if now >= next_sample:
+                    frame = await self._run_tool("camera.snapshot", {"label": "watch"})
+                    if frame.success and isinstance(frame.data, dict):
+                        path = str(frame.data.get("path", ""))
+                        brightness = float(frame.data.get("brightness", 0.0))
+                        self._log("CAMERA_FRAME", f"{path} brightness={brightness:.2f}")
+                        if brightness < camera_config.min_brightness:
+                            self._log("CAMERA_OBSERVATION", "Кадр слишком тёмный для надёжного анализа")
+                            next_sample = now + camera_config.sample_interval_seconds
+                            await asyncio.sleep(0)
+                            continue
+                        analysis = await self._run_tool(
+                            "vision.analyze_file",
+                            {
+                                "path": path,
+                                "prompt": (
+                                    "Briefly describe this room webcam frame and any visible change or unusual event. "
+                                    "Do not infer identity or facts outside the image."
+                                ),
+                            },
+                        )
+                        if analysis.success and isinstance(analysis.data, dict):
+                            self._log("CAMERA_OBSERVATION", analysis.data.get("analysis", ""))
+                    next_sample = now + camera_config.sample_interval_seconds
+                if now >= next_reminder:
+                    await self._speak("Напоминаю: я всё ещё наблюдаю через камеру.")
+                    self._log("CAMERA_NOTICE", "Периодическое звуковое напоминание")
+                    next_reminder = now + camera_config.reminder_interval_seconds
+                delay = min(1.0, max(0.05, ends_at - now), max(0.05, next_sample - now), max(0.05, next_reminder - now))
+                await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            await self._run_tool("camera.stop", {})
+            self._camera_watch_task = None
+            if completed_normally:
+                self._log("CAMERA_NOTICE", "Длительное наблюдение завершено")
+                await self._speak("Я закончила наблюдение и выключила камеру.")
+
+    async def _start_camera_watch(self, seconds: float | None) -> str:
+        if not self.config.capabilities.camera.enabled:
+            return "Камера отключена в config.yaml."
+        if self._camera_watch_task is not None and not self._camera_watch_task.done():
+            return "Я уже наблюдаю через камеру."
+        camera_config = self.config.capabilities.camera
+        duration_s = seconds if seconds is not None else camera_config.default_watch_seconds
+        duration_s = min(max(10.0, duration_s), camera_config.max_watch_seconds)
+        minutes = duration_s / 60
+        announced = await self._speak(
+            f"Я начинаю наблюдение через камеру примерно на {minutes:g} минут. "
+            "Если оно затянется, я буду напоминать об этом каждые тридцать минут."
+        )
+        if not announced:
+            return "Камеру не включила: не удалось произнести обязательное уведомление."
+        self._log("CAMERA_NOTICE", f"Начало наблюдения на {duration_s:g} секунд объявлено вслух")
+        started = await self._run_tool("camera.start", {"notice_ack": True})
+        if not started.success:
+            return f"Камера не включилась: {started.message}"
+        self._camera_watch_task = asyncio.create_task(self._camera_watch_worker(duration_s))
+        return f"Наблюдение через камеру запущено на {minutes:g} минут."
+
+    async def _stop_camera_watch(self, announce: bool = True) -> str:
+        task = self._camera_watch_task
+        if task is not None and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        else:
+            await self._run_tool("camera.stop", {})
+        self._camera_watch_task = None
+        message = "Я перестала смотреть и выключила камеру."
+        if announce:
+            await self._speak(message)
+        self._log("CAMERA_NOTICE", message)
+        return message
+
+    async def shutdown(self) -> None:
+        if self._camera_watch_task is not None and not self._camera_watch_task.done():
+            await self._stop_camera_watch(announce=True)
+        else:
+            await self._run_tool("camera.stop", {})
+
+    async def _next_exploration_query(self, current: str, observation: str, step: int) -> tuple[str, str]:
+        response = await self.brain.chat(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Ты выбираешь следующий безопасный шаг любознательного поиска по изображениям. "
+                        "Не предлагай вход, формы, покупки, скачивания, взрослый контент или изменение сайтов. "
+                        "Верни только JSON: {\"thought\": \"краткая мысль вслух\", "
+                        "\"next_query\": \"следующий поисковый запрос\"}. Это публичное резюме, не скрытая цепочка рассуждений."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Шаг {step}. Текущий запрос: {current}. Наблюдение: {observation[:1800]}",
+                },
+            ],
+            tools=None,
+            temperature=0.6,
+            max_tokens=180,
+        )
+        fallback = (f"{current} сравнение размеров", f"Интересно сравнить изображения по теме «{current}».")
+        if response.error or not response.text:
+            return fallback
+        try:
+            raw = response.text.strip()
+            fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", raw, flags=re.IGNORECASE | re.DOTALL)
+            data = json.loads(fenced.group(1) if fenced else raw)
+            query = str(data.get("next_query", "")).strip()[:180]
+            thought = str(data.get("thought", "")).strip()[:500]
+            if not query or not thought:
+                return fallback
+            return query, thought
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return fallback
+
+    async def _explore_web(self, topic: str) -> str:
+        query = topic.strip()[:180] or "необычные природные явления"
+        summaries: list[str] = []
+        for step in range(1, self.config.agent.exploration_steps + 1):
+            thought = f"Шаг {step}: ищу изображения по теме «{query}»."
+            self._log("THOUGHT", thought)
+            await self._speak(thought)
+            search_result = await self._run_tool("browser.search_images", {"query": query})
+            if not search_result.success:
+                return f"Исследование остановлено: {search_result.message}"
+            screenshot_result = await self._run_tool(
+                "browser.save_screenshot", {"label": f"explore_{step}_{query[:40]}"}
+            )
+            observation_result = await self._run_tool(
+                "vision.analyze_screen",
+                {"prompt": "Кратко опиши видимые результаты поиска изображений и назови самое интересное безопасное направление для продолжения."},
+            )
+            observation = self._result_text("vision.analyze_screen", observation_result)
+            summaries.append(observation[:500])
+            if screenshot_result.success and isinstance(screenshot_result.data, dict):
+                self._log("SCREENSHOT", screenshot_result.data.get("path", ""))
+            if step < self.config.agent.exploration_steps:
+                query, next_thought = await self._next_exploration_query(query, observation, step)
+                self._log("THOUGHT", next_thought)
+                await self._speak(next_thought)
+        return f"Исследование завершено за {len(summaries)} шага. Скриншоты и журнал сохранены в папке сессии."
+
+    async def _free_form(self, user_input: str) -> str:
+        self.state = AgentState.THINKING
+        default_prompt = "Ты UNI, локальный голосовой помощник."
+        system = (
+            (self.role_prompt or default_prompt)
+            + "\n\n## Runtime rules\n"
+            "Отвечай по-русски, коротко, максимум 3 предложения. "
+            "Для браузера, поиска и XToys используй доступные функции. Не заявляй, что физическое "
+            "состояние XToys подтверждено, если инструмент пишет verified=false. "
+            "Не превышай запрошенную пользователем интенсивность.\n\nПамять:\n"
+            + self.memory.get_context(self.config.memory.max_context_tokens)
+        )
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system},
+            *self._history[-8:],
+            {"role": "user", "content": user_input},
+        ]
+        response = await self.brain.chat(
+            messages,
+            tools=get_tool_schemas(set(self.capabilities.get_names())),
+        )
+        if response.error:
+            return (
+                "LM Studio сейчас недоступен. Прямые команды браузера, поиска и XToys работают; "
+                "для свободного диалога запустите Local Server на порту 1234."
+            )
+        if not response.tool_calls:
+            answer = response.text or "Не удалось сформировать ответ."
+            return answer
+
+        tool_summaries: list[str] = []
+        for call in response.tool_calls[:3]:
+            result = await self._run_tool(call.name, call.arguments)
+            canonical = self.tool_executor.canonical_name(call.name)
+            console.print(f"[blue]ACTION {canonical}({call.arguments})[/blue]")
+            console.print(f"[{'green' if result.success else 'red'}]{result.message}[/]")
+            tool_summaries.append(f"{canonical}: {self._result_text(canonical, result)}")
+        compact = "\n".join(tool_summaries)[:6000]
+        final = await self.brain.chat(
+            [
+                {"role": "system", "content": "Кратко сообщи пользователю результат выполненных инструментов. Не выдумывай успех."},
+                {"role": "user", "content": compact},
+            ]
+        )
+        answer = final.text if not final.error and final.text else compact
+        return answer
+
+    async def _process_input(self, user_input: str) -> str:
+        self._log("USER", user_input)
+        console.print(f"[bold]Команда:[/bold] {user_input}")
+        direct = self.parse_direct_command(user_input)
+        answer = await self._execute_direct(direct) if direct else await self._free_form(user_input)
+        answer = self._clean_answer(answer)
+        self._history.extend(
+            [{"role": "user", "content": user_input}, {"role": "assistant", "content": answer}]
+        )
+        self._history = self._history[-16:]
+        append_exchange = getattr(self.memory, "append_exchange", None)
+        if callable(append_exchange):
+            append_exchange(user_input, answer)
+        console.print(f"[green]UNI: {answer}[/green]")
+        self._log("ASSISTANT", answer)
+        await self._speak(answer)
+        return answer
+
+    async def _run_background_input(self, user_input: str) -> None:
+        try:
+            async with self._task_slots:
+                async with asyncio.timeout(self.config.agent.task_timeout_seconds):
+                    await self._process_input(user_input)
+        except TimeoutError:
+            message = "Задача превысила лимит времени и остановлена. Можно дать новую команду."
+            console.print(f"[red]{message}[/red]")
+            await self._speak(message)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.state = AgentState.ERROR
+            console.print(f"[red]Ошибка фоновой задачи: {exc}[/red]")
+
+    def _schedule_input(self, user_input: str) -> bool:
+        if len(self._background_tasks) >= self.config.agent.max_pending_tasks:
+            console.print("[yellow]Очередь заполнена; повторите команду чуть позже.[/yellow]")
             return False
-
-        # For visual actions, verify with vision
-        vision = self.capabilities.get("vision")
-        computer = self.capabilities.get("computer")
-        
-        visual_actions = ["click", "type", "press", "click_selector", "type_selector", "navigate"]
-        if vision and computer and task.action.name in visual_actions:
-            screen_result = await computer.execute("screenshot_region", {})
-            if screen_result.get("success"):
-                verify_prompt = f"Проверил, успешно ли выполнено действие: {task.action.name} с аргументами {task.action.params}. Верни JSON: {{\"success\": bool, \"reason\": \"...\"}}"
-                verify_result = await vision.execute("analyze_screen", {
-                    "image_base64": screen_result["image_base64"],
-                    "prompt": verify_prompt,
-                })
-                if verify_result.get("success"):
-                    try:
-                        import json
-                        parsed = json.loads(verify_result["analysis"])
-                        return parsed.get("success", True)
-                    except:
-                        pass
+        task = asyncio.create_task(self._run_background_input(user_input))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        console.print("[dim]Приняла; можно говорить следующую команду.[/dim]")
         return True
 
-    async def _speak(self, text: str) -> None:
-        """Speak text via TTS."""
-        speech = self.capabilities.get("speech")
-        if speech:
-            await speech.execute("speak", {"text": text})
+    async def _shutdown_background_tasks(self) -> None:
+        tasks = list(self._background_tasks)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._background_tasks.clear()
 
-    async def run_continuous(self, initial_input: str | None = None, max_cycles: int = 50) -> None:
-        """Run continuous cycles until max_cycles or completion."""
-        user_input = initial_input
-        for _ in range(max_cycles):
-            result = await self.run_cycle(user_input)
-            if result == CycleResult.COMPLETE:
-                break
-            elif result == CycleResult.ERROR:
-                break
-            user_input = None  # Only use initial input once
-            await asyncio.sleep(self.config.agent.cycle_interval)
+    async def _voice_input_producer(self, queue: asyncio.Queue[tuple[str, str]]) -> None:
+        while self._running:
+            text = await self._listen_once()
+            if text:
+                await queue.put(("voice", text.strip()))
+            else:
+                await asyncio.sleep(0.05)
+
+    @staticmethod
+    def _text_input_worker(
+        loop: asyncio.AbstractEventLoop,
+        queue: asyncio.Queue[tuple[str, str]],
+        stopped: threading.Event,
+    ) -> None:
+        while not stopped.is_set():
+            try:
+                text = input("\nВы (текст): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                return
+            if text and not stopped.is_set():
+                loop.call_soon_threadsafe(queue.put_nowait, ("text", text))
+
+    async def _run_mixed_input(self) -> None:
+        queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        stopped = threading.Event()
+        loop = asyncio.get_running_loop()
+        threading.Thread(
+            target=self._text_input_worker,
+            args=(loop, queue, stopped),
+            name="uni-text-input",
+            daemon=True,
+        ).start()
+        voice_task = asyncio.create_task(self._voice_input_producer(queue))
+        console.print("[cyan]Можно говорить или печатать. Enter отправляет текст; ответы UNI звучат вслух.[/cyan]")
+        try:
+            while self._running:
+                _source, user_input = await queue.get()
+                if self.is_stop_command(user_input):
+                    self._running = False
+                    await self._speak("До встречи")
+                    break
+                self._schedule_input(user_input)
+        finally:
+            stopped.set()
+            voice_task.cancel()
+            await asyncio.gather(voice_task, return_exceptions=True)
+
+    async def run_cycle(self, user_input: Optional[str] = None):
+        if not user_input:
+            user_input = await self._listen_once()
+        if not user_input:
+            self.state = AgentState.IDLE
+            return None
+        if self.is_stop_command(user_input):
+            self._running = False
+            await self._speak("До встречи")
+            self.state = AgentState.IDLE
+            return "stop"
+        answer = await self._process_input(user_input)
+        self.state = AgentState.IDLE
+        return answer
+
+    async def run_interactive(self):
+        self._running = True
+        mode = self.config.agent.input_mode.lower()
+        console.print(f"[cyan]{HELP_TEXT}[/cyan]")
+        try:
+            if mode == "mixed":
+                await self._run_mixed_input()
+                return
+            while self._running:
+                try:
+                    if mode == "text":
+                        user_input = (await asyncio.to_thread(input, "> ")).strip()
+                    else:
+                        user_input = await self._listen_once()
+                    if not user_input:
+                        await asyncio.sleep(0.05)
+                        continue
+                    if self.is_stop_command(user_input):
+                        self._running = False
+                        await self._speak("До встречи")
+                        break
+                    self._schedule_input(user_input)
+                    await asyncio.sleep(0.05)
+                except KeyboardInterrupt:
+                    self._running = False
+                except Exception as exc:
+                    self.state = AgentState.ERROR
+                    console.print(f"[red]Ошибка цикла: {exc}[/red]")
+                    await asyncio.sleep(0.5)
+        finally:
+            await self._shutdown_background_tasks()
+            self.state = AgentState.IDLE

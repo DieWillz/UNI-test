@@ -1,73 +1,60 @@
-"""
-UNI — локальный автономный AI-агент. MVP 0.1.
+"""UNI interactive MVP. Run with: py -3.12 -m uni"""
 
-Запуск:
-    python -m uni [команда] [-c|--config путь_к_config.yaml]
-
-Примеры:
-    python -m uni "Открой YouTube"
-    python -m uni -c my_config.yaml "Найди видео про LM Studio"
-    python -m uni  (интерактивный режим)
-"""
+from __future__ import annotations
 
 import argparse
 import asyncio
 import sys
-from pathlib import Path
+
 from rich.console import Console
 from rich.panel import Panel
 
+from uni.agent import Agent
+from uni.config import load_config
+
 console = Console()
 
-BANNER = (
-    "[bold cyan]UNI[/bold cyan]\n"
-    "[dim]Локальный автономный AI-агент — MVP 0.1[/dim]"
-)
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+async def async_main() -> int:
+    parser = argparse.ArgumentParser(description="UNI — локальный голосовой помощник")
+    parser.add_argument("command", nargs="*", help="Одна команда; без неё запускается непрерывный цикл")
+    parser.add_argument("-c", "--config", default="config.yaml")
+    parser.add_argument("--text", action="store_true", help="Текстовый интерактивный режим вместо микрофона")
+    parser.add_argument("--voice", action="store_true", help="Только голосовой ввод")
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    if args.text:
+        config.agent.input_mode = "text"
+    elif args.voice:
+        config.agent.input_mode = "voice"
+    command = " ".join(args.command).strip() or None
+
+    console.print(
+        Panel(
+            "[bold cyan]UNI Fast-track MVP[/bold cyan]\n"
+            "[dim]Голос • Browser • XToys • Vision • Web search[/dim]",
+            border_style="cyan",
+        )
+    )
+    agent = Agent(config)
+    try:
+        await agent.initialize()
+        await agent.run(command)
+        return 0
+    finally:
+        await agent.shutdown()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="UNI AI Agent — Локальный автономный AI-агент",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Примеры:\n  python -m uni \"Открой YouTube\"\n  python -m uni -c my_config.yaml \"Найди видео про LM Studio\"\n  python -m uni  (интерактивный режим)"
-    )
-    parser.add_argument("command", nargs="?", default=None, help="Команда для агента")
-    parser.add_argument("-c", "--config", default=None, help="Путь к config.yaml (по умолчанию: config.yaml в корне проекта)")
-    
-    args = parser.parse_args()
-    
-    # Определяем путь к конфигу
-    config_path = args.config if args.config else "config.yaml"
-    
     try:
-        config = load_config(config_path)
-    except FileNotFoundError as e:
-        console.print(f"[bold red]❌ Ошибка:[/bold red] {e}")
-        sys.exit(1)
-    except Exception as e:
-        console.print(f"[bold red]❌ Ошибка загрузки конфига:[/bold red] {e}")
-        sys.exit(1)
-
-    console.print(Panel.fit(BANNER, border_style="cyan"))
-    console.print(f"   Brain: {config.brain.base_url} / {config.brain.model}")
-    console.print(f"   Config: [dim]{Path(config_path).resolve()}[/dim]")
-
-    agent = Agent(config)
-    
-    try:
-        if args.command:
-            console.print(f"   Выполнение команды: [cyan]\"{args.command}\"[/cyan]")
-            asyncio.run(agent.run_cycle(user_input=args.command))
-        else:
-            console.print("   Режим: [yellow]Интерактивный (ожидание голосовой команды)[/yellow]")
-            asyncio.run(agent.run())
+        raise SystemExit(asyncio.run(async_main()))
     except KeyboardInterrupt:
-        console.print("\n[yellow]⏸️ Агент остановлен пользователем[/yellow]")
-    except Exception as e:
-        console.print(f"[bold red]❌ Критическая ошибка:[/bold red] {e}")
-        sys.exit(1)
-    finally:
-        pass
+        console.print("\n[yellow]UNI остановлена[/yellow]")
 
 
 if __name__ == "__main__":
