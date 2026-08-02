@@ -63,3 +63,9 @@ ALIASES
 
 # Broken/legacy integration tests
 /tests/integration/
+
+# Ignore local config files and secrets
+config.yaml
+uni/config.yaml
+.uni-local/
+
