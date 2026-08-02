@@ -1,18 +1,26 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 import yaml
 
 class BrainConfig(BaseModel):
     base_url: str = "http://localhost:1234/v1"
     api_key: str = "lm-studio"
-    model: str = "qwen2.5-7b-instruct-1m"
+    model: str = "auto"
     vision_model: Optional[str] = None
     vision_base_url: Optional[str] = None
     vision_api_key: Optional[str] = None
     temperature: float = 0.8
     max_tokens: int = 2000
     timeout_seconds: float = 20.0
+
+class AgentCursorConfig(BaseModel):
+    """Page overlay cursor labeled UNI — does not move the OS mouse."""
+    enabled: bool = True
+    label: str = "UNI"
+    move_ms: int = Field(default=220, ge=0, le=2000)
+    hide_after_ms: int = Field(default=1200, ge=0, le=10_000)
+
 
 class BrowserConfig(BaseModel):
     headless: bool = False
@@ -23,11 +31,14 @@ class BrowserConfig(BaseModel):
     search_engine: str = "https://www.bing.com/search?q={query}"
     image_search_engine: str = "https://yandex.ru/images/search?text={query}"
     cdp_url: Optional[str] = None  # e.g. "http://127.0.0.1:9222" to attach to your running Chrome
+    agent_cursor: AgentCursorConfig = Field(default_factory=AgentCursorConfig)
 
 class ComputerConfig(BaseModel):
     use_uia: bool = True
     failsafe: bool = True
     mouse_move_duration: float = Field(default=0.35, ge=0.0, le=2.0)
+    action_badge: bool = True  # desktop «UNI» badge near pyautogui clicks
+    action_badge_label: str = "UNI"
 
 class CameraConfig(BaseModel):
     enabled: bool = True
@@ -123,20 +134,46 @@ class MemoryConfig(BaseModel):
     max_dialogue_turns: int = Field(default=50, ge=5, le=500)
 
 class CouncilConfig(BaseModel):
-    """Development council automation (MANIFESTO v2.5 §7, COUNCIL-002).
+    """Development council automation (MANIFESTO v2.6 §7, COUNCIL-002).
 
     Replaces the manual copy-paste loop between AI participants. Participants are
     queried through the cheapest available transport: API when the model is free/
     local, browser automation when it is a paid closed web chat. Advisor output is
     always treated as untrusted data and never invokes a UNI tool.
+
+    Per MANIFESTO v2.6 §7, the browser adapter is ENABLED by default for FREE web
+    tiers (so users without money can reach strong models without paying for API),
+    but it must respect fair-use conditions: informed consent about possible ToS
+    violation, rate limiting via reasonable pauses, and it must NEVER automate
+    consumer paid subscriptions (ChatGPT Plus, Gemini Advanced, ...) as a stand-in
+    for the official API.
     """
     enabled: bool = True
     artifacts_dir: str = ".uni-council"
     concurrency: int = Field(default=3, ge=1, le=8)
     timeout_seconds: float = Field(default=90.0, gt=0.0, le=600.0)
     collect_signatures: bool = True
+    # Browser transport (MANIFESTO v2.6 §7).
+    browser_enabled: bool = True  # on by default for free web tiers
+    inform_tos: bool = True  # tell the user automation may breach a service ToS
+    free_tier_only: bool = True  # never automate paid consumer subscriptions
+    min_interval_seconds: float = Field(default=8.0, gt=0.0, le=120.0)  # rate limit / pauses
     # Separate browser profile so web-AI sessions never mix with user bank/mail/intimate.
     browser_profile: str = ".uni-council-browser-profile"
+    # API endpoints for council participants (OpenRouter / Groq / ...). Keys come from the
+    # local config only — never from code. WebUI settings panel edits this block.
+    api_endpoints: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "openrouter": {
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": "",  # set in local config.yaml (secret)
+            },
+            "groq": {
+                "base_url": "https://api.groq.com/openai/v1",
+                "api_key": "",  # set in local config.yaml (secret)
+            },
+        }
+    )
 
 class Config(BaseModel):
     brain: BrainConfig = Field(default_factory=BrainConfig)

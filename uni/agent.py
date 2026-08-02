@@ -37,6 +37,7 @@ class Agent:
             max_dialogue_turns=config.memory.max_dialogue_turns,
         )
         browser_config = config.capabilities.browser
+        ac = getattr(browser_config, "agent_cursor", None)
         self.browser_session = BrowserSession(
             headless=browser_config.headless,
             viewport_width=browser_config.viewport_width,
@@ -46,6 +47,9 @@ class Agent:
             search_engine=browser_config.search_engine,
             image_search_engine=browser_config.image_search_engine,
             cdp_url=browser_config.cdp_url,
+            agent_cursor_enabled=True if ac is None else bool(ac.enabled),
+            agent_cursor_label="UNI" if ac is None else str(ac.label),
+            agent_cursor_move_ms=220 if ac is None else int(ac.move_ms),
         )
 
         speech_config = config.capabilities.speech
@@ -70,10 +74,13 @@ class Agent:
         self.speech = speech
         speech._session_logger = self.session_logger
         self.role = RoleLoader().load(config.agent.default_role)
+        cc = config.capabilities.computer
         computer = ComputerCapability(
-            use_uia=config.capabilities.computer.use_uia,
-            failsafe=config.capabilities.computer.failsafe,
-            mouse_move_duration=config.capabilities.computer.mouse_move_duration,
+            use_uia=cc.use_uia,
+            failsafe=cc.failsafe,
+            mouse_move_duration=cc.mouse_move_duration,
+            action_badge_enabled=getattr(cc, "action_badge", True),
+            action_badge_label=getattr(cc, "action_badge_label", "UNI"),
         )
         camera_config = config.capabilities.camera
         camera = CameraCapability(

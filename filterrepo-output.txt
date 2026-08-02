@@ -1,0 +1,19 @@
+﻿py : warning: refs/codex/turn-diffs/checkpoints/22dbe3f2546474fe59cd0e86cdda9296b103aebf1555e9ca0bae36015c45fe06/d2128a
+301c7e135f67715e61dc6773a89be9314dc592bfdffa4e13ef4bd69255/1785697092745/6fc9c840-3246-4726-8150-3f4b12dd955d: unexpect
+ed object of type tree, skipping.
+строка:1 знак:242
++ ...  = 0; try { py -3 -m git_filter_repo --force --invert-paths --paths-f ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: refs/c...tree, skipping.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+NOTICE: Removing 'origin' remote; see 'Why is my origin removed?'
+        in the manual if you want to push back there.
+        (was https://github.com/DieWillz/UNI-test.git)
+
+Parsed 1 commits
+Parsed 33 commitsHEAD is now at e83187f Add files via upload
+
+New history written in 0.57 seconds; now repacking/cleaning...
+Repacking your repo and cleaning out old unneeded objects
+Completely finished after 5.02 seconds.

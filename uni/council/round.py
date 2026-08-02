@@ -111,6 +111,9 @@ class CouncilRound:
 
     async def _ask_one(self, participant: Participant, prompt: str) -> ParticipantReply:
         assert participant.provider is not None, f"{participant.name} has no provider"
+        if self._on_progress:
+            self._emit({"type": "participant_start", "name": participant.name, "via": participant.transport,
+                        "stage": "tab" if participant.transport == "browser" else None})
         async with self._sema:  # bound concurrent browser/API sessions
             try:
                 reply = await asyncio.wait_for(
@@ -134,11 +137,20 @@ class CouncilRound:
         critic: Optional[Participant] = None,
         coordinator: Optional[Participant] = None,
         collect_signatures: bool = True,
+        on_progress=None,
     ) -> ConsensusReport:
+        """Run the consensus round.
+
+        `on_progress` is an optional async or sync callable invoked with progress events
+        as `dict` (e.g. {"type": "start", ...}, {"type": "participant_start", "name": ...},
+        {"type": "participant_done", "name": ..., "ok": bool}, {"type": "log", "msg": ...},
+        {"type": "done", "report": ...}). Used by the WebUI to stream live status over SSE.
+        """
         self._sema = asyncio.Semaphore(self.concurrency)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         round_id = datetime.now().strftime("%Y%m%d-%H%M%S")
         created = datetime.now().astimezone().isoformat(timespec="seconds")
+        self._on_progress = on_progress
 
         # Build the shared brief. Files/tasks are inlined as untrusted context.
         brief_block = [brief]
@@ -148,10 +160,6 @@ class CouncilRound:
                 brief_block.append(f"\n### {fname}\n```\n{content[:6000]}\n```")
         if tasks:
             brief_block.append("\n## Задачи для проработки\n" + "\n".join(f"- {t}" for t in tasks))
-        brief_block.append(
-            "\n\nОтветь развёрнуто. В конце, если согласен с проектом, поставь подпись "
-            "в формате:\nИмя = твоя редакция концепции ... ; подписываюсь под концепцией."
-        )
         full_prompt = "\n".join(brief_block)
 
         report = ConsensusReport(
@@ -160,6 +168,8 @@ class CouncilRound:
         )
 
         # 1) Fan-out: ask every participant in parallel (bounded).
+        if self._on_progress:
+            self._emit({"type": "start", "round_id": round_id, "participants": report.participants})
         replies = await asyncio.gather(*[self._ask_one(p, full_prompt) for p in self.participants])
         for reply in replies:
             report.replies[reply.participant] = reply
@@ -175,6 +185,13 @@ class CouncilRound:
                 f"# {reply.participant} ({reply.via})\n\n{reply.text}\n", encoding="utf-8"
             )
             report.artifacts[reply.participant] = str(path)
+            if self._on_progress:
+                self._emit({
+                    "type": "participant_done", "name": reply.participant,
+                    "via": reply.via, "ok": not reply.error, "error": reply.error,
+                    "text": reply.text, "signature": report.signatures.get(reply.participant),
+                    "latency": reply.latency_seconds,
+                })
 
         # 2) Critic pass (independent, local if available) over the collected replies.
         if critic is not None and critic.provider is not None:
@@ -224,4 +241,24 @@ class CouncilRound:
             ),
             encoding="utf-8",
         )
+        if self._on_progress:
+            self._emit({
+                "type": "done", "round_id": round_id,
+                "signatures": report.signatures, "errors": report.errors,
+                "synthesis": report.synthesis, "report_path": report.artifacts.get("report"),
+                "artifacts": report.artifacts,
+            })
         return report
+
+
+    def _emit(self, event: dict) -> None:
+        """Fire on_progress, tolerating both sync and async callbacks."""
+        if not self._on_progress:
+            return
+        try:
+            result = self._on_progress(event)
+            if hasattr(result, "__await__"):
+                # Schedule the coroutine; don't block the round on UI streaming.
+                asyncio.ensure_future(result)
+        except Exception:
+            pass  # progress reporting must never break the round
