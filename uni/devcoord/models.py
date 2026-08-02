@@ -96,6 +96,7 @@ class ProviderConfig(BaseModel):
     prompt_selector: str | None = None
     submit_selector: str | None = None
     response_selector: str | None = None
+    visual_cursor: bool = Field(default=False, description="Show visible UNI cursor overlay in browser")
 
     @model_validator(mode="after")
     def validate_transport_fields(self) -> "ProviderConfig":

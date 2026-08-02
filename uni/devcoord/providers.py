@@ -100,6 +100,150 @@ class OpenAICompatibleProvider(DevelopmentProvider):
         return model_id
 
 
+class VisualBrowserProvider(DevelopmentProvider):
+    """Browser adapter with a visible 'UNI' cursor overlay.
+
+    Injects a script to render a second mouse pointer labeled 'UNI' that moves
+    independently of the user's real mouse. Useful for observing agent actions.
+    """
+
+    _CURSOR_SCRIPT = """
+    (function() {
+        if (document.getElementById('uni-cursor-overlay')) return;
+        const container = document.createElement('div');
+        container.id = 'uni-cursor-overlay';
+        container.style.position = 'fixed';
+        container.style.pointerEvents = 'none';
+        container.style.zIndex = '2147483647';
+        container.style.top = '0';
+        container.style.left = '0';
+        
+        const cursor = document.createElement('div');
+        cursor.style.width = '20px';
+        cursor.style.height = '20px';
+        cursor.style.borderRadius = '50%';
+        cursor.style.background = 'rgba(0, 123, 255, 0.8)';
+        cursor.style.border = '2px solid white';
+        cursor.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        cursor.style.transition = 'all 0.3s ease-out';
+        cursor.style.position = 'absolute';
+        
+        const label = document.createElement('div');
+        label.textContent = 'UNI';
+        label.style.position = 'absolute';
+        label.style.top = '25px';
+        label.style.left = '25px';
+        label.style.background = 'rgba(0, 0, 0, 0.7)';
+        label.style.color = 'white';
+        label.style.padding = '2px 6px';
+        label.style.borderRadius = '4px';
+        label.style.fontSize = '12px';
+        label.style.fontFamily = 'sans-serif';
+        label.style.whiteSpace = 'nowrap';
+        
+        container.appendChild(cursor);
+        container.appendChild(label);
+        document.body.appendChild(container);
+        
+        window.moveUniCursor = function(x, y) {
+            cursor.style.transform = `translate(${x}px, ${y}px)`;
+        };
+    })();
+    """
+
+    async def request(self, handoff: HandoffPackage) -> ProviderResult:
+        try:
+            return await asyncio.wait_for(
+                self._request_browser(render_handoff(handoff)),
+                timeout=self.config.timeout_seconds,
+            )
+        except Exception as exc:
+            return ProviderResult(
+                provider_id=self.config.id,
+                transport="browser",
+                content="",
+                error=str(exc),
+            )
+
+    async def _move_cursor_to_element(self, page, selector: str) -> None:
+        """Animate UNI cursor moving to the target element."""
+        try:
+            element = page.locator(selector).last
+            await element.wait_for(state="visible")
+            box = await element.bounding_box()
+            if box:
+                x = int(box["x"] + box["width"] / 2)
+                y = int(box["y"] + box["height"] / 2)
+                await page.evaluate(f"window.moveUniCursor({x}, {y})")
+                await asyncio.sleep(0.3)  # Small delay for visual effect
+        except Exception:
+            pass  # Ignore cursor movement errors
+
+    async def _request_browser(self, prompt: str) -> ProviderResult:
+        from playwright.async_api import async_playwright
+
+        assert self.config.browser_url
+        assert self.config.browser_profile_dir
+        assert self.config.prompt_selector
+        assert self.config.response_selector
+        profile = Path(self.config.browser_profile_dir).resolve()
+        profile.mkdir(parents=True, exist_ok=True)
+        
+        async with async_playwright() as playwright:
+            context = await playwright.chromium.launch_persistent_context(
+                str(profile), headless=False
+            )
+            try:
+                page = context.pages[0] if context.pages else await context.new_page()
+                await page.goto(self.config.browser_url, wait_until="domcontentloaded")
+                
+                # Inject visual cursor script
+                await page.evaluate(self._CURSOR_SCRIPT)
+                
+                prompt_box = page.locator(self.config.prompt_selector).last
+                await prompt_box.wait_for(state="visible")
+                
+                # Move UNI cursor to input field before typing
+                await self._move_cursor_to_element(page, self.config.prompt_selector)
+                
+                responses = page.locator(self.config.response_selector)
+                before = await responses.count()
+                
+                await prompt_box.fill(prompt)
+                
+                if self.config.submit_selector:
+                    submit_btn = page.locator(self.config.submit_selector).last
+                    await self._move_cursor_to_element(page, self.config.submit_selector)
+                    await submit_btn.click()
+                else:
+                    await prompt_box.press("Enter")
+                    
+                deadline = asyncio.get_running_loop().time() + self.config.timeout_seconds - 2
+                content = ""
+                stable_polls = 0
+                while asyncio.get_running_loop().time() < deadline:
+                    count = await responses.count()
+                    if count > before:
+                        candidate = (await responses.last.inner_text()).strip()
+                        if candidate and candidate == content:
+                            stable_polls += 1
+                            if stable_polls >= 3:
+                                break
+                        elif candidate:
+                            content = candidate
+                            stable_polls = 0
+                    await asyncio.sleep(1.0)
+                if not content:
+                    raise TimeoutError("no new browser response detected")
+                return ProviderResult(
+                    provider_id=self.config.id,
+                    transport="browser",
+                    content=content[: self.config.max_response_chars],
+                )
+            finally:
+                await context.close()
+
+
 class BrowserDevelopmentProvider(DevelopmentProvider):
     """Config-driven browser adapter using a dedicated persistent profile.
 
@@ -191,6 +335,9 @@ class ProviderRegistry:
             if config.api_cost != "free" and not self.allow_paid_api:
                 raise PermissionError(f"paid or unknown API is not allowed: {provider_id}")
             return OpenAICompatibleProvider(config)
+        # Use VisualBrowserProvider if visual_cursor is enabled in config
+        if getattr(config, "visual_cursor", False):
+            return VisualBrowserProvider(config)
         return BrowserDevelopmentProvider(config)
 
     def select(self, required_capabilities: list[str], count: int) -> list[str]:
