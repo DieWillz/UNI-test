@@ -1,0 +1,42 @@
+{
+  "llm_healthcheck": {
+    "available": true,
+    "details": "qwen2.5-7b-instruct-1m; моделей в каталоге: 25"
+  },
+  "microphone": {
+    "success": false,
+    "data": null,
+    "message": "Речь не распознана"
+  },
+  "tts": {
+    "success": true,
+    "message": "Речь воспроизведена"
+  },
+  "xtoys_open": {
+    "success": true,
+    "data": {
+      "url": "https://xtoys.app/",
+      "title": "XToys.app"
+    },
+    "message": "Вкладка XToys.app открыта и выбрана"
+  },
+  "web_search": {
+    "success": true,
+    "message": "Открыт поиск: что такое нейтронная звезда. Найдено результатов: 8",
+    "n_results": 3,
+    "sample": [
+      {
+        "title": "old.reddit.com on reddit.com",
+        "url": "https://www.bing.com/ck/a?!&&p=71fd0216c4adb2350fa86af98707a0c13fd539dd4fcbcf54ee902c02cb918f31JmltdHM9MTc4NTQ1NjAwMA&ptn=3&ver=2&hsh=4&fclid=1f0cdde3-81c6-617d-32aa-ca44808d6093&u=a1aHR0cHM6Ly93d3cucmVkZGl0LmNvbS9kb21haW4vb2xkLnJlZGRpdC5jb20v&ntb=1"
+      },
+      {
+        "title": "DKB: Probleme beim Login möglich : r/Finanzen - Reddit",
+        "url": "https://www.bing.com/ck/a?!&&p=b3d09d046c9164a4c641b3333d68da874f79b130990e04778383e1da1189f4a3JmltdHM9MTc4NTQ1NjAwMA&ptn=3&ver=2&hsh=4&fclid=1f0cdde3-81c6-617d-32aa-ca44808d6093&u=a1aHR0cHM6Ly93d3cucmVkZGl0LmNvbS9yL0ZpbmFuemVuL2NvbW1lbnRzL3psM2lpcS9ka2JfcHJvYmxlbWVfYmVpbV9sb2dpbl9tJUMzJUI2Z2xpY2gv&ntb=1"
+      },
+      {
+        "title": "Miles and more der Deutschen Bank - Apple Community",
+        "url": "https://www.bing.com/ck/a?!&&p=8465268c89ac60616b9333560d861025ac280a8c66c92dd5cfc4735d2916648cJmltdHM9MTc4NTQ1NjAwMA&ptn=3&ver=2&hsh=4&fclid=1f0cdde3-81c6-617d-32aa-ca44808d6093&u=a1aHR0cHM6Ly9jb21tdW5pdGllcy5hcHBsZS5jb20vZGUvdGhyZWFkLzI1NjE3NTA0OQ&ntb=1"
+      }
+    ]
+  }
+}

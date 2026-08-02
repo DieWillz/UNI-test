@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visual Windows Operator"
+  short_description: "Operate Windows apps through fresh visual checks"
+  default_prompt: "Use desktop vision to locate one target, perform one bounded action, then re-observe and verify."

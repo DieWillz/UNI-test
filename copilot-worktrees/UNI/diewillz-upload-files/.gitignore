@@ -1,0 +1,70 @@
+# UNI — ignore rules (canonical repo root: C:\LLM\UNI)
+# Keep only uni/ package, docs, configs, tests, scripts tracked.
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Windows Mark-of-the-Web
+*.Zone.Identifier
+
+# Large binary voice model (kept locally / snapshot, not in git)
+*.onnx
+*.onnx.json
+
+# Browser profile (contains auth/cookies/local storage) — never in git
+.uni-browser-profile/
+
+# Runtime logs / samples / screenshots
+.uni-logs/
+.uni-voice-samples/
+screenshots/
+memory/
+Telegram/
+
+# Duplicate / variant trees (reference only, not canonical)
+/backup/
+/Claude/
+/Uni-Claude/
+/Uni-DeepSeek/
+/Uni-OpenCode/
+/uni/backup/
+/uni/Claude/
+/uni/uni/
+
+# Stale TOP-LEVEL duplicates of the package (NOT uni/ subdirs)
+/capabilities/
+/tools/
+/roles/
+/config.py
+/uni.py
+/test_build1.py
+/test_build3.py
+/test_planner_basic.py
+
+# Review / handoff artefacts
+.claude-review-*/
+.deepseek-review-*/
+.publish-qwen/
+AI_TEAM_HANDOFF.md
+TEAM_COORDINATION.md
+TASKS_FOR_MODELS.md
+IDEA.md
+MODEL_CARD
+ALIASES
+*.zip
+
+# Development coordinator runtime state and authenticated provider profiles
+/.uni-dev/coordination/state.json
+/.uni-dev/coordination/*.tmp
+/.uni-dev/coordination/browser-profiles/
+
+# Broken/legacy integration tests
+/tests/integration/
+
+# Local secrets\nconfig.yaml
+
+
+

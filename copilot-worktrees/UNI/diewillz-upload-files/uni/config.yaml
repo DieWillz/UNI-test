@@ -1,0 +1,40 @@
+# UNI / UNI — конфигурация MVP 0.1
+# Значения по умолчанию совпадают с дефолтами Pydantic-моделей в uni/config.py.
+# Можно оставить пустым (load_config подставит дефолты), но лучше держать явно
+# для наглядности и удобства правки.
+
+brain:
+  base_url: "http://localhost:1234/v1"
+  model: "Qwen2.5-7B-Instruct-1M"
+  temperature: 0.3
+  max_tokens: 2000
+
+capabilities:
+  browser:
+    headless: false
+    viewport:
+      width: 1280
+      height: 720
+
+  computer:
+    use_uia: true
+    failsafe: true
+
+  speech:
+    stt_model: "base"
+    tts_voice: "ru_RU-irina-medium"
+    sample_rate: 16000
+
+  vision:
+    enabled: true
+    model: "qwen-vl"  # или llava — нужно загрузить в LM Studio
+
+agent:
+  default_role: "assistant"
+  cycle_interval: 3.0
+  max_retries: 3
+  verification_enabled: true
+
+memory:
+  path: "memory/working.json"
+  max_context_tokens: 4000

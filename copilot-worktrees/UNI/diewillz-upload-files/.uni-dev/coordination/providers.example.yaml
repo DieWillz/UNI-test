@@ -1,0 +1,29 @@
+state_path: .uni-dev/coordination/state.json
+allow_paid_api: false
+
+providers:
+  - id: local_lm_studio
+    display_name: Local LM Studio
+    transport: api
+    enabled: true
+    api_cost: free
+    base_url: http://127.0.0.1:1234/v1
+    model: auto
+    capabilities: [review, planning, coding]
+    timeout_seconds: 90
+
+  # Browser adapters are provider-local, disabled until the user has logged in
+  # and verified selectors for the current website UI. They do not bypass
+  # CAPTCHA, subscriptions, or rate limits.
+  - id: example_browser_adviser
+    display_name: Example browser adviser
+    transport: browser
+    enabled: false
+    api_cost: paid
+    browser_url: https://example.com/
+    browser_profile_dir: .uni-dev/coordination/browser-profiles/example
+    prompt_selector: textarea
+    response_selector: .assistant-response
+    submit_selector: button[type=submit]
+    capabilities: [review]
+    timeout_seconds: 120
