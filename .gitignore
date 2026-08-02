@@ -1,21 +1,2 @@
-__pycache__/
-*.py[cod]
-*.pyo
-*.onnx
-*.onnx.json
-*.zip
-*.bak
-*Zone.Identifier
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-memory/working.json
-screenshots/
-backup/
-Claude/
-Uni-Claude/
-Uni-DeepSeek/
-Uni-OpenCode/
-1/
+# Documentation
+docs/UNI_MANIFESTO.md
