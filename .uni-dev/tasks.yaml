@@ -1,0 +1,679 @@
+version: 1
+canonical_source: uni
+
+tasks:
+  - id: GOV-001
+    title: Establish canonical project governance
+    status: complete
+    owner_role: coordinator
+    allowed_paths:
+      - AGENTS.md
+      - ARCHITECTURE.md
+      - BUILD_STATUS.md
+      - ROADMAP.md
+      - docs/decisions
+      - .uni-dev
+      - scripts/check_architecture.py
+    acceptance:
+      - canonical source is explicit
+      - variants are reference-only
+      - architecture audit runs
+
+  - id: CORE-001
+    title: Specify canonical runtime contracts
+    status: complete
+    owner_role: coordinator_architect
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/decisions/ADR-0004-runtime-contracts.md
+    acceptance:
+      - Action schema is unambiguous
+      - ActionResult schema covers success failure timeout and verification
+      - Observation schema is bounded
+      - AgentContext ownership and mutation rules are explicit
+      - Task dependency identifiers are specified
+
+  - id: CORE-002
+    title: Implement accepted runtime contracts
+    status: approved
+    owner_role: developer
+    depends_on: [CORE-001]
+    allowed_paths:
+      - uni/contracts.py
+      - tests/unit/test_contracts.py
+    acceptance:
+      - one canonical definition per contract
+      - contract unit tests pass
+      - architecture audit reports no contract duplication in canonical source
+
+  - id: ROUTER-001
+    title: Specify capability manifest and router behavior
+    status: complete
+    owner_role: coordinator_architect
+    depends_on: [CORE-001]
+    allowed_paths:
+      - docs/decisions/ADR-0005-capability-router.md
+    acceptance:
+      - manifest schema is explicit
+      - routing errors map to ActionResult
+      - capability dependency boundaries are explicit
+
+  - id: PLAN-001
+    title: Repair planner IDs validation retry and recovery algorithm
+    status: proposed_incomplete
+    owner_role: algorithms
+    depends_on: [CORE-001, ROUTER-001]
+    allowed_paths:
+      - docs/specs/planner-algorithm.md
+    evidence:
+      - docs/reviews/HERMES_OPENCODE_COMPARISON.md
+      - docs/reviews/COORDINATOR_REVIEW_HERMES_OPENCODE.md
+      - docs/decisions/ADR-0004-runtime-contracts.md
+      - docs/decisions/ADR-0005-capability-router.md
+    acceptance:
+      - stable step IDs and dependency mapping are defined
+      - unknown actions are rejected before execution
+      - retry replan and ask-user transitions terminate
+      - LLM calls are bounded
+
+  - id: DS-001
+    title: Create DeepSeek development skills
+    status: changes_requested
+    owner_role: algorithms
+    depends_on: [GOV-001]
+    allowed_paths:
+      - .uni-dev/skills/deepseek
+    acceptance:
+      - five complete skills exist as files
+      - every skill includes required inputs failure conditions and self-check
+      - no runtime Python is changed
+
+  - id: PLAN-VECTORS-001
+    title: Produce complete planner recovery verification test vectors
+    status: changes_requested
+    owner_role: algorithms
+    depends_on: [CORE-001, ROUTER-001]
+    allowed_paths:
+      - .uni-dev/test-vectors
+    evidence:
+      - docs/reviews/HERMES_OPENCODE_COMPARISON.md
+      - docs/reviews/COORDINATOR_REVIEW_HERMES_OPENCODE.md
+    acceptance:
+      - planner YAML contains at least 25 executable cases
+      - recovery YAML contains at least 20 executable cases
+      - verification YAML contains at least 15 executable cases
+      - adversarial plans contain no ellipses or placeholders
+
+  - id: ROUTER-002
+    title: Implement canonical capability manifest registry and router
+    status: blocked
+    owner_role: developer
+    depends_on: [CORE-002, ROUTER-001]
+    allowed_paths:
+      - uni/capabilities/base.py
+      - uni/capabilities/registry.py
+      - uni/capabilities/router.py
+      - tests/unit/test_capability_manifest.py
+      - tests/unit/test_capability_router.py
+      - scripts/check_architecture.py
+    acceptance:
+      - parameter models are the schema source of truth
+      - registration is atomic and rejects all defined conflicts
+      - router dispatches exactly once and never retries
+      - capability-to-capability imports are rejected
+      - all router tests pass
+
+  - id: INTEGRATE-001
+    title: Implement one canonical autonomous event loop
+    status: blocked
+    owner_role: lead_implementation
+    depends_on: [CORE-002, ROUTER-001, PLAN-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/event_loop.py
+      - uni/planner.py
+      - uni/tools
+      - uni/capabilities/registry.py
+      - tests/integration
+    acceptance:
+      - planner router and verifier use AgentContext
+      - every action produces ActionResult
+      - transient retry permanent replan and user escalation are tested
+      - no archived package is imported
+
+  - id: HERMES-001
+    title: Make XToys fallback results truthful
+    status: approved
+    owner_role: local_runtime_auditor
+    depends_on: [GOV-001]
+    allowed_paths:
+      - uni/capabilities/xtoys.py
+      - tests/unit/test_xtoys_fallback.py
+      - docs/reviews/HERMES_XTOYS_HOTFIX.md
+    acceptance:
+      - browser success returns success without invoking desktop fallback
+      - browser failure invokes desktop fallback at most once
+      - missing coordinates or a fallback exception returns failure
+      - a fallback attempt is not described as verified XToys state
+      - regression tests cover browser success browser failure and fallback exception
+      - no public contract or capability dependency is added
+
+  - id: HERMES-002
+    title: Harden Vision structured element detection
+    status: approved
+    owner_role: local_runtime_auditor
+    depends_on: [GOV-001]
+    allowed_paths:
+      - uni/capabilities/vision.py
+      - tests/unit/test_vision_element_parsing.py
+      - docs/reviews/HERMES_VISION_HOTFIX.md
+    acceptance:
+      - plain JSON fenced JSON leading prose and null are tested
+      - malformed or schema-invalid output returns a failure result
+      - only one JSON value is accepted and trailing non-whitespace is rejected
+      - x y width height and confidence have explicit numeric bounds
+      - resized-image coordinates are transformed to original-screen coordinates
+      - parser exceptions are logged without a bare except
+      - no public contract is changed
+
+  - id: HERMES-003
+    title: Verify Piper TTS runtime compatibility
+    status: approved
+    owner_role: local_runtime_auditor
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/reviews/HERMES_TTS_COMPATIBILITY.md
+    acceptance:
+      - installed piper-tts version and voice API are recorded
+      - actual synthesize return shape and sample rate source are recorded
+      - proposed adapter behavior covers the observed API without guessing
+      - no runtime Python is changed
+
+  - id: HERMES-OPENCODE-AUDIT-001
+    title: Compare OpenCode implementation with canonical UNI
+    status: complete
+    owner_role: local_runtime_auditor
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/reviews/HERMES_OPENCODE_COMPARISON.md
+    acceptance:
+      - all twelve requested findings include evidence and disposition
+      - no OpenCode runtime file is copied or edited
+      - coordinator corrections are recorded separately
+
+  - id: FASTTRACK-MVP-001
+    title: Deliver same-day interactive voice browser XToys MVP
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/decisions/ADR-0007-fasttrack-interactive-mvp.md
+      - uni/__main__.py
+      - uni/agent.py
+      - uni/brain.py
+      - uni/browser_session.py
+      - uni/capabilities/browser.py
+      - uni/capabilities/speech.py
+      - uni/capabilities/vision.py
+      - uni/capabilities/xtoys.py
+      - uni/config.py
+      - uni/__main__.py
+      - uni/capabilities/speech.py
+      - uni/event_loop.py
+      - uni/tools/definitions.py
+      - uni/tools/executors.py
+      - config.yaml
+      - requirements.txt
+      - tests/fasttrack
+      - scripts/run_uni.ps1
+    acceptance:
+      - continuous microphone command loop starts under Python 3.12
+      - Piper speech uses the voice native sample rate
+      - browser uses one persistent visible Chrome context
+      - browser navigation web search and XToys tab selection are deterministic
+      - XToys never reports verified state after an unverified fallback
+      - Vision accepts the active browser screenshot and handles fenced JSON
+      - LM Studio unavailability produces an actionable message without killing deterministic commands
+      - smoke tests avoid live XToys mutations
+
+  - id: OPENCODE-FASTTRACK-001
+    title: Harden XToys DOM adapter against the live authenticated page
+    status: approved
+    owner_role: lead_implementation
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - uni/capabilities/xtoys.py
+      - tests/fasttrack/test_xtoys_dom.py
+      - docs/reviews/OPENCODE_XTOYS_DOM.md
+    acceptance:
+      - selectors are derived from inspected live DOM evidence
+      - tests use saved minimal HTML fixtures or mocks and never drive a physical device
+      - intensity respects configured maximum
+      - operations never claim verified physical state without observation
+      - no planner router contract or other capability is changed
+
+  - id: HERMES-FASTTRACK-VERIFY-001
+    title: Verify fast-track voice and browser runtime locally
+    status: approved
+    owner_role: local_runtime_auditor
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - docs/reviews/HERMES_FASTTRACK_SMOKE.md
+    acceptance:
+      - microphone and output device identities are recorded
+      - one Russian listen transcription and one Piper playback are confirmed
+      - XToys tab open and web search are confirmed without device mutation
+      - text LLM and optional Vision endpoint results are recorded separately
+      - no runtime Python is changed
+
+  - id: KILO-FASTTRACK-001
+    title: Add preflight diagnostics and operator runbook
+    status: approved
+    owner_role: tooling_engineer
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - scripts/preflight_uni.py
+      - scripts/run_uni.ps1
+      - docs/FASTTRACK_RUNBOOK.md
+    acceptance:
+      - Python 3.12 dependencies audio devices Piper model Playwright and LM Studio are checked
+      - checks are read-only and do not open or mutate XToys
+      - failures include an exact corrective command or config path
+      - launcher can run voice mode text mode and one-shot command mode
+
+  - id: VISION-GRADIO-001
+    title: Connect active-tab Vision to local Gradio Moondream API
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - uni/capabilities/vision.py
+      - uni/config.py
+      - config.yaml
+      - requirements.txt
+      - tests/fasttrack/test_vision_gradio.py
+    acceptance:
+      - provider is selectable between gradio and openai
+      - Gradio client is lazy and does not block startup
+      - screenshot is uploaded through a temporary PNG removed after the request
+      - answer_question falls back to answer_question_1 only for endpoint failure
+      - Gradio calls run outside the asyncio event loop
+      - live local endpoint returns a textual screenshot answer
+
+  - id: REALTIME-ROLE-001
+    title: Add non-blocking voice interaction and an editable XToys mistress role
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/event_loop.py
+      - uni/config.py
+      - uni/roles/loader.py
+      - uni/roles/xtoys_mistress.md
+      - config.yaml
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_realtime_role.py
+    acceptance:
+      - interactive voice mode continues accepting utterances while browser vision or LLM work is running
+      - microphone recording and TTS playback never overlap
+      - STT and TTS models can be warmed before the first utterance
+      - each utterance has a bounded background task and shutdown cancels unfinished work
+      - role markdown is loaded relative to the canonical package rather than the process CWD
+      - the selected role is included in the LLM system prompt
+      - stop and red are deterministic XToys emergency-zero commands
+      - physical motion is never started merely by loading the role
+
+  - id: LOGGED-EXPLORE-001
+    title: Add image search and bounded logged browser exploration
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [REALTIME-ROLE-001, VISION-GRADIO-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/browser_session.py
+      - uni/capabilities/browser.py
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/session_log.py
+      - uni/tools/definitions.py
+      - uni/tools/executors.py
+      - config.yaml
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_session_log.py
+      - tests/fasttrack/test_exploration.py
+    acceptance:
+      - image search opens a deterministic image-results page
+      - exploration is read-only and bounded by configured steps
+      - every exploration step saves a browser screenshot under the session log directory
+      - user dialogue spoken narration actions results and public thought summaries are timestamped in a text log
+      - passwords tokens and API keys are redacted before writing
+      - hidden model chain of thought is neither requested nor persisted
+      - tests and architecture audit pass
+
+  - id: MIXED-INPUT-001
+    title: Accept keyboard and microphone input in one interactive session
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [STT-INPUT-001, RUNTIME-UX-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/__main__.py
+      - uni/config.py
+      - uni/event_loop.py
+      - config.yaml
+      - tests/fasttrack/test_mixed_input.py
+    acceptance:
+      - mixed mode accepts console lines and recognized speech through one queue
+      - keyboard input remains available while microphone listening is active
+      - UNI keeps speaking responses in mixed mode
+      - text-only and voice-only modes remain available
+      - shutdown does not wait for a blocked console reader
+      - targeted tests and architecture audit pass
+
+  - id: VOICE-SILERO-001
+    title: Add a selectable natural Russian Silero voice with Piper fallback
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [REALTIME-ROLE-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/capabilities/speech.py
+      - uni/config.py
+      - uni/event_loop.py
+      - config.yaml
+      - requirements.txt
+      - tests/fasttrack/test_speech_synthesis.py
+      - .uni-voice-samples
+    acceptance:
+      - tts provider is selectable in config
+      - Silero Russian v5 uses an explicit speaker and native sample rate
+      - Piper remains available as an offline fallback
+      - a synthesis failure never crashes the interactive loop
+      - unit tests cover both synthesis adapters
+
+  - id: VISION-UI-001
+    title: Add a reusable vision-guided Windows UI operator
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [VISION-GRADIO-001, REALTIME-ROLE-001]
+    allowed_paths:
+      - uni/capabilities/computer.py
+      - uni/capabilities/vision.py
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/tools/definitions.py
+      - uni/tools/executors.py
+      - uni/visual_ui_operator.py
+      - uni/skills/operate-windows-visually
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_visual_ui_operator.py
+      - config.yaml
+    acceptance:
+      - desktop screenshots are analyzed independently of the browser capability
+      - the operator locates a described element then clicks only its returned center point
+      - every click is followed by a fresh screenshot before the next decision
+      - Unicode text entry works through clipboard paste rather than ASCII-only typewrite
+      - representational messages are drafted but not sent until a separate confirmation
+      - workflow steps are bounded and logged
+      - the reusable Markdown skill passes validation
+      - tests and architecture audit pass
+
+  - id: COUNCIL-001
+    title: Specify independent AI council and bounded autonomy policy
+    status: needs_independent_review
+    owner_role: coordinator_architect
+    depends_on: [GOV-001]
+    allowed_paths:
+      - docs/decisions/ADR-0008-ai-council-and-bounded-autonomy.md
+      - docs/specs/ai-council.md
+    acceptance:
+      - adviser calls are independent bounded and failure tolerant
+      - consensus is separated from evidence verification
+      - browser adviser output is treated as untrusted data
+      - safe autonomous actions and confirmation-required actions are explicit
+      - idle learning is preemptible isolated bounded and knowledge is quarantined
+      - experiment action time and progress bounds terminate
+      - DeepSeek adversarial review and Qwen feasibility review are complete
+
+  - id: COUNCIL-002
+    title: Implement report-only AI council for interactive mode
+    status: blocked_by_council_001
+    owner_role: python_implementation
+    depends_on: [COUNCIL-001]
+    allowed_paths:
+      - uni/council
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/session_log.py
+      - config.yaml
+      - tests/council
+    acceptance:
+      - two to five providers can be queried concurrently
+      - provider sessions timeouts and response sizes are bounded
+      - one critic and one synthesizer produce a validated report
+      - important claims retain verified or unverified status
+      - no adviser output can invoke a UNI tool
+      - full report is logged and a short summary is spoken
+
+  - id: IDLE-LEARN-001
+    title: Add preemptible idle council learning with quarantined knowledge
+    status: blocked_by_council_002
+    owner_role: python_implementation
+    depends_on: [COUNCIL-002]
+    allowed_paths:
+      - uni/council
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/working_memory.py
+      - config.yaml
+      - tests/council
+    acceptance:
+      - idle mode starts only after configured inactivity and cooldown
+      - any user activity cancels current idle work promptly
+      - provider and browser budgets terminate every session
+      - a separate browser profile never disrupts the user desktop
+      - learned notes retain sources confidence expiry and contradictions
+      - unverified notes cannot become instructions or runtime policy
+
+  - id: AUTONOMY-001
+    title: Execute bounded safe experiments from accepted council reports
+    status: blocked_by_planner_and_council
+    owner_role: lead_integration
+    depends_on: [COUNCIL-002, PLAN-001, ROUTER-001]
+    allowed_paths:
+      - pending after accepted Planner integration task
+    acceptance:
+      - only autonomous-safe steps enter the execution queue
+      - confirmation-required steps pause immediately before action
+      - action time monetary and no-progress budgets terminate
+      - every action result and public decision rationale is logged
+      - denied income schemes and prompt injection cannot create actions
+
+  - id: CAMERA-001
+    title: Add announced webcam look and long-watch modes
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [REALTIME-ROLE-001, VISION-GRADIO-001]
+    allowed_paths:
+      - uni/agent.py
+      - uni/capabilities/camera.py
+      - uni/capabilities/vision.py
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/tools/executors.py
+      - config.yaml
+      - requirements.txt
+      - tests/fasttrack/test_camera.py
+      - tests/fasttrack/test_commands.py
+    acceptance:
+      - camera cannot start without an acknowledged audible notice
+      - one-shot look captures one frame analyzes it and releases the device
+      - long watch is bounded and can be stopped by voice command
+      - long watch announces completion and reminds every configured interval
+      - camera frames and public observations are logged as session artifacts
+      - camera tools are not exposed to free-form LLM tool calling
+      - tests architecture audit and a consented live frame check pass
+
+  - id: AUDIO-MESSAGE-001
+    title: Export UNI speech as WAV or MP3 message files
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [VOICE-SILERO-001, REALTIME-ROLE-001]
+    allowed_paths:
+      - uni/capabilities/speech.py
+      - uni/event_loop.py
+      - uni/tools/executors.py
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_speech_synthesis.py
+    acceptance:
+      - selected UNI voice can be exported as WAV
+      - MP3 export uses local ffmpeg and reports a clear error when unavailable
+      - empty text and paths outside the session artifact directory are rejected by orchestration
+      - generated files are logged but not sent automatically
+      - every Telegram upload or send still requires a separate confirmation
+      - tests and architecture audit pass
+
+  - id: VK-CHAT-001
+    title: Prepare transparent UNI drafts in an existing VK chat
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [VISION-UI-001, AUDIO-MESSAGE-001]
+    allowed_paths:
+      - uni/capabilities/computer.py
+      - uni/event_loop.py
+      - uni/tools/executors.py
+      - uni/visual_ui_operator.py
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_visual_ui_operator.py
+    acceptance:
+      - only canonical UNI runtime controls the existing Chrome window
+      - VK login is reused but credentials are never inspected or logged
+      - visible conversation context is read only after explicit user authorization
+      - UNI identifies itself as a virtual conversation partner and not a human
+      - text or audio is prepared as a draft and not sent without action-time confirmation
+      - workflow is bounded reobserves after UI changes and stops on ambiguity
+
+  - id: TELEGRAM-UNI-001
+    title: Bind UNI messaging to its dedicated portable Telegram account
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [VISION-UI-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/agent.py
+      - uni/capabilities/computer.py
+      - uni/event_loop.py
+      - uni/visual_ui_operator.py
+      - tests/fasttrack/test_visual_ui_operator.py
+    acceptance:
+      - telegram_uni resolves only to the configured portable Telegram executable
+      - telegram_user resolves only to a different Telegram executable
+      - generic telegram fails closed when more than one Telegram client is visible
+      - UNI drafts and confirmations retain the selected account identity
+      - no phone number credential or chat content is stored in configuration or logs
+      - a live test may send only to the explicitly authorized account at action time
+      - tests and architecture audit pass
+
+  - id: STT-INPUT-001
+    title: Improve quiet-microphone speech recognition
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [REALTIME-ROLE-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/agent.py
+      - uni/capabilities/speech.py
+      - uni/config.py
+      - config.yaml
+      - tests/fasttrack/test_speech_input.py
+    acceptance:
+      - microphone gain is configurable and bounded
+      - DC offset is removed before amplification
+      - amplified audio is clipped safely to the float input range
+      - silence detection uses the processed signal
+      - utterances start on detected speech and end on a bounded pause
+      - known empty-audio subtitle hallucinations are rejected
+      - common Russian XToys transcription variants resolve deterministically
+      - STT device and compute type are configurable and validated by a load test
+      - selected input device is unchanged unless live evidence shows it is wrong
+      - tests and architecture audit pass
+
+  - id: MEMORY-QUALITY-001
+    title: Persist only useful complete UNI dialogue and explicit facts
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [REALTIME-ROLE-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/agent.py
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/working_memory.py
+      - memory/working.json
+      - tests/fasttrack/test_working_memory.py
+    acceptance:
+      - completed user and assistant messages are persisted as atomic pairs
+      - tool results acknowledgements and transient pending actions are not persisted
+      - explicit facts and dialogue have separate schema fields
+      - recent complete dialogue is restored at startup
+      - passwords tokens and API keys are redacted
+      - legacy technical keys are backed up and excluded from active memory
+      - writes are atomic and bounded
+      - tests and architecture audit pass
+
+  - id: RUNTIME-UX-001
+    title: Repair camera routing XToys custom speed control and spoken response UX
+    status: approved
+    owner_role: coordinator_implementation
+    depends_on: [CAMERA-001, OPENCODE-FASTTRACK-001, VISION-UI-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/agent.py
+      - uni/capabilities/computer.py
+      - uni/capabilities/speech.py
+      - uni/capabilities/xtoys.py
+      - uni/config.py
+      - uni/event_loop.py
+      - uni/visual_ui_operator.py
+      - config.yaml
+      - tests/fasttrack/test_camera.py
+      - tests/fasttrack/test_commands.py
+      - tests/fasttrack/test_speech_synthesis.py
+      - tests/fasttrack/test_visual_ui_operator.py
+      - tests/fasttrack/test_xtoys_dom.py
+    acceptance:
+      - start and enable camera phrases route to the announced camera workflow
+      - screen observation phrases route to Vision instead of free-form refusal
+      - speed and intensity require an explicit numeric value
+      - the XToys custom vertical Speed div is located and clicked by percentage
+      - DOM failure can fall back to a bounded Vision-guided visible mouse click
+      - physical state is never claimed from an unverified click
+      - spoken replies are bounded and Escape interrupts playback
+      - repeated style-control tokens are removed from user-facing replies
+      - tests and architecture audit pass
+
+  - id: DEV-COORD-001
+    title: Automate structured development handoff between AI participants
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [GOV-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - docs/decisions/ADR-0009-development-coordination-layer.md
+      - docs/DEVELOPMENT_COORDINATOR.md
+      - uni/devcoord
+      - scripts/uni_dev_coordinator.py
+      - tests/devcoord
+      - .gitignore
+    acceptance:
+      - development coordination is isolated from product capabilities and personal memory
+      - tasks handoffs artifacts provider results and events use bounded typed records
+      - artifact paths cannot escape the workspace and include size plus SHA-256
+      - free API providers and configured browser providers share one provider interface
+      - paid APIs are never selected unless explicitly enabled
+      - browser automation uses a dedicated profile and never bypasses authentication CAPTCHA or limits
+      - external responses remain untrusted proposals and never mutate source code automatically
+      - tasks terminate after their explicit provider sequence
+      - CLI can create inspect and run a development task
+      - tests and architecture audit pass

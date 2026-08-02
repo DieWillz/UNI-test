@@ -3,13 +3,13 @@
 brain:
   base_url: "http://localhost:1234/v1"
   api_key: "lm-studio"
-  model: "mistralai/ministral-3-3b"
+  model: "qwen2.5-7b-instruct-1m"
   vision_model: "mistralai/ministral-3-3b"
   # null = тот же LM Studio, что и для текста. Для отдельного Vision-сервера:
   # vision_base_url: "http://localhost:1235/v1"
   vision_base_url: null
   vision_api_key: null
-  temperature: 0.3
+  temperature: 0.8                     # пошло и жёстко, не сухо
   max_tokens: 2000
   timeout_seconds: 20
 
@@ -19,6 +19,7 @@ capabilities:
     viewport_width: 1280
     viewport_height: 720
     channel: "chrome"
+    cdp_url: "http://127.0.0.1:9222"
     user_data_dir: ".uni-browser-profile"
     search_engine: "https://www.bing.com/search?q={query}"
     image_search_engine: "https://yandex.ru/images/search?text={query}"
@@ -67,7 +68,10 @@ capabilities:
     save_screenshots: false
   xtoys:
     url: "https://xtoys.app"
-    max_intensity: 50                 # Предохранительный максимум MVP
+    max_intensity: 90                 # предохранительный максимум (хочешь 100 — поставь 100)
+    # ДВА гейта для автономного движения без команд. Оба должны быть true.
+    # Устройство НЕ двинется, пока не разрешишь осознанно. У тебя есть физический пульт — аварийный стоп.
+    autonomous_physical: true
 
 agent:
   default_role: "xtoys_mistress"
@@ -83,6 +87,14 @@ agent:
   visual_ui_max_steps: 20
   response_max_chars: 700
   spoken_response_max_chars: 320      # длинный текст остаётся в консоли, голос говорит кратко
+  autonomous:
+    enabled: true                      # АВТОНОМНЫЙ режим: сама говорит и крутит, без команд
+    auto_start_session: true           # сразу после `python -m uni` начинает сессию
+    vision_interval_seconds: 15
+    speech_interval_seconds: 7         # раз в 7 секунд новая пошлая фраза
+    device_interval_seconds: 2         # тикает Speed каждые 2 секунды
+    conductor_interval_seconds: 25     # LLM подсказывает фразы/интенсивность (опц.)
+    require_connect: false             # true = не крутить, пока XToys не подключен
 
 logging:
   enabled: true

@@ -4,8 +4,11 @@ from uni.capabilities.xtoys import XToysCapability
 
 
 class FakeSpeedElement:
+    """Mimics the Fredorch Speed panel on xtoys.app: a WIDE block (~1164x655),
+    not a thin vertical slider. Text includes 'Speed' and the current value."""
+
     def __init__(self):
-        self.text = "Speed\n0"
+        self.text = "Fredorch Rotary\nSpeed\n0"
 
     async def is_visible(self):
         return True
@@ -17,7 +20,8 @@ class FakeSpeedElement:
         return "Fredorch Rotary\nSpeed\n0"
 
     async def bounding_box(self):
-        return {"x": 100.0, "y": 50.0, "width": 40.0, "height": 200.0}
+        # wide panel: width > height (the old geometry guard rejected this)
+        return {"x": 100.0, "y": 50.0, "width": 1164.0, "height": 655.0}
 
 
 class FakeLocator:
@@ -42,7 +46,9 @@ class FakeMouse:
 
     async def click(self, x, y):
         self.clicks.append((x, y))
-        self.element.text = "Speed\n25"
+        # a click at the top of the panel sets a high value; bottom -> low.
+        # For the test we just bump it to 25 to simulate a verified change.
+        self.element.text = "Fredorch Rotary\nSpeed\n25"
 
 
 class FakePage:
@@ -50,8 +56,17 @@ class FakePage:
         self.element = FakeSpeedElement()
         self.mouse = FakeMouse(self.element)
 
-    async def evaluate(self, _script, _args):
-        return {"ok": False, "reason": "На странице нет видимого input[type=range]"}
+    async def evaluate(self, script, _args=None):
+        # The XToys capability tries two JS probes. Distinguish them by content.
+        if "querySelectorAll('input[type=\"range\"]')" in script:
+            return {"ok": False, "reason": "На странице нет видимого input[type=range]"}
+        # Otherwise treat it as the Speed-panel finder (the new _FIND_SPEED_JS).
+        r = await self.element.bounding_box()
+        return {
+            "ok": True,
+            "rect": {"x": r["x"], "y": r["y"], "w": r["width"], "h": r["height"]},
+            "displayed": int(self.element.text.split("\n")[-1]),
+        }
 
     def locator(self, _selector):
         return FakeLocator(self.element)
@@ -74,12 +89,12 @@ class XToysCustomSpeedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(XToysCapability._vertical_slider_point(box, 0), (120.0, 247.0))
         self.assertEqual(XToysCapability._vertical_slider_point(box, 100), (120.0, 53.0))
 
-    async def test_custom_speed_div_is_clicked_and_ui_value_verified(self):
+    async def test_custom_speed_wide_panel_is_clicked_and_ui_value_verified(self):
         session = FakeSession()
-        capability = XToysCapability(session, url="https://xtoys.app", max_intensity=50)
+        capability = XToysCapability(session, url="https://xtoys.app", max_intensity=90)
         result = await capability.set_intensity(value=25)
-        self.assertTrue(result.success)
-        self.assertEqual(result.data["control"], "custom_vertical_speed")
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(result.data["control"], "custom_speed_panel")
         self.assertEqual(result.data["displayed_value"], 25)
         self.assertTrue(result.data["verified_ui"])
         self.assertFalse(result.data["verified_physical"])
@@ -87,8 +102,8 @@ class XToysCustomSpeedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_maximum_is_rejected_before_any_click(self):
         session = FakeSession()
-        capability = XToysCapability(session, url="https://xtoys.app", max_intensity=50)
-        result = await capability.set_intensity(value=80)
+        capability = XToysCapability(session, url="https://xtoys.app", max_intensity=90)
+        result = await capability.set_intensity(value=95)
         self.assertFalse(result.success)
         self.assertEqual(session.page.mouse.clicks, [])
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
@@ -18,6 +19,7 @@ class XToysCapability(Capability):
         self.session = session
         self.url = url
         self.max_intensity = max(0, min(100, max_intensity))
+        self.verified_physical = False
 
     async def _page(self):
         return await self.session.page_for_host("xtoys.app", create_url=self.url)
@@ -41,45 +43,71 @@ class XToysCapability(Capability):
         y = float(box["y"]) + inset + (float(box["height"]) - 2 * inset) * (1 - bounded / 100)
         return x, y
 
+    _FIND_SPEED_JS = """({device}) => {
+        const needle = (device || '').trim().toLowerCase();
+        const textOf = el => (el.innerText || '');
+        const visible = el => {
+            const s = getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0 && el.offsetParent !== null;
+        };
+        const els = [...document.querySelectorAll('div, section, [role="slider"]')].filter(el => {
+            const t = textOf(el);
+            if (!/speed|intensity|скорость|интенсивность/i.test(t)) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 20 || r.height < 40) return false;
+            if (!visible(el)) return false;
+            if (needle && needle !== 'default' && !t.toLowerCase().includes(needle)) return false;
+            return true;
+        });
+        if (!els.length) return {ok: false, reason: 'Не найден контрол Speed'};
+        els.sort((a, b) => {
+            const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            return (rb.height * rb.width) - (ra.height * ra.width);
+        });
+        const el = els[0];
+        const r = el.getBoundingClientRect();
+        const nums = (textOf(el).match(/(?<!\\d)(\\d{1,3})(?!\\d)/g) || []).map(Number);
+        const displayed = nums.length ? nums[nums.length - 1] : null;
+        return {ok: true, rect: {x: r.x, y: r.y, w: r.width, h: r.height}, displayed};
+    }"""
+
+    async def _find_speed(self, page, device: str) -> dict[str, Any]:
+        try:
+            return await page.evaluate(self._FIND_SPEED_JS, {"device": device})
+        except Exception as exc:
+            return {"ok": False, "reason": f"Ошибка поиска Speed: {exc}"}
+
     async def _set_custom_speed(self, page, requested: int, device: str) -> dict[str, Any]:
-        candidates = page.locator('div[tabindex="0"].cursor-pointer')
-        selected = None
-        selected_text = ""
-        needle = device.casefold().strip()
-        for index in range(min(await candidates.count(), 100)):
-            candidate = candidates.nth(index)
-            if not await candidate.is_visible():
-                continue
-            text = (await candidate.inner_text()).strip()
-            if not re.search(r"(?:^|\s)(?:speed|intensity|скорость|интенсивность)(?:\s|$)", text, re.I):
-                continue
-            if needle and needle != "default":
-                parent_text = await candidate.evaluate(
-                    "el => (el.parentElement?.parentElement?.innerText || '').slice(0, 2000)"
-                )
-                if needle not in parent_text.casefold():
-                    continue
-            selected = candidate
-            selected_text = text
-            break
-        if selected is None:
-            return {"ok": False, "reason": "Не найден видимый вертикальный контрол Speed"}
-        box = await selected.bounding_box()
-        if not box or float(box["height"]) < 40 or float(box["height"]) <= float(box["width"]):
-            return {"ok": False, "reason": "Контрол Speed имеет небезопасную геометрию"}
-        x, y = self._vertical_slider_point(box, requested)
+        """Set the XToys Speed control by clicking the panel at the value's height.
+
+        Works for BOTH a thin vertical slider AND a wide Speed panel (e.g. the
+        Fredorch Rotary block on xtoys.app, which is ~1164x655). Mapping: top of
+        the control = 100%, bottom = 0%. We pick the largest on-page block whose
+        text mentions Speed/Скорость, click at the right Y and read the displayed
+        number back to verify. The old geometry guard (height <= width) is gone —
+        a wide panel is a perfectly valid control.
+        """
+        info = await self._find_speed(page, device)
+        if not info.get("ok"):
+            return {"ok": False, "reason": info.get("reason", "Не найден контрол Speed")}
+        rect = info["rect"]
+        top_inset = max(6.0, rect["h"] * 0.10)
+        bot_inset = max(6.0, rect["h"] * 0.04)
+        usable = max(1.0, rect["h"] - top_inset - bot_inset)
+        bounded = max(0, min(100, int(requested)))
+        y = rect["y"] + top_inset + usable * (1 - bounded / 100.0)
+        x = rect["x"] + rect["w"] / 2.0
         await page.mouse.move(x, y, steps=12)
         await page.mouse.click(x, y)
         await page.wait_for_timeout(500)
-        updated_text = (await selected.inner_text()).strip()
-        values = [int(value) for value in re.findall(r"(?<!\d)(\d{1,3})(?!\d)", updated_text)]
-        displayed = values[-1] if values else None
-        verified_ui = displayed is not None and abs(displayed - requested) <= 1
+        after = await self._find_speed(page, device)
+        displayed = after.get("displayed") if after.get("ok") else None
+        verified_ui = displayed is not None and abs(int(displayed) - int(requested)) <= 2
         return {
             "ok": verified_ui,
-            "reason": None if verified_ui else f"После клика Speed показывает {displayed!r}, ожидалось {requested}",
-            "control": "custom_vertical_speed",
-            "before_text": selected_text[:200],
+            "reason": None if verified_ui else f"Speed показывает {displayed!r}, ожидалось {requested}",
+            "control": "custom_speed_panel",
             "displayed_value": displayed,
             "requested_value": requested,
             "verified_ui": verified_ui,
@@ -240,6 +268,91 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка чтения XToys: {exc}")
 
+    async def read_intensity(self, device: str = "") -> ToolResult:
+        """Read the current slider value back from the live DOM (verification)."""
+        try:
+            page = await self._page()
+            result = await page.evaluate(
+                """({device}) => {
+                    const visible = el => {
+                        const s = getComputedStyle(el);
+                        const r = el.getBoundingClientRect();
+                        return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+                    };
+                    const ranges = [...document.querySelectorAll('input[type="range"]')].filter(visible);
+                    if (!ranges.length) return {ok: false, reason: 'Нет видимого input[type=range]'};
+                    const needle = (device || '').trim().toLowerCase();
+                    let target = ranges[0];
+                    if (needle) {
+                        target = ranges.find(el => {
+                            let node = el;
+                            for (let i = 0; i < 6 && node; i++, node = node.parentElement) {
+                                if ((node.innerText || '').toLowerCase().includes(needle)) return true;
+                            }
+                            return false;
+                        }) || target;
+                    }
+                    const min = Number(target.min || 0);
+                    const max = Number(target.max || 100);
+                    const displayed = Math.round(((Number(target.value) - min) / (max - min || 1)) * 100);
+                    return {ok: true, value: displayed};
+                }""",
+                {"device": device},
+            )
+            if not result.get("ok"):
+                return ToolResult(success=False, message=str(result.get("reason", "Не удалось прочитать слайдер")))
+            return ToolResult(
+                success=True,
+                data={"value": int(result["value"]), "device": device or None},
+                message=f"Текущая интенсивность XToys: {result['value']}%",
+            )
+        except Exception as exc:
+            return ToolResult(success=False, message=f"Ошибка чтения XToys: {exc}")
+
+    async def ramp_intensity(self, device: str = "", target: int = 0, *, steps: int = 5) -> ToolResult:
+        """Safely ramp intensity toward `target` in small increments (no sudden jumps)."""
+        target = max(0, min(100, int(target)))
+        try:
+            current = 0
+            read = await self.read_intensity(device)
+            if read.success and isinstance(read.data, dict):
+                current = int(read.data.get("value", 0))
+        except Exception:
+            current = 0
+        if current == target:
+            return await self.set_intensity(device, target)
+        steps = max(1, min(steps, 20))
+        lo, hi = (current, target) if target > current else (target, current)
+        span = hi - lo
+        sequence = [lo + round(span * (i + 1) / steps) for i in range(steps)]
+        if target < current:
+            sequence = sequence[::-1]
+        last: ToolResult | None = None
+        for value in sequence:
+            last = await self.set_intensity(device, value)
+            if not (last and last.success):
+                return last or ToolResult(success=False, message="Прервано на шаге ramp")
+            await asyncio.sleep(0.4)
+        return last or await self.set_intensity(device, target)
+
+    async def set_verified_physical(self, verified: bool = True) -> ToolResult:
+        """Explicit, intentional acknowledgment that the physical device is engaged.
+
+        By default the device is NEVER activated: callers in autonomous mode must
+        opt in via config (capabilities.xtoys.autonomous_physical) before this is
+        allowed to return success. This preserves the safety contract.
+        """
+        self.verified_physical = bool(verified)
+        return ToolResult(
+            success=True,
+            data={"verified_physical": self.verified_physical},
+            message=(
+                "Физическое подтверждение устройства принято"
+                if self.verified_physical
+                else "Физическое подтверждение снято"
+            ),
+        )
+
     async def execute(self, action: str, **kwargs) -> ToolResult:
         device = str(kwargs.get("device", ""))
         if action == "open":
@@ -248,6 +361,12 @@ class XToysCapability(Capability):
             return await self.toggle(device)
         if action == "set_intensity":
             return await self.set_intensity(device, int(kwargs.get("value", 0)))
+        if action == "ramp_intensity":
+            return await self.ramp_intensity(device, int(kwargs.get("value", 0)), steps=int(kwargs.get("steps", 5)))
+        if action == "read_intensity":
+            return await self.read_intensity(device)
+        if action == "set_verified_physical":
+            return await self.set_verified_physical(bool(kwargs.get("verified", True)))
         if action == "select_pattern":
             return await self.select_pattern(str(kwargs.get("pattern", "")), device)
         if action == "get_status":

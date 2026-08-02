@@ -10,7 +10,7 @@ class BrainConfig(BaseModel):
     vision_model: Optional[str] = None
     vision_base_url: Optional[str] = None
     vision_api_key: Optional[str] = None
-    temperature: float = 0.3
+    temperature: float = 0.8
     max_tokens: int = 2000
     timeout_seconds: float = 20.0
 
@@ -22,6 +22,7 @@ class BrowserConfig(BaseModel):
     user_data_dir: str = ".uni-browser-profile"
     search_engine: str = "https://www.bing.com/search?q={query}"
     image_search_engine: str = "https://yandex.ru/images/search?text={query}"
+    cdp_url: Optional[str] = None  # e.g. "http://127.0.0.1:9222" to attach to your running Chrome
 
 class ComputerConfig(BaseModel):
     use_uia: bool = True
@@ -73,6 +74,7 @@ class VisionConfig(BaseModel):
 class XToysConfig(BaseModel):
     url: str = "https://xtoys.app"
     max_intensity: int = Field(default=50, ge=0, le=100)
+    autonomous_physical: bool = Field(default=False)  # explicit opt-in to move the device unsupervised
 
 class CapabilitiesConfig(BaseModel):
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
@@ -96,15 +98,45 @@ class AgentConfig(BaseModel):
     visual_ui_max_steps: int = Field(default=20, ge=4, le=40)
     response_max_chars: int = Field(default=700, ge=120, le=4000)
     spoken_response_max_chars: int = Field(default=320, ge=80, le=1200)
+    autonomous: "AutonomousConfig" = Field(default_factory=lambda: AutonomousConfig())
 
 class LoggingConfig(BaseModel):
     enabled: bool = True
     directory: str = ".uni-logs"
 
+class AutonomousConfig(BaseModel):
+    """Hands-free mode: UNI acts without user commands (watches, talks, drives XToys)."""
+    enabled: bool = False
+    auto_start_session: bool = Field(default=True)  # start the hands-free session right after `python -m uni`
+    vision_interval_seconds: float = Field(default=15.0, ge=3.0, le=120.0)
+    speech_interval_seconds: float = Field(default=7.0, ge=2.0, le=60.0)
+    device_interval_seconds: float = Field(default=2.0, ge=1.0, le=60.0)
+    conductor_interval_seconds: float = Field(default=25.0, ge=5.0, le=300.0)
+    # The device never moves unless the user explicitly acknowledges it in two places:
+    # config.capabilities.xtoys.autonomous_physical AND config.autonomous.enabled.
+    enable_device_motion: bool = Field(default=False)  # convenience mirror of xtoys.autonomous_physical
+    require_connect: bool = Field(default=False)  # if True, do not move the device until XToys is connected
+
 class MemoryConfig(BaseModel):
     path: str = "memory/working.json"
     max_context_tokens: int = 4000
     max_dialogue_turns: int = Field(default=50, ge=5, le=500)
+
+class CouncilConfig(BaseModel):
+    """Development council automation (MANIFESTO v2.5 §7, COUNCIL-002).
+
+    Replaces the manual copy-paste loop between AI participants. Participants are
+    queried through the cheapest available transport: API when the model is free/
+    local, browser automation when it is a paid closed web chat. Advisor output is
+    always treated as untrusted data and never invokes a UNI tool.
+    """
+    enabled: bool = True
+    artifacts_dir: str = ".uni-council"
+    concurrency: int = Field(default=3, ge=1, le=8)
+    timeout_seconds: float = Field(default=90.0, gt=0.0, le=600.0)
+    collect_signatures: bool = True
+    # Separate browser profile so web-AI sessions never mix with user bank/mail/intimate.
+    browser_profile: str = ".uni-council-browser-profile"
 
 class Config(BaseModel):
     brain: BrainConfig = Field(default_factory=BrainConfig)
@@ -112,6 +144,8 @@ class Config(BaseModel):
     agent: AgentConfig = Field(default_factory=AgentConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    autonomous: AutonomousConfig = Field(default_factory=AutonomousConfig)
+    council: CouncilConfig = Field(default_factory=CouncilConfig)
 
 def load_config(path: str = "config.yaml") -> Config:
     p = Path(path)

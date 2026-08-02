@@ -71,6 +71,7 @@ class SpeechCapability(Capability):
         self._silero = None
         self._stt_lock = asyncio.Lock()
         self._tts_lock = asyncio.Lock()
+        self._playback_active = False
 
     @staticmethod
     def _resolve_voice(value: str) -> str:
@@ -372,17 +373,25 @@ class SpeechCapability(Capability):
 
     def _play(self, audio: np.ndarray, sample_rate: int) -> None:
         chunk_frames = max(1, int(sample_rate * 0.1))
-        with sd.OutputStream(
-            samplerate=sample_rate,
-            channels=1,
-            dtype=np.float32,
-            device=self.output_device,
-        ) as stream:
-            for offset in range(0, len(audio), chunk_frames):
-                if self._escape_pressed():
-                    break
-                chunk = np.asarray(audio[offset : offset + chunk_frames], dtype=np.float32).reshape(-1, 1)
-                stream.write(chunk)
+        self._playback_active = True
+        try:
+            with sd.OutputStream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype=np.float32,
+                device=self.output_device,
+            ) as stream:
+                for offset in range(0, len(audio), chunk_frames):
+                    if self._escape_pressed() or not self._playback_active:
+                        break
+                    chunk = np.asarray(audio[offset : offset + chunk_frames], dtype=np.float32).reshape(-1, 1)
+                    stream.write(chunk)
+        finally:
+            self._playback_active = False
+
+    def stop_speaking(self) -> None:
+        """Immediately halt any in-progress playback (used by the safety stop)."""
+        self._playback_active = False
 
     async def speak(self, text: str) -> bool:
         if not text.strip():
@@ -390,6 +399,7 @@ class SpeechCapability(Capability):
         try:
             await self._init_tts()
             audio, sample_rate = await asyncio.to_thread(self._synthesize_audio_safe, text.strip())
+            self._playback_active = True
             await asyncio.to_thread(self._play, audio, sample_rate)
             return True
         except Exception as exc:

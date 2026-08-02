@@ -157,14 +157,8 @@ class EventLoop:
                 "internal.draft_message",
                 {"contact": contact, "text": message.group("text").strip()},
             )
-        if lowered in {
-            "стоп",
-            "красный",
-            "аварийный стоп",
-            "остановись",
-            "останови игрушку",
-        }:
-            return DirectCommand("xtoys.set_intensity", {"value": 0})
+        if mentions_xtoys and any(word in lowered for word in ("открой", "открывай", "покажи", "перейди")):
+            return DirectCommand("xtoys.open", {})
         if any(
             phrase in lowered
             for phrase in (
@@ -179,8 +173,6 @@ class EventLoop:
         if imagination:
             topic = imagination.group(1).strip() or "необычные природные явления"
             return DirectCommand("internal.explore", {"topic": topic})
-        if mentions_xtoys and any(word in lowered for word in ("открой", "открывай", "покажи", "перейди")):
-            return DirectCommand("xtoys.open", {})
         intensity = re.search(
             r"(?:интенсивност\w*|мощност\w*|скорост\w*)\D{0,30}(\d{1,3})",
             lowered,
@@ -257,8 +249,44 @@ class EventLoop:
 
     @staticmethod
     def is_stop_command(text: str) -> bool:
-        lowered = text.lower().strip(" .!?")
-        return lowered in {"выход", "заверши работу", "пока", "exit", "quit"}
+        normalized = " ".join(text.casefold().split())
+        return any(
+            token in normalized
+            for token in ("стоп", "красный", "аварийный стоп", "выход", "остановись",
+                         "немедленно стой", "заверши работу", "пока", "exit", "quit")
+        )
+
+    # --- Hands-free mode bridge ----------------------------------------------
+    def _autonomous(self):
+        """Lazily resolve the AutonomousController created by Agent."""
+        return getattr(getattr(self, "_agent_ref", None), "autonomous", None)
+
+    async def _maybe_autonomous_override(self, user_input: str) -> bool:
+        """If the hands-free session is running, route stop + manual intensity to it.
+
+        Returns True if the input was consumed by the autonomous controller.
+        """
+        ctrl = self._autonomous()
+        if ctrl is None or not getattr(ctrl, "device_allowed", False):
+            return False
+        if ctrl.state.stopped and self.is_stop_command(user_input):
+            return False  # already stopped; let normal flow handle it
+        # stop / red -> emergency stop, not via the task queue
+        if self.is_stop_command(user_input):
+            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+            ctrl.emergency_stop()
+            return True
+        # manual intensity -> adopt value and pause the auto timeline briefly
+        m = re.search(r"(?:интенсивность|скорость|speed)\s*{0,3}(\d{1,3})", user_input.casefold())
+        if m:
+            value = max(0, min(100, int(m.group(1))))
+            res = await ctrl._run_tool("xtoys.ramp_intensity", {"value": value, "steps": 3})
+            if res.success:
+                ctrl.state.intensity = value
+                ctrl.request_manual_override(seconds=45.0)
+                await self._speak(f"Приняла, поставила {value}%. Сама пока не трогаю — скажи, если снова управлять.")
+                return True
+        return False
 
     async def _speak(self, text: str) -> bool:
         if not text or not self.config.agent.speak_responses:
@@ -847,6 +875,9 @@ class EventLoop:
         return answer
 
     async def _process_input(self, user_input: str) -> str:
+        # Hands-free override has priority so stop/manual intensity are instant.
+        if await self._maybe_autonomous_override(user_input):
+            return "ok"
         self._log("USER", user_input)
         console.print(f"[bold]Команда:[/bold] {user_input}")
         direct = self.parse_direct_command(user_input)
@@ -951,6 +982,10 @@ class EventLoop:
             self.state = AgentState.IDLE
             return None
         if self.is_stop_command(user_input):
+            ctrl = self._autonomous()
+            if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
+                console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+                ctrl.emergency_stop()
             self._running = False
             await self._speak("До встречи")
             self.state = AgentState.IDLE
@@ -977,6 +1012,10 @@ class EventLoop:
                         await asyncio.sleep(0.05)
                         continue
                     if self.is_stop_command(user_input):
+                        ctrl = self._autonomous()
+                        if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
+                            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+                            ctrl.emergency_stop()
                         self._running = False
                         await self._speak("До встречи")
                         break

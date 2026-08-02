@@ -22,6 +22,7 @@ class BrowserSession:
         user_data_dir: str = ".uni-browser-profile",
         search_engine: str = "https://www.bing.com/search?q={query}",
         image_search_engine: str = "https://yandex.ru/images/search?text={query}",
+        cdp_url: str | None = None,
     ) -> None:
         self.headless = headless
         self.viewport = {"width": viewport_width, "height": viewport_height}
@@ -29,8 +30,10 @@ class BrowserSession:
         self.user_data_dir = Path(user_data_dir).resolve()
         self.search_engine = search_engine
         self.image_search_engine = image_search_engine
+        self.cdp_url = cdp_url
         self._playwright: Playwright | None = None
         self._context: BrowserContext | None = None
+        self._browser = None
         self._page: Page | None = None
         self._lock = asyncio.Lock()
 
@@ -42,6 +45,20 @@ class BrowserSession:
                 return
             self.user_data_dir.mkdir(parents=True, exist_ok=True)
             self._playwright = await async_playwright().start()
+            if self.cdp_url:
+                # Attach to an already-running Chrome (e.g. with --remote-debugging-port=9222).
+                # This keeps the user's connected devices/sessions alive.
+                try:
+                    self._browser = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
+                    self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
+                    pages = self._context.pages
+                    self._page = pages[0] if pages else await self._context.new_page()
+                    return
+                except Exception as exc:
+                    console = __import__("rich.console", fromlist=["Console"]).Console()
+                    console.print(f"[yellow]Не удалось подключиться к CDP {self.cdp_url}: {exc}. Запускаю свой браузер.[/yellow]")
+                    self._browser = None
+                    self._context = None
             launch_options: dict[str, Any] = {
                 "headless": self.headless,
                 "viewport": self.viewport,

@@ -88,9 +88,15 @@ class DirectCommandTests(unittest.TestCase):
         self.assertEqual(mp3.args, {"text": "Добрый вечер", "format": "mp3"})
 
     def test_stop_is_emergency_zero_not_program_exit(self):
+        # In the hands-free mode, "стоп"/"красный" are safety stop words handled
+        # outside the command parser (instant zero + TTS cancel), not a normal
+        # xtoys.set_intensity action. They must be recognized as stop commands.
         for phrase in ("стоп", "красный", "остановись", "аварийный стоп"):
-            command = EventLoop.parse_direct_command(phrase)
-            self.assertEqual(command.action, "xtoys.set_intensity")
-            self.assertEqual(command.args, {"value": 0})
-            self.assertFalse(EventLoop.is_stop_command(phrase))
+            with self.subTest(phrase=phrase):
+                self.assertTrue(EventLoop.is_stop_command(phrase))
+                # They are NOT parsed into a tool action (safety path is separate).
+                self.assertIsNone(
+                    EventLoop.parse_direct_command(phrase),
+                    msg=f"{phrase} должен идти по safety-пути, а не парситься в действие",
+                )
         self.assertTrue(EventLoop.is_stop_command("выход"))

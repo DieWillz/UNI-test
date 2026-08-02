@@ -56,5 +56,10 @@ MODEL_CARD
 ALIASES
 *.zip
 
+# Development coordinator runtime state and authenticated provider profiles
+/.uni-dev/coordination/state.json
+/.uni-dev/coordination/*.tmp
+/.uni-dev/coordination/browser-profiles/
+
 # Broken/legacy integration tests
 /tests/integration/

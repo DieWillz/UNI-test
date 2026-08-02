@@ -22,6 +22,8 @@ from uni.session_log import SessionLogger
 from uni.tools import ToolExecutor
 from uni.working_memory import WorkingMemory
 
+from uni.autonomous import AutonomousController
+
 console = Console()
 
 
@@ -43,6 +45,7 @@ class Agent:
             user_data_dir=browser_config.user_data_dir,
             search_engine=browser_config.search_engine,
             image_search_engine=browser_config.image_search_engine,
+            cdp_url=browser_config.cdp_url,
         )
 
         speech_config = config.capabilities.speech
@@ -104,6 +107,8 @@ class Agent:
             role_prompt=self.role.system_prompt,
             session_logger=self.session_logger,
         )
+        self.event_loop._agent_ref = self
+        self.autonomous = AutonomousController(self, config)
 
     async def initialize(self) -> None:
         healthcheck, speech_warmup = await asyncio.gather(
@@ -135,7 +140,23 @@ class Agent:
     async def run(self, command: Optional[str] = None):
         if command:
             return await self.event_loop.run_cycle(user_input=command)
+        acfg = getattr(self.config.agent, "autonomous", None)
+        # Hands-free: if enabled AND the device is allowed to move, start the session at once.
+        device_allowed = bool(
+            getattr(acfg, "enabled", False)
+            and self.config.capabilities.xtoys.autonomous_physical
+            and getattr(acfg, "auto_start_session", False)
+        )
+        if device_allowed:
+            console.print("[bold cyan]Автономный режим: запускаю сессию без команд.[/bold cyan]")
+            return await self.autonomous.run()
+        if getattr(acfg, "enabled", False):
+            return await self.autonomous.run()
         return await self.event_loop.run_interactive()
+
+    async def run_autonomous(self) -> None:
+        """Explicit entry point for the hands-free mode (or `py -3.12 -m uni --autonomous`)."""
+        return await self.autonomous.run()
 
     def get_state(self):
         return self.event_loop.state
