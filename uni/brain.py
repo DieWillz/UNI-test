@@ -37,15 +37,51 @@ class Brain:
                 timeout=config.timeout_seconds,
             )
         self.model = config.model
-        self.vision_model = vision_model or config.vision_model or config.model
+        self._model_is_automatic = config.model.strip().lower() in {"", "auto"}
+        self._model_resolved = False
+        # Vision has its own explicit selection. If it is omitted, it follows the
+        # resolved text model instead of preserving the literal value "auto".
+        self.vision_model = vision_model or config.vision_model
+
+    async def _resolve_loaded_model(self) -> tuple[str, list[str], bool]:
+        """Resolve the active LM Studio text model.
+
+        LM Studio's OpenAI-compatible ``/v1/models`` endpoint exposes models
+        that are currently loaded, unlike its native catalogue endpoint which
+        also includes downloaded but unloaded models. An explicit configured
+        model wins while it is loaded; otherwise UNI follows the first loaded
+        model so changing models in LM Studio needs no config edit.
+        """
+        models = await self.client.models.list()
+        names = [str(item.id).strip() for item in models.data if str(item.id).strip()]
+        if not names:
+            raise RuntimeError(
+                "В LM Studio нет загруженной модели. Загрузите текстовую модель "
+                "и оставьте Local Server включённым."
+            )
+
+        configured = self.config.model.strip()
+        used_fallback = bool(configured and configured.lower() != "auto" and configured not in names)
+        if configured and configured.lower() != "auto" and configured in names:
+            selected = configured
+        else:
+            selected = names[0]
+
+        self.model = selected
+        self._model_resolved = True
+        if self.vision_model is None:
+            self.vision_model = selected
+        return selected, names, used_fallback
+
+    async def _ensure_model(self) -> None:
+        if not self._model_resolved:
+            await self._resolve_loaded_model()
 
     async def healthcheck(self) -> tuple[bool, str]:
         try:
-            models = await self.client.models.list()
-            names = [item.id for item in models.data]
-            if self.model not in names:
-                return False, f"Модель {self.model!r} не найдена среди {len(names)} моделей LM Studio"
-            return True, f"{self.model}; моделей в каталоге: {len(names)}"
+            selected, names, used_fallback = await self._resolve_loaded_model()
+            suffix = " (выбрана автоматически вместо значения из config)" if used_fallback else ""
+            return True, f"{selected}{suffix}; загружено моделей: {len(names)}"
         except Exception as exc:
             return False, str(exc)
 
@@ -57,6 +93,7 @@ class Brain:
         max_tokens: Optional[int] = None,
     ) -> BrainResponse:
         try:
+            await self._ensure_model()
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -88,6 +125,8 @@ class Brain:
         if not image_data.startswith("data:image"):
             image_data = f"data:image/png;base64,{image_data}"
         try:
+            if self.vision_model is None:
+                await self._ensure_model()
             response = await self.vision_client.chat.completions.create(
                 model=self.vision_model,
                 messages=[

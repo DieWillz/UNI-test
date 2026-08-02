@@ -62,7 +62,8 @@ class BrowserCapability(Capability):
             return ToolResult(success=False, message="CSS-селектор не указан")
         try:
             page = await self.session.active_page()
-            await page.locator(selector).first.click(timeout=10_000)
+            loc = page.locator(selector).first
+            await self.session.click_locator(loc, timeout=10_000)
             return ToolResult(success=True, message=f"Клик выполнен: {selector}")
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка клика: {exc}")
@@ -72,7 +73,8 @@ class BrowserCapability(Capability):
             return ToolResult(success=False, message="CSS-селектор не указан")
         try:
             page = await self.session.active_page()
-            await page.locator(selector).first.fill(text, timeout=10_000)
+            loc = page.locator(selector).first
+            await self.session.fill_locator(loc, text, timeout=10_000)
             return ToolResult(success=True, message=f"Текст введён в {selector}")
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка ввода: {exc}")

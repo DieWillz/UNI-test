@@ -10,34 +10,54 @@ from .provider import build_provider, CouncilProvider
 # we reach only through browser automation. The selection rule requested by the
 # coordinator: prefer API when the model is free/available, fall back to browser when the
 # API is paid/closed. Each participant has a fixed role in the consensus round.
-#
-# SECURITY (MANIFESTO v2.5 §3.1, §7):
+# SECURITY / FAIR USE (MANIFESTO v2.6 §7):
 # - No participant ever receives secrets. Browser transport uses a SEPARATE profile.
 # - Advisor output is untrusted data; it is never executed nor used to call UNI tools.
+# - Browser participants below target the FREE web tiers only (chat.deepseek.com,
+#   chat.qwen.ai, claude.ai free, grok.com). They must NEVER automate a paid consumer
+#   subscription (ChatGPT Plus, Gemini Advanced, ...) as an API replacement.
 # - Signature lines from a participant are recorded verbatim but flagged unverified
 #   until the coordinator (human) accepts them.
-
+#
+# API participants pull base_url + key from config (council.api_endpoints). Local apps
+# installed on the user's PC (Codex / Hermes) use a localhost endpoint the user sets in
+# the WebUI settings. Secrets come from config, never from code — see load_participants().
 DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
     {
         "name": "DeepSeek",
         "role": "Algorithms Engineer / architect",
-        "transport": "api",  # local or free endpoint
-        "base_url": "http://localhost:1234/v1",
-        "api_key": "lm-studio",
-        "model": "deepseek-coder-v2-lite",
+        "transport": "browser",  # no free API — free web chat only
+        "free_tier": True,
+        "host": "chat.deepseek.com",
+        "prompt_selector": "div[contenteditable='true'], textarea",
+        "submit_selector": None,
+        "answer_selector": "div[class*='response'], article, [class*='message'], [class*='markdown']",
     },
     {
         "name": "QWEN",
         "role": "Consensus editor",
-        "transport": "api",
-        "base_url": "http://localhost:1234/v1",
-        "api_key": "lm-studio",
-        "model": "qwen2.5-7b-instruct-1m",
+        "transport": "browser",  # free web chat (no free API)
+        "free_tier": True,
+        "host": "chat.qwen.ai",
+        "prompt_selector": "div[contenteditable='true'], textarea",
+        "submit_selector": "button[type='submit'], button[aria-label='Send']",
+        "answer_selector": "div[class*='response'], article, [class*='message']",
+    },
+    {
+        "name": "Qwen Coder",
+        "role": "Code implementation / repository work",
+        "transport": "browser",
+        "free_tier": True,
+        "host": "coder.qwen.ai",
+        "prompt_selector": "div[contenteditable='true'], textarea",
+        "submit_selector": "button[type='submit'], button[aria-label='Send']",
+        "answer_selector": "div[class*='response'], article, [class*='message'], [class*='markdown']",
     },
     {
         "name": "Claude",
         "role": "Critic / ethics",
-        "transport": "browser",  # closed web chat, no free API here
+        "transport": "browser",  # free web chat, no free API here
+        "free_tier": True,
         "host": "claude.ai",
         "prompt_selector": "div[contenteditable='true'], textarea",
         "submit_selector": "button[aria-label='Send'], button[type='submit']",
@@ -45,18 +65,17 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
     },
     {
         "name": "ChatGPT",
-        "role": "General reviewer",
-        "transport": "browser",
-        "host": "chatgpt.com",
-        "prompt_selector": "div[contenteditable='true'], textarea",
-        "submit_selector": "button[data-testid='send-button'], button[type='submit']",
-        "answer_selector": "div[class*='prose'], article",
+        "role": "General reviewer (Codex, local app)",
+        "transport": "codex",  # local Codex CLI (uses saved ChatGPT/Codex login, no API key)
+        "sandbox": "workspace-write",
+        "model": "gpt-4o",
     },
     {
         "name": "Grok",
         "role": "Reality-check / feasibility",
         "transport": "browser",
-        "host": "x.com",  # grok lives inside x.com
+        "free_tier": True,
+        "host": "grok.com",
         "prompt_selector": "div[contenteditable='true'], textarea",
         "submit_selector": "button[type='submit']",
         "answer_selector": "div[class*='prose'], article",
@@ -64,19 +83,37 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
     {
         "name": "Gemini",
         "role": "Risk analyst",
-        "transport": "browser",
-        "host": "gemini.google.com",
-        "prompt_selector": "div[contenteditable='true'], textarea",
-        "submit_selector": "button[aria-label='Send'], button[type='submit']",
-        "answer_selector": "div[class*='response'], article",
+        "transport": "api",  # free Gemini API (user provides a key)
+        "endpoint": "gemini",
+        "model": "gemini-1.5-flash",
+    },
+    {
+        "name": "Groq",
+        "role": "Fast feasibility / latency check",
+        "transport": "api",  # Groq (real keyed API, very fast)
+        "endpoint": "groq",
+        "model": "llama-3.3-70b-versatile",
+    },
+    {
+        "name": "OpenRouter",
+        "role": "Open model router (free tier)",
+        "transport": "api",  # OpenRouter free models
+        "endpoint": "openrouter",
+        "model": "deepseek/deepseek-chat",
+    },
+    {
+        "name": "HuggingFace",
+        "role": "Open models / community",
+        "transport": "api",  # HF free inference API
+        "endpoint": "huggingface",
+        "model": "meta-llama/Llama-3.3-70B-Instruct",
     },
     {
         "name": "Hermes",
-        "role": "Coordinator / synthesizer",
-        "transport": "api",
-        "base_url": "http://localhost:1234/v1",
-        "api_key": "lm-studio",
-        "model": "qwen2.5-7b-instruct-1m",
+        "role": "Coordinator / synthesizer (this app)",
+        "transport": "api",  # local Hermes app on the user's PC
+        "endpoint": "hermes",  # user sets the localhost base_url in WebUI settings
+        "model": "local",
     },
 ]
 
@@ -89,18 +126,26 @@ class Participant:
     spec: dict[str, Any] = field(default_factory=dict)
     provider: Optional[CouncilProvider] = None
 
-    def build_provider(self, *, browser_session=None) -> CouncilProvider:
-        spec = dict(self.spec)
-        if self.transport == "browser":
-            if browser_session is None:
-                raise ValueError(f"Participant {self.name} needs browser_session for browser transport")
-            spec["browser_session"] = browser_session
-        self.provider = build_provider(spec)
-        return self.provider
-
     @property
     def is_free(self) -> bool:
         return self.transport == "api"
+
+    @property
+    def is_free_tier_browser(self) -> bool:
+        """Browser participant that targets a FREE web tier (allowed by MANIFESTO v2.6 §7)."""
+        return self.transport == "browser" and bool(self.spec.get("free_tier", False))
+
+    def build_provider(self, *, browser_session=None, min_interval_seconds: float = 8.0, spec: Optional[dict] = None) -> CouncilProvider:
+        # `spec` (when given) carries the resolved secret (api_key); defaults to the
+        # redacted self.spec so we never leak keys into the stored Participant.spec.
+        s = dict(spec) if spec is not None else dict(self.spec)
+        if self.transport == "browser":
+            if browser_session is None:
+                raise ValueError(f"Participant {self.name} needs browser_session for browser transport")
+            s["browser_session"] = browser_session
+            s["min_interval_seconds"] = min_interval_seconds
+        self.provider = build_provider(s)
+        return self.provider
 
 
 def load_participants(
@@ -108,27 +153,57 @@ def load_participants(
     *,
     browser_session=None,
     only: Optional[list[str]] = None,
+    min_interval_seconds: float = 8.0,
 ) -> list[Participant]:
     """Build participant objects and their providers.
 
     `only` restricts to a named subset (useful for quick local-only rounds).
+    A browser participant only gets a provider when a `browser_session` is supplied;
+    otherwise the provider is left None and must be built later by the runner once it
+    has started the browser (see run.py). This keeps load_participants importable and
+    usable for API-only inspection without a live browser.
+
+    API participants with an ``endpoint`` key pull their base_url/api_key from
+    ``config.council.api_endpoints`` (OpenRouter / Groq / ...). Secrets never live in
+    code; they come from the local config.yaml.
     """
+    from ._keys import resolve_endpoint
+
+    cfg = None
+    try:
+        from ..config import load_config
+        cfg = load_config()
+    except Exception:
+        cfg = None
+
     specs = specs if specs is not None else DEFAULT_PARTICIPANTS
     participants: list[Participant] = []
     for spec in specs:
         name = spec["name"]
         if only and name not in only:
             continue
-        # Redact anything that looks like a secret before storing in the spec copy.
-        clean = {k: v for k, v in spec.items() if k not in ("api_key",)}
-        if "api_key" in spec:
-            clean["_has_api_key"] = bool(spec["api_key"]) and spec["api_key"] != "lm-studio"
+        clean = dict(spec)
+        # Resolve API endpoint secrets from config (no hardcoded keys).
+        if clean.get("transport") == "api" and clean.get("endpoint"):
+            ep = resolve_endpoint(clean["endpoint"], cfg)
+            if ep:
+                clean["base_url"] = ep["base_url"]
+                clean["api_key"] = ep["api_key"]
+        # `build_provider` needs the resolved api_key; Participant.spec must NOT store it.
+        provider_spec = dict(clean)
+        display_spec = {k: v for k, v in clean.items() if k not in ("api_key",)}
+        if "api_key" in clean:
+            display_spec["_has_api_key"] = bool(clean["api_key"])
         p = Participant(
             name=name,
             role=spec.get("role", ""),
             transport=spec.get("transport", "api"),
-            spec=clean,
+            spec=display_spec,
         )
-        p.build_provider(browser_session=browser_session)
+        if p.transport == "browser" and browser_session is None:
+            # Defer provider creation until the runner supplies a browser session.
+            pass
+        else:
+            p.build_provider(spec=provider_spec, browser_session=browser_session, min_interval_seconds=min_interval_seconds)
         participants.append(p)
     return participants

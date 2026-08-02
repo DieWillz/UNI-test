@@ -23,6 +23,9 @@ class BrowserSession:
         search_engine: str = "https://www.bing.com/search?q={query}",
         image_search_engine: str = "https://yandex.ru/images/search?text={query}",
         cdp_url: str | None = None,
+        agent_cursor_enabled: bool = True,
+        agent_cursor_label: str = "UNI",
+        agent_cursor_move_ms: int = 220,
     ) -> None:
         self.headless = headless
         self.viewport = {"width": viewport_width, "height": viewport_height}
@@ -31,10 +34,14 @@ class BrowserSession:
         self.search_engine = search_engine
         self.image_search_engine = image_search_engine
         self.cdp_url = cdp_url
+        self.agent_cursor_enabled = agent_cursor_enabled
+        self.agent_cursor_label = agent_cursor_label
+        self.agent_cursor_move_ms = agent_cursor_move_ms
         self._playwright: Playwright | None = None
         self._context: BrowserContext | None = None
         self._browser = None
         self._page: Page | None = None
+        self._owns_context = False
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
@@ -51,8 +58,10 @@ class BrowserSession:
                 try:
                     self._browser = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
                     self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
+                    self._owns_context = False
                     pages = self._context.pages
                     self._page = pages[0] if pages else await self._context.new_page()
+                    await self._install_agent_cursor()
                     return
                 except Exception as exc:
                     console = __import__("rich.console", fromlist=["Console"]).Console()
@@ -69,34 +78,60 @@ class BrowserSession:
                 self._context = await self._playwright.chromium.launch_persistent_context(
                     str(self.user_data_dir), **launch_options
                 )
+                self._owns_context = True
             except Exception:
                 launch_options.pop("channel", None)
                 self._context = await self._playwright.chromium.launch_persistent_context(
                     str(self.user_data_dir), **launch_options
                 )
+                self._owns_context = True
             pages = self._context.pages
             self._page = pages[0] if pages else await self._context.new_page()
+            await self._install_agent_cursor()
+
+    async def _install_agent_cursor(self) -> None:
+        if not self.agent_cursor_enabled or self.headless or self._context is None:
+            return
+        try:
+            from uni.agent_cursor import install_on_context
+
+            await install_on_context(self._context)
+        except Exception:
+            pass
 
     async def close(self) -> None:
         context, playwright = self._context, self._playwright
         self._context = None
         self._playwright = None
         self._page = None
-        if context is not None:
+        owns_context = self._owns_context
+        self._owns_context = False
+        self._browser = None
+        if context is not None and owns_context:
             await context.close()
         if playwright is not None:
             await playwright.stop()
 
     async def ensure_alive(self) -> None:
         """Re-create the browser context if it was closed by a crash/timeout."""
-        if self._context is None or getattr(self._context, "closed", False) or self._context._close_was_called:
+        disconnected = self._browser is not None and not self._browser.is_connected()
+        inaccessible = False
+        if self._context is not None and not disconnected:
+            try:
+                self._context.pages
+            except Exception:
+                inaccessible = True
+        if self._context is None or disconnected or inaccessible:
             if self._context is not None:
                 try:
-                    await self._context.close()
+                    if self._owns_context:
+                        await self._context.close()
                 except Exception:
                     pass
                 self._context = None
                 self._page = None
+                self._owns_context = False
+                self._browser = None
             await self.start()
 
     async def active_page(self) -> Page:
@@ -198,3 +233,37 @@ class BrowserSession:
                 }).filter(item => item && item.image_url)"""
             )
         return page, results[:12]
+
+    async def click_locator(self, locator, *, timeout: float = 10_000) -> None:
+        """DOM click with optional visible UNI cursor (OS mouse not moved)."""
+        page = await self.active_page()
+        if self.agent_cursor_enabled and not self.headless:
+            from uni.agent_cursor import click_with_cursor
+
+            await click_with_cursor(
+                page,
+                locator,
+                label=self.agent_cursor_label,
+                move_ms=self.agent_cursor_move_ms,
+                timeout=timeout,
+            )
+        else:
+            await locator.click(timeout=timeout)
+
+    async def fill_locator(self, locator, text: str, *, timeout: float = 10_000) -> None:
+        """Focus + fill with optional UNI cursor overlay."""
+        page = await self.active_page()
+        if self.agent_cursor_enabled and not self.headless:
+            from uni.agent_cursor import fill_with_cursor
+
+            await fill_with_cursor(
+                page,
+                locator,
+                text,
+                label=self.agent_cursor_label,
+                move_ms=self.agent_cursor_move_ms,
+                timeout=timeout,
+            )
+        else:
+            await locator.click(timeout=timeout)
+            await locator.fill(text, timeout=timeout)
