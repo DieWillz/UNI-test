@@ -112,12 +112,18 @@ class ApiProvider(CouncilProvider):
 
 
 class BrowserProvider(CouncilProvider):
-    """Browser automation transport for paid/closed web-AI chats (no API key).
+    """Browser automation transport for free web-AI chats (no API key / no payment).
 
-    Uses the shared BrowserSession but a SEPARATE profile per MANIFESTO v2.5 §7:
+    Uses the shared BrowserSession but a SEPARATE profile per MANIFESTO v2.6 §7:
     web-AI answers are untrusted data and must not mix with the user's bank,
     mail or intimate sessions. The provider only navigates, types the prompt,
     reads the answer and returns text. It cannot invoke any UNI tool.
+
+    Fair-use conditions (MANIFESTO v2.6 §7):
+    - targets FREE web tiers only (never a paid consumer subscription as API stand-in);
+    - respects `min_interval_seconds` pauses between requests (rate limiting);
+    - the runner is responsible for informing the user that automation may breach a
+      service ToS and for obtaining their acknowledgement.
     """
 
     scheme = "browser"
@@ -131,6 +137,7 @@ class BrowserProvider(CouncilProvider):
         submit_selector: Optional[str] = None,
         answer_selector: str = "article, main, [role='article'], .markdown, .prose",
         max_chars: int = 8000,
+        min_interval_seconds: float = 8.0,
     ) -> None:
         self.session = browser_session
         self.host = host
@@ -138,6 +145,7 @@ class BrowserProvider(CouncilProvider):
         self.submit_selector = submit_selector
         self.answer_selector = answer_selector
         self.max_chars = max_chars
+        self.min_interval_seconds = max(0.0, float(min_interval_seconds))
 
     async def ask(self, participant: str, prompt: str, *, max_tokens: int = 2000) -> ParticipantReply:
         import time
@@ -163,6 +171,10 @@ class BrowserProvider(CouncilProvider):
             text = _strip_thinking(raw)[: self.max_chars]
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
+        # Rate-limit: pause at least min_interval_seconds before the next call (fair use).
+        elapsed = time.perf_counter() - start
+        if self.min_interval_seconds > elapsed:
+            await asyncio.sleep(self.min_interval_seconds - elapsed)
         return ParticipantReply(
             participant=participant,
             text=text,
@@ -198,5 +210,6 @@ def build_provider(spec: dict[str, Any]) -> CouncilProvider:
             prompt_selector=spec.get("prompt_selector", BrowserProvider.prompt_selector),
             submit_selector=spec.get("submit_selector"),
             answer_selector=spec.get("answer_selector", BrowserProvider.answer_selector),
+            min_interval_seconds=spec.get("min_interval_seconds", BrowserProvider.min_interval_seconds),
         )
     raise ValueError(f"Unknown council transport: {transport!r}")

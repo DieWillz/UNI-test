@@ -123,18 +123,30 @@ class MemoryConfig(BaseModel):
     max_dialogue_turns: int = Field(default=50, ge=5, le=500)
 
 class CouncilConfig(BaseModel):
-    """Development council automation (MANIFESTO v2.5 §7, COUNCIL-002).
+    """Development council automation (MANIFESTO v2.6 §7, COUNCIL-002).
 
     Replaces the manual copy-paste loop between AI participants. Participants are
     queried through the cheapest available transport: API when the model is free/
     local, browser automation when it is a paid closed web chat. Advisor output is
     always treated as untrusted data and never invokes a UNI tool.
+
+    Per MANIFESTO v2.6 §7, the browser adapter is ENABLED by default for FREE web
+    tiers (so users without money can reach strong models without paying for API),
+    but it must respect fair-use conditions: informed consent about possible ToS
+    violation, rate limiting via reasonable pauses, and it must NEVER automate
+    consumer paid subscriptions (ChatGPT Plus, Gemini Advanced, ...) as a stand-in
+    for the official API.
     """
     enabled: bool = True
     artifacts_dir: str = ".uni-council"
     concurrency: int = Field(default=3, ge=1, le=8)
     timeout_seconds: float = Field(default=90.0, gt=0.0, le=600.0)
     collect_signatures: bool = True
+    # Browser transport (MANIFESTO v2.6 §7).
+    browser_enabled: bool = True  # on by default for free web tiers
+    inform_tos: bool = True  # tell the user automation may breach a service ToS
+    free_tier_only: bool = True  # never automate paid consumer subscriptions
+    min_interval_seconds: float = Field(default=8.0, gt=0.0, le=120.0)  # rate limit / pauses
     # Separate browser profile so web-AI sessions never mix with user bank/mail/intimate.
     browser_profile: str = ".uni-council-browser-profile"
 
