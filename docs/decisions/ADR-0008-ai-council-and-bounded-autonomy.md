@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-02
 - Supersedes: COUNCIL-001 (spec), implements COUNCIL-002 (report-only council)
+- Updated for: MANIFESTO v2.6 §7 (browser adapter enabled by default for free tiers)
 
 ## Context
 
@@ -38,16 +39,28 @@ MANIFESTO v2.5 already mandates:
    coordinator accepts them (per MANIFESTO §11: a model signature is its position in its
    own session, not a joint agreement between models).
 3. **Separate browser profile** for web-AI transport so it never mixes with the user's
-   bank / mail / intimate sessions (MANIFESTO §7).
+   bank / mail / intimate sessions (MANIFESTO v2.6 §7).
 4. **No secrets** are sent to any participant; API keys are redacted from the stored
    spec; the local manifest is never transmitted.
 5. Bounds: concurrency ≤ 8, per-participant timeout ≤ 600s, brain/model failures are
    reported as errors and never abort the whole round.
+6. **Browser adapter is on by default for FREE web tiers** (MANIFESTO v2.6 §7): it is the
+   only way users without money reach strong models without paying for API. Fair-use
+   guardrails, all enforced in code:
+   - `inform_tos=True` → the CLI shows a ToS notice and asks for acknowledgement before
+     any browser automation (unless `--yes-tos`).
+   - `free_tier_only=True` → any browser participant not marked `free_tier` is dropped
+     (the adapter never automates a paid consumer subscription like ChatGPT Plus /
+     Gemini Advanced as an API stand-in).
+   - `min_interval_seconds` (default 8s) → `BrowserProvider` sleeps between calls to
+     avoid excessive load on the services.
+   - `--no-browser` lets the user disable the adapter entirely.
 
 ## Consequences
 
 - Positive: the manual consensus loop is replaced by one command; artifacts are
-  local-first and auditable; ethics invariants from v2.5 are preserved.
+  local-first and auditable; ethics invariants from v2.6 are preserved; users without a
+  paid API key can still consult strong web models through the free-tier browser path.
 - Negative: browser transport depends on third-party DOM that may change; such
   participants are best-effort and their failures are non-fatal.
 - Councillor output does not change runtime code. Turning a consensus into an action
@@ -58,5 +71,5 @@ MANIFESTO v2.5 already mandates:
 - §3.1 Purpose Integrity: council never substitutes hidden goals; it only relays the
   coordinator's explicit brief.
 - §3.3 Policy Engine: council has no tool-call capability, so it cannot bypass policy.
-- §7 Browser adapter: separate profile, untrusted output, no secrets, off by default
-  unless invoked.
+- §7 Browser adapter: separate profile, untrusted output, no secrets, fair-use pauses,
+  ToS acknowledgement, free-tier-only, off by default-reversible via `--no-browser`.

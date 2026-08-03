@@ -150,15 +150,20 @@ class VisionCapability(Capability):
     async def _ask(self, image: Image.Image, prompt: str, *, preserve_prompt: bool = False) -> str:
         provider = self.config.capabilities.vision.provider.lower()
         if provider == "gradio":
-            if not preserve_prompt and re.search(r"[а-яё]", prompt, flags=re.IGNORECASE):
+            if preserve_prompt:
+                # Keep the caller's prompt (e.g. a JSON-instruction) but force
+                # the model to answer in Russian.
+                prompt = f"{prompt}\nОтвечай только по-русски."
+            else:
                 prompt = (
-                    "Describe this browser screenshot. Identify the website, visible controls, "
-                    "main text, current state, and any warning. Be concise and factual."
+                    "Кратко опиши этот снимок экрана по-русски. Назови сайт, видимые "
+                    "элементы управления, основной текст, текущее состояние и любые "
+                    "предупреждения. Будь лаконичен и фактичен."
                 )
             async with self._gradio_lock:
                 return await asyncio.to_thread(self._gradio_predict, image.copy(), prompt)
         if provider == "openai":
-            return await self.brain.vision(self._data_url(image), prompt)
+            return await self.brain.vision(self._data_url(image), f"{prompt}\nОтвечай только по-русски.")
         raise ValueError(f"Неизвестный Vision provider: {provider}")
 
     async def _capture(self) -> tuple[Image.Image, tuple[int, int], str | None]:
@@ -244,7 +249,7 @@ class VisionCapability(Capability):
             logger.exception("Vision element detection failed")
             return ToolResult(success=False, message=f"Ошибка Vision: {exc}")
 
-    async def analyze_desktop(self, prompt: str = "Describe the visible Windows desktop and active application.") -> ToolResult:
+    async def analyze_desktop(self, prompt: str = "Кратко опиши видимый рабочий стол Windows и активное приложение по-русски.") -> ToolResult:
         if not self.config.capabilities.vision.enabled:
             return ToolResult(success=False, message="Vision отключён в config.yaml")
         try:
@@ -333,7 +338,7 @@ class VisionCapability(Capability):
         if action == "find_element":
             return await self.find_element(str(kwargs.get("description", "")))
         if action == "analyze_desktop":
-            return await self.analyze_desktop(str(kwargs.get("prompt", "Describe the visible Windows desktop.")))
+            return await self.analyze_desktop(str(kwargs.get("prompt", "Кратко опиши видимый рабочий стол Windows по-русски.")))
         if action == "observe_desktop":
             return await self.observe_desktop()
         if action == "find_desktop_element":
@@ -341,6 +346,6 @@ class VisionCapability(Capability):
         if action == "analyze_file":
             return await self.analyze_file(
                 str(kwargs.get("path", "")),
-                str(kwargs.get("prompt", "Describe this camera frame factually.")),
+                str(kwargs.get("prompt", "Опиши этот кадр с камеры фактически, по-русски.")),
             )
         return ToolResult(success=False, message=f"Неизвестное действие vision.{action}")

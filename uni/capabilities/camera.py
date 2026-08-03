@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import threading
 import time
 from datetime import datetime
@@ -11,6 +12,14 @@ import cv2
 
 from uni.contracts import ToolResult
 from .base import Capability
+
+
+def _frame_to_base64(frame) -> str:
+    """Encode a BGR numpy frame (cv2) to a JPEG base64 data URL."""
+    ok, buf = cv2.imencode(".jpg", frame)
+    if not ok:
+        raise RuntimeError("Не удалось закодировать кадр")
+    return "data:image/jpeg;base64," + base64.b64encode(buf).decode("ascii")
 
 
 class CameraCapability(Capability):
@@ -106,6 +115,31 @@ class CameraCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка кадра камеры: {exc}")
 
+    async def capture_base64_frame(self) -> ToolResult:
+        """Захватить кадр и вернуть JPEG-base64 data URL для WebUI / LLM.
+
+        Камера должна быть уже включена через start(notice_ack=True) —
+        этот метод НЕ обходит гейт звукового уведомления.
+        """
+        try:
+            data = await asyncio.to_thread(self._capture_base64_sync)
+            return ToolResult(
+                success=True,
+                data=data,
+                message="Кадр с камеры получен",
+            )
+        except Exception as exc:
+            return ToolResult(success=False, message=f"Ошибка кадра камеры: {exc}")
+
+    def _capture_base64_sync(self) -> dict[str, Any]:
+        with self._lock:
+            if self._capture is None or not self._capture.isOpened():
+                raise RuntimeError("Камера не включена (сначала start с notice_ack)")
+            success, frame = self._capture.read()
+            if not success:
+                raise RuntimeError("Не удалось получить кадр")
+            return {"image_b64": _frame_to_base64(frame)}
+
     def _stop_sync(self) -> bool:
         with self._lock:
             was_open = self._capture is not None
@@ -130,6 +164,8 @@ class CameraCapability(Capability):
             return await self.start(bool(kwargs.get("notice_ack", False)))
         if action == "snapshot":
             return await self.snapshot(str(kwargs.get("label", "camera")))
+        if action == "capture_base64":
+            return await self.capture_base64_frame()
         if action == "stop":
             return await self.stop()
         return ToolResult(success=False, message=f"Неизвестное действие camera.{action}")

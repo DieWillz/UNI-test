@@ -32,6 +32,28 @@ from uni.council.round import CouncilRound
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
 _FRONTEND = _HERE / "index.html"
+
+# ===== Состояние чат-хаба (мультимодальный режим) =====
+# Один Agent на процесс сервера; собирается лениво при первом чат-запросе.
+# Камера требует звукового уведомления (notice_ack) до старта — гейт безопасности.
+_CHAT_AGENT = None
+_CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво)
+_CAMERA_NOTICED = False
+
+# MIME map for locally served static assets (style.css, app.js, theme_*.css, favicon, ...).
+# Kept deliberately small: the WebUI ships only a handful of asset types. Anything
+# unknown falls through to application/octet-stream.
+_STATIC_TYPES: dict[str, str] = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".ico": "image/x-icon",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".json": "application/json",
+    ".html": "text/html; charset=utf-8",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+}
 _DEFAULT_PORT = 8787
 _MAX_BODY_BYTES = 2 * 1024 * 1024
 _MAX_FILES = 12
@@ -279,6 +301,42 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"frontend missing", "text/plain")
             return
+        if parsed.path in ("/chat", "/chat.html"):
+            chat_html = (_HERE / "chat.html")
+            if chat_html.exists():
+                self._send(200, chat_html.read_bytes(), "text/html; charset=utf-8")
+            else:
+                self._send(404, b"chat frontend missing", "text/plain")
+            return
+        if parsed.path in ("/api/context/feed", "/api/context/feed/"):
+            self._handle_context_feed_get()
+            return
+        # --- локальная статика (style.css, app.js, theme_*.css, иконки) ---
+        # UNI-UI-STAB: после разделения index.html на 3 файла браузер запрашивает
+        # style.css/app.js по отдельным URL; кастомный do_GET ранее отдавал на них 404.
+        # Белый список расширений (_STATIC_TYPES): отдаём ТОЛЬКО браузерные ассеты.
+        # Любой другой суффикс (.py/.yaml/.txt/...) — 404, даже если файл лежит в папке.
+        # urlparse уже нормализует "..", поэтому доп. защита — только разрешённые типы.
+        # Алиасы старых путей -> новая структура (js/ и css/), чтобы интерфейс работал
+        # независимо от того, обновлён index.html или нет.
+        _STATIC_ALIASES = {
+            "/style.css": "css/style.css",
+            "/app.js": "js/app.js",
+        }
+        if parsed.path in _STATIC_ALIASES:
+            rel = _STATIC_ALIASES[parsed.path]
+            candidate = (_HERE / rel).resolve()
+            if candidate.is_relative_to(_HERE.resolve()) and candidate.is_file():
+                self._send(200, candidate.read_bytes(), _STATIC_TYPES[candidate.suffix.lower()])
+                return
+        if parsed.path and not parsed.path.startswith("/api/"):
+            suffix = Path(parsed.path).suffix.lower()
+            if suffix in _STATIC_TYPES:
+                rel = parsed.path.lstrip("/")
+                candidate = (_HERE / rel).resolve()
+                if candidate.is_relative_to(_HERE.resolve()) and candidate.is_file():
+                    self._send(200, candidate.read_bytes(), _STATIC_TYPES[suffix])
+                    return
         if parsed.path == "/api/participants":
             cfg = load_config()
             self._json(200, _participant_statuses(cfg))
@@ -393,34 +451,196 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": str(exc)})
             return
+        # ============ UNI Chat Hub (новый мультимодальный чат) ============
+        if self.path == "/api/chat":
+            self._handle_chat(self._read_json_body())
+            return
+        if self.path == "/api/camera/notice":
+            self._handle_camera_notice()
+            return
+        if self.path == "/api/camera/start":
+            self._handle_camera_start(self._read_json_body())
+            return
+        if self.path == "/api/camera/stop":
+            self._handle_camera_stop()
+            return
+        if self.path == "/api/vision/capture":
+            self._handle_vision_capture()
+            return
+        if self.path in ("/api/context/feed", "/api/context/feed/"):
+            if self.command == "POST":
+                self._handle_context_feed_post(self._read_json_body())
+            else:
+                self._handle_context_feed_get()
+            return
+        # ====================== конец Chat Hub ======================
         self._send(404, b"not found", "text/plain")
 
-def _delete_history(round_id: str) -> int:
-    """Delete one round's artifacts, or all when round_id == '__all__'."""
-    directory = (_ROOT / load_config().council.artifacts_dir).resolve()
-    if not directory.exists():
-        return 0
-    if round_id == "__all__":
-        files = list(directory.glob("*_report.md")) + list(directory.glob("*_meta.json")) + \
-                list(directory.glob("*_*.md"))
-        for f in files:
-            try:
-                f.unlink()
-            except OSError:
-                pass
-        return len(files)
-    count = 0
-    for pat in (f"{round_id}_report.md", f"{round_id}_meta.json", f"{round_id}_*.md"):
-        for f in directory.glob(pat):
-            try:
-                f.unlink()
-                count += 1
-            except OSError:
-                pass
-    return count
+    def _read_json_body(self) -> dict:
+        try:
+            return json.loads((self.rfile.read(int(self.headers.get("Content-Length", 0)) or 0)).decode("utf-8") or "{}")
+        except (ValueError, KeyError, TypeError):
+            return {}
 
+    # ---------- UNI Chat Hub (мультимодальный чат) ----------
+    def _get_chat_agent(self):
+        global _CHAT_AGENT
+        if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):
+            from uni.agent import Agent
 
-def _save_config(self, payload: dict) -> None:
+            cfg = load_config()
+            agent = Agent(cfg)
+            try:
+                # Инициализация может тянуть браузер/камеру/модель — ограничиваем.
+                asyncio.run(asyncio.wait_for(agent.initialize(), timeout=20.0))
+            except Exception as exc:
+                # агент без тяжёлых capability всё ещё может отвечать текстом;
+                # запоминаем ошибку, чтобы /api/chat вернул внятный ответ.
+                agent._init_error = f"{type(exc).__name__}: {exc}"
+            _CHAT_AGENT = agent
+        return _CHAT_AGENT
+
+    def _get_feed(self):
+        global _CHAT_FEED
+        if _CHAT_FEED is None:
+            from uni.context.feed_injector import ContextFeedInjector
+
+            cfg = load_config()
+            _CHAT_FEED = ContextFeedInjector(allow_external_scrape=cfg.context.allow_external_scrape)
+            for url in cfg.context.feeds:
+                _CHAT_FEED.add_feed_url(url)
+        return _CHAT_FEED
+
+    def _handle_chat(self, body: dict) -> None:
+        text = (body.get("text") or "").strip()
+        if not text:
+            self._json(400, {"error": "empty text"})
+            return
+        agent = self._get_chat_agent()
+        cfg = load_config()
+        init_error = getattr(agent, "_init_error", None)
+        if init_error:
+            self._json(503, {"error": "agent init failed", "detail": init_error,
+                             "hint": "проверь config.yaml (модель/браузер) на машине запуска"})
+            return
+        # Стиль из внешних фидов (только как подсказка тона), если включено.
+        # В реальном EventLoop.run_cycle нет отдельного параметра style_hint —
+        # подмешиваем как инструкцию в начало сообщения (как в ТЗ «подсказка стиля»).
+        style_hint = ""
+        if cfg.context.enabled and cfg.context.injection_rate > 0:
+            try:
+                style_hint = asyncio.run(
+                    self._get_feed().fetch_style_hints(cfg.context.injection_rate)
+                )
+            except Exception:
+                style_hint = ""
+        effective_input = (style_hint + "\n" + text) if style_hint else text
+        try:
+            # run_cycle сам озвучивает ответ через Silero (внутренний _speak),
+            # поэтому двойного проговаривания не делаем; audio_url не формируем.
+            reply = asyncio.run(
+                asyncio.wait_for(agent.event_loop.run_cycle(effective_input), timeout=90.0)
+            )
+            if reply is None:
+                reply = ""
+        except Exception as exc:
+            self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        self._json(200, {"text": reply, "audio_url": None, "style_hint": style_hint})
+
+    def _handle_camera_notice(self) -> None:
+        global _CAMERA_NOTICED
+        agent = self._get_chat_agent()
+        speech = agent.capabilities.get("speech")
+        try:
+            if speech is not None:
+                asyncio.run(speech.speak("Внимание: камера сейчас включится для демо."))
+        except Exception:
+            pass
+        _CAMERA_NOTICED = True
+        self._json(200, {"ok": True, "noticed": True})
+
+    def _handle_camera_start(self, body: dict) -> None:
+        global _CAMERA_NOTICED
+        if not _CAMERA_NOTICED:
+            # Гейт безопасности: сначала звуковое уведомление.
+            self._json(403, {"error": "camera notice required first", "require_notice": True})
+            return
+        agent = self._get_chat_agent()
+        camera = agent.capabilities.get("camera")
+        if camera is None:
+            self._json(404, {"error": "camera capability unavailable"})
+            return
+        try:
+            res = asyncio.run(camera.start(notice_ack=True))
+        except Exception as exc:
+            self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        self._json(200, {"ok": True, "started": bool(getattr(res, "success", False))})
+
+    def _handle_camera_stop(self) -> None:
+        agent = self._get_chat_agent()
+        camera = agent.capabilities.get("camera")
+        if camera is None:
+            self._json(404, {"error": "camera capability unavailable"})
+            return
+        try:
+            asyncio.run(camera.stop())
+        except Exception as exc:
+            self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        self._json(200, {"ok": True})
+
+    def _handle_vision_capture(self) -> None:
+        agent = self._get_chat_agent()
+        camera = agent.capabilities.get("camera")
+        if camera is None:
+            self._json(404, {"error": "camera capability unavailable"})
+            return
+        try:
+            res = asyncio.run(camera.capture_base64_frame())
+        except Exception as exc:
+            self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if not getattr(res, "success", False):
+            self._json(409, {"error": getattr(res, "message", "capture failed")})
+            return
+        self._json(200, {"image_b64": (res.data or {}).get("image_b64")})
+
+    def _handle_context_feed_get(self) -> None:
+        cfg = load_config()
+        self._json(200, {
+            "enabled": cfg.context.enabled,
+            "allow_external_scrape": cfg.context.allow_external_scrape,
+            "injection_rate": cfg.context.injection_rate,
+            "tonal_mode": cfg.context.tonal_mode,
+            "feeds": self._get_feed().list_feeds(),
+        })
+
+    def _handle_context_feed_post(self, body: dict) -> None:
+        feed = self._get_feed()
+        if isinstance(body.get("add"), str):
+            feed.add_feed_url(body["add"])
+        if isinstance(body.get("remove"), str):
+            feed.remove_feed_url(body["remove"])
+        if isinstance(body.get("hints"), list):
+            feed.cache_local_hints([str(h) for h in body["hints"]])
+        cfg = load_config()
+        if "enabled" in body:
+            cfg.context.enabled = bool(body["enabled"])
+        if "injection_rate" in body:
+            try:
+                cfg.context.injection_rate = max(0.0, min(1.0, float(body["injection_rate"])))
+            except (TypeError, ValueError):
+                pass
+        if "tonal_mode" in body:
+            cfg.context.tonal_mode = str(body["tonal_mode"])
+        if "allow_external_scrape" in body:
+            cfg.context.allow_external_scrape = bool(body["allow_external_scrape"])
+            feed.set_external_scrape(cfg.context.allow_external_scrape)
+        self._handle_context_feed_get()
+
+    def _save_config(self, payload: dict) -> None:
         """Persist council settings (and endpoint keys) into the local config.yaml.
 
         Only known council fields are written; secrets (api_key) are stored as-is from
@@ -479,6 +699,30 @@ def _save_config(self, payload: dict) -> None:
 
         with (_ROOT / "config.yaml").open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+def _delete_history(round_id: str) -> int:
+    """Delete one round's artifacts, or all when round_id == '__all__'."""
+    directory = (_ROOT / load_config().council.artifacts_dir).resolve()
+    if not directory.exists():
+        return 0
+    if round_id == "__all__":
+        files = list(directory.glob("*_report.md")) + list(directory.glob("*_meta.json")) + \
+                list(directory.glob("*_*.md"))
+        for f in files:
+            try:
+                f.unlink()
+            except OSError:
+                pass
+        return len(files)
+    count = 0
+    for pat in (f"{round_id}_report.md", f"{round_id}_meta.json", f"{round_id}_*.md"):
+        for f in directory.glob(pat):
+            try:
+                f.unlink()
+                count += 1
+            except OSError:
+                pass
+    return count
 
 
 def run_webui(host: str = "127.0.0.1", port: int = _DEFAULT_PORT) -> None:

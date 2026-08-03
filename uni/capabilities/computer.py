@@ -47,7 +47,7 @@ class ComputerCapability(Capability):
         self._badge = None
         if action_badge_enabled:
             try:
-                from uni.capabilities.uni_action_badge import UniActionBadge
+                from uni.action_badge import UniActionBadge
 
                 self._badge = UniActionBadge(enabled=True, label=action_badge_label)
             except Exception:

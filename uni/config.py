@@ -87,6 +87,40 @@ class XToysConfig(BaseModel):
     max_intensity: int = Field(default=50, ge=0, le=100)
     autonomous_physical: bool = Field(default=False)  # explicit opt-in to move the device unsupervised
 
+
+class DemoXToysSettings(BaseModel):
+    """Часть демо-сценария «Игрушки Uni» (python -m uni --demo xtoys)."""
+    url: str = ""  # пусто -> берётся из XToysConfig.url
+    wander_seconds: float = Field(default=12.0, ge=1.0, le=300.0)
+    pet_points: int = Field(default=6, ge=1, le=32)
+
+
+class DemoMouseSettings(BaseModel):
+    label_text: str = "Uni"
+    speed: float = Field(default=1.0, ge=0.1, le=5.0)
+    fps: int = Field(default=90, ge=30, le=240)
+    failsafe: bool = True
+
+
+class DemoSettings(BaseModel):
+    xtoys: DemoXToysSettings = Field(default_factory=DemoXToysSettings)
+    mouse: DemoMouseSettings = Field(default_factory=DemoMouseSettings)
+
+
+class ContextFeedConfig(BaseModel):
+    """Внешние источники контекста/стиля для чат-хаба (опц., безопасно выключено).
+
+    Внешний текст всегда считается недоверенными данными (как в council).
+    """
+    enabled: bool = False
+    allow_external_scrape: bool = Field(
+        default=False,  # безопасность: NSFW/внешний скрейп по умолчанию ВЫКЛ
+    )
+    injection_rate: float = Field(default=0.6, ge=0.0, le=1.0)
+    feeds: list[str] = Field(default_factory=list)
+    tonal_mode: str = "playful"  # playful | spicy | custom
+
+
 class CapabilitiesConfig(BaseModel):
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
     computer: ComputerConfig = Field(default_factory=ComputerConfig)
@@ -183,6 +217,8 @@ class Config(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     autonomous: AutonomousConfig = Field(default_factory=AutonomousConfig)
     council: CouncilConfig = Field(default_factory=CouncilConfig)
+    demo: DemoSettings = Field(default_factory=DemoSettings)
+    context: ContextFeedConfig = Field(default_factory=ContextFeedConfig)
 
 def load_config(path: str = "config.yaml") -> Config:
     p = Path(path)

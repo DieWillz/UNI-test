@@ -22,7 +22,7 @@ capabilities:
 
 ## 2. Desktop (pyautogui) — action badge
 
-Файлы: `uni/capabilities/uni_action_badge.py`, `capabilities/computer.py`.
+Файлы: `uni/action_badge.py`, `capabilities/computer.py`.
 
 - Always-on-top бейдж (tkinter, stdlib).
 - ~0.45 с рядом с точкой клика: UNI · click.
