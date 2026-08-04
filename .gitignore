@@ -67,3 +67,11 @@ ALIASES
 
 # Broken/legacy integration tests
 /tests/integration/
+
+# Night-shift / runtime artefacts (Hermes NOC 2026-08-04)
+copilot-worktrees/
+.uni.pid
+config-old.yml
+agent-browser/
+uni/webui/for-chat/
+UNI_NIGHT_REPORT.md

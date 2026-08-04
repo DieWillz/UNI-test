@@ -5,6 +5,198 @@
 <title>UNI · Чат-хаб (голос + камера + контекст)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/chat.css">
+<style>
+  :root {
+    --bg: #0b0f19;
+    --bg2: #121a2b;
+    --panel-glass: rgba(18, 26, 43, 0.65);
+    --line: #243049;
+    --line-soft: #1c2840;
+    --txt: #e8edf7;
+    --txt-dim: #93a0bb;
+    --accent: #7c3aed;
+    --accent-glow: rgba(124, 58, 237, 0.35);
+    --accent2: #22d3ee;
+    --ok: #2dd4a7;
+    --warn: #f5a524;
+    --err: #f97066;
+  }
+
+  * { box-sizing: border-box; }
+  
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: radial-gradient(1200px 700px at 80% -10%, #1b2540 0%, var(--bg) 55%);
+    color: var(--txt);
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  }
+
+  /* Верхняя панель */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(10, 14, 25, 0.75);
+    backdrop-filter: blur(12px);
+    position: relative;
+    z-index: 10;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--txt-dim);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  /* Боковая панель */
+  .col.left {
+    width: 330px;
+    border-right: 1px solid var(--line);
+    background: var(--panel-glass);
+    backdrop-filter: blur(10px);
+    overflow-y: auto;
+  }
+
+  .col-head {
+    padding: 14px 16px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent2);
+  }
+
+  .panel {
+    padding: 10px 16px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  /* Поля ввода и кнопки */
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: rgba(10, 14, 25, 0.6);
+    color: var(--txt);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--txt);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+  }
+
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), #6d28d9);
+    border: none;
+    color: #fff;
+    box-shadow: 0 4px 12px var(--accent-glow);
+  }
+
+  .btn.primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 18px var(--accent-glow);
+  }
+
+  /* Диалог чата */
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .msg {
+    max-width: 78%;
+    padding: 12px 16px;
+    border-radius: 14px;
+    line-height: 1.5;
+    font-size: 14px;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(42, 35, 80, 0.8), rgba(58, 45, 99, 0.8));
+    border: 1px solid var(--accent);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+
+  .msg.uni {
+    align-self: flex-start;
+    background: rgba(18, 26, 43, 0.85);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Зрение и Превью */
+  .preview {
+    height: 220px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(5, 8, 15, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .inputbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    background: rgba(10, 14, 25, 0.7);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Пульсация индикатора речи и микрофона */
+  @keyframes speakPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(124,58,237,0.5); }
+    70%  { box-shadow: 0 0 0 10px rgba(124,58,237,0); }
+    100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+  }
+  .msg.uni.speaking { animation: speakPulse 1.4s infinite; border-color: var(--accent); }
+  #micBtn.active { animation: speakPulse 1.4s infinite; background: var(--accent); color: #fff; }
+
+  /* Плавные переходы переключателей и ползунков */
+  .switch input { transition: all 0.2s ease; }
+  input[type="range"] { transition: all 0.2s ease; accent-color: var(--accent); }
+</style>
 </head>
 <body>
 <div class="topbar">

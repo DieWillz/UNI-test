@@ -76,7 +76,7 @@ capabilities:
     max_intensity: 90
     autonomous_physical: true
 agent:
-  default_role: mistress2
+  default_role: assistant
   cycle_interval: 2.0
   max_retries: 3
   verification_enabled: false

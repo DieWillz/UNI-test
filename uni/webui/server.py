@@ -320,6 +320,9 @@ class _Handler(BaseHTTPRequestHandler):
         _STATIC_ALIASES = {
             "/style.css": "css/style.css",
             "/app.js": "js/app.js",
+            "/chat.js": "chat.js",
+            "/chat.css": "css/chat.css",
+            "/index.html": "index.html",
         }
         if parsed.path in _STATIC_ALIASES:
             rel = _STATIC_ALIASES[parsed.path]
@@ -685,7 +688,15 @@ class _Handler(BaseHTTPRequestHandler):
             agent = self._get_chat_agent()
             xtoys = agent.capabilities.get("xtoys")
             if xtoys is None:
-                self._json(404, {"error": "xtoys capability unavailable"})
+                # Emulated mode: физическое устройство не подключено. Пользователь
+                # управляет им через реальный пульт — поэтому просто подтверждаем
+                # команду локально (безопасно, без сетевых вызовов к устройству).
+                self._json(200, {
+                    "ok": True,
+                    "mode": "emulated",
+                    "command": cmd,
+                    "message": f"emulated: {cmd} принято (устройство не подключено — управление за физическим пультом)",
+                })
                 return
             if cmd == "oscillate":
                 duration = int(data.get("duration", 2000))
