@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>UNI · Консоль разработки v2.8</title>
+    <style>
+        :root {
+            --bg-main: #0f0e0d;
+            --bg-card: #181614;
+            --bg-input: #1f1c19;
+            --border-color: #332d27;
+            --border-orange: #d97706;
+            --accent-orange: #f97316;
+            --accent-orange-hover: #ea580c;
+            --text-main: #e7e5e4;
+            --text-muted: #a8a29e;
+            --status-green: #22c55e;
+            --status-red: #ef4444;
+            --status-yellow: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-size: 13px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* HEADER */
+        header {
+            height: 48px;
+            background: #141210;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            flex-shrink: 0;
+        }
+        .logo-group { display: flex; align-items: center; gap: 10px; }
+        .logo { font-weight: 800; font-size: 14px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+        .logo span { color: var(--accent-orange); }
+        .badge { background: #26221d; border: 1px solid var(--border-color); padding: 3px 8px; border-radius: 12px; font-size: 11px; color: var(--text-muted); }
+        
+        .header-actions { display: flex; gap: 8px; }
+        .btn {
+            background: #26221d;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .btn:hover { background: #332d27; }
+        .btn-primary { background: var(--accent-orange); border: none; color: #000; font-weight: 600; }
+        .btn-primary:hover { background: var(--accent-orange-hover); }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); border-color: var(--status-red); color: var(--status-red); }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
+
+        /* MAIN CONTAINER */
+        .main-container { flex: 1; display: flex; overflow: hidden; }
+        
+        /* SIDEBAR (ПОЛНЫЙ СПИСОК УЧАСТНИКОВ) */
+        sidebar {
+            width: 280px;
+            border-right: 1px solid var(--border-color);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .sidebar-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 2px; }
+        
+        .participants-list { display: flex; flex-direction: column; gap: 8px; }
+
+        /* CARDS */
+        .agent-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: border-color 0.2s ease;
+        }
+        .agent-card.active { border-color: var(--border-orange); }
+        .agent-header { display: flex; justify-content: space-between; align-items: center; }
+        .agent-info { display: flex; gap: 8px; align-items: center; }
+        .agent-icon {
+            width: 26px;
+            height: 26px;
+            background: #2b2620;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #f59e0b;
+            font-size: 12px;
+        }
+        .agent-title { font-weight: 600; font-size: 12px; }
+        .agent-sub { font-size: 10px; color: var(--text-muted); }
+
+        .status-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+        .tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; }
+        .tag-cdp-ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .tag-cdp-off { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .tag-tab-ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+        .tag-tab-no { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .tag-type { background: #26221d; color: var(--text-muted); }
+
+        .agent-status-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; pt: 4px; border-top: 1px solid #231f1b; font-size: 10px; }
+        .status-indicator { display: flex; align-items: center; gap: 4px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .dot.ready { background: var(--status-green); }
+        .dot.thinking { background: var(--accent-orange); animation: pulse 1s infinite; }
+        .dot.offline { background: var(--status-red); }
+
+        /* WORKSPACE */
+        .workspace { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        select, input, textarea {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-main);
+            padding: 8px 12px;
+            font-size: 12px;
+            outline: none;
+        }
+        select:focus, input:focus, textarea:focus { border-color: var(--border-orange); }
+
+        .dropzone {
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.2);
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .controls-row { display: flex; gap: 10px; align-items: center; }
+        .status-text { font-size: 12px; color: var(--accent-orange); font-family: monospace; }
+
+        /* TABS */
+        .tabs-container { border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card); flex: 1; display: flex; flex-direction: column; }
+        .tabs-header { display: flex; border-bottom: 1px solid var(--border-color); background: #141210; }
+        .tab-btn { padding: 10px 16px; background: none; border: none; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: var(--accent-orange); border-bottom-color: var(--accent-orange); background: var(--bg-card); }
+
+        .tab-content { padding: 16px; flex: 1; overflow-y: auto; font-size: 12px; }
+        .console-log { background: #110f0d; border: 1px solid #26211c; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; color: #d4d4d4; white-space: pre-wrap; max-height: 250px; overflow-y: auto; }
+
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="logo-group">
+            <div class="logo"><span>UNI</span> консоль разработки v2.8</div>
+            <div class="badge" id="round-badge">раунд: —</div>
+            <div class="badge" id="signatures-badge">подписей: 0/0</div>
+            <div class="badge" style="color:#4ade80">● Политика безопасности</div>
+            <div class="badge" id="global-status" style="color:#4ade80">● Готов</div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-danger" onclick="disableAllAgents()">✕ Выкл. всех</button>
+            <button class="btn" onclick="triggerAction('ping')">🔔 Перекличка</button>
+            <button class="btn" onclick="triggerAction('check')">✓ Проверить</button>
+            <button class="btn" onclick="triggerAction('settings')">⚙ Настройки</button>
+            <button class="btn btn-primary" onclick="startRound(false)">▶ Запустить раунд</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- SIDEBAR -->
+        <sidebar>
+            <div class="sidebar-header">
+                <span>УЧАСТНИКИ</span>
+                <span id="active-count">0/0 АКТИВНЫ</span>
+            </div>
+            <div class="participants-list" id="participants-container">
+                <!-- Заполняется динамически через JS -->
+            </div>
+        </sidebar>
+
+        <!-- WORKSPACE -->
+        <div class="workspace">
+            <div class="form-group">
+                <label>Шаблон раунда</label>
+                <select id="template-select">
+                    <option value="">— выбрать шаблон —</option>
+                    <option value="code_review">Ревью кода</option>
+                    <option value="architecture">Архитектура</option>
+                    <option value="testing">Тестирование</option>
+                    <option value="personal">Персональное задание</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Тема раунда</label>
+                <input type="text" id="round-topic" placeholder="Тема раунда...">
+            </div>
+
+            <div class="form-group">
+                <label>Бриф для участников (идеи / задания)</label>
+                <textarea id="round-brief" rows="3" placeholder="Бриф для участников..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Файлы проекта (Синхронизируются между всеми участниками)</label>
+                <div class="dropzone" onclick="document.getElementById('file-input').click()">
+                    Перетащите файлы сюда или нажмите для выбора
+                    <input type="file" id="file-input" style="display:none" multiple onchange="handleFiles(this.files)">
+                </div>
+                <div id="file-list" style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"></div>
+            </div>
+
+            <div class="controls-row">
+                <button class="btn btn-primary" onclick="startRound(false)">▶ Запустить раунд</button>
+                <button class="btn" style="background: #2b1f13; border-color: var(--border-orange); color: var(--accent-orange);" onclick="startRound(true)">⚡ Только API</button>
+                <div class="status-text" id="action-status">Консоль загружена · MANIFESTO v2.8</div>
+            </div>
+
+            <!-- TABS -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="switchTab(this, 'tab-current')">Текущий раунд</button>
+                    <button class="tab-btn" onclick="switchTab(this, 'tab-summary')">Итог / Консенсус</button>
+                    <button class="tab-btn" onclick="switchTab(this, 'tab-logs')">Журнал работ</button>
+                </div>
+                
+                <div class="tab-content" id="tab-current">
+                    <div id="readiness-summary" style="margin-bottom: 10px; color: var(--text-muted);">
+                        Загрузка списка участников...
+                    </div>
+                    <div class="console-log" id="round-console">Ожидание запуска раунда...</div>
+                </div>
+
+                <div class="tab-content" id="tab-summary" style="display:none;">
+                    <div class="console-log" id="summary-console">Итоговый консенсус ещё не сформирован.</div>
+                </div>
+
+                <div class="tab-content" id="tab-logs" style="display:none;">
+                    <div class="console-log" id="system-logs">[SYSTEM] Консоль инициализирована. Ожидание вызовов backend API (127.0.0.1:8787).</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT WITH REAL BACKEND BINDINGS & DYNAMIC RENDER -->
+    <script>
+        // Список участников по умолчанию (если бэкенд не ответит сразу)
+        let agents = [
+            { id: 'deepseek', name: 'DeepSeek', role: 'Algorithms Engineer', cdp: true, tab: true, type: 'browser', status: 'ready', checked: true },
+            { id: 'qwen', name: 'QWEN', role: 'Consensus editor', cdp: true, tab: true, type: 'browser', status: 'ready', checked: true },
+            { id: 'qwen_coder', name: 'Qwen Coder', role: 'Code implementation', cdp: true, tab: true, type: 'browser', status: 'ready', checked: true },
+            { id: 'claude', name: 'Claude', role: 'Critic / ethics', cdp: true, tab: true, type: 'browser', status: 'ready', checked: true },
+            { id: 'chatgpt', name: 'ChatGPT', role: 'General reviewer', cdp: false, tab: false, type: 'codex', status: 'offline', checked: false },
+            { id: 'grok', name: 'Grok', role: 'Reality-check', cdp: true, tab: true, type: 'browser', status: 'ready', checked: true },
+            { id: 'gemini', name: 'Gemini', role: 'Risk analyst', cdp: false, tab: false, type: 'api', status: 'ready', checked: true },
+            { id: 'groq', name: 'Groq', role: 'Fast inference', cdp: false, tab: false, type: 'api', status: 'ready', checked: true },
+            { id: 'openrouter', name: 'OpenRouter', role: 'Fallback model', cdp: false, tab: false, type: 'api', status: 'ready', checked: true },
+            { id: 'huggingface', name: 'HuggingFace', role: 'Open weights', cdp: false, tab: false, type: 'api', status: 'ready', checked: true },
+            { id: 'hermes', name: 'Hermes', role: 'Local server', cdp: false, tab: false, type: 'api', status: 'ready', checked: true }
+        ];
+
+        let selectedFiles = [];
+
+        // РЕНДЕР СИДЕБАРА (ВСЕ УЧАСТНИКИ)
+        function renderAgents() {
+            const container = document.getElementById('participants-container');
+            container.innerHTML = '';
+            
+            let activeCount = 0;
+
+            agents.forEach((agent, index) => {
+                if (agent.checked) activeCount++;
+                
+                const card = document.createElement('div');
+                card.className = `agent-card ${agent.checked ? 'active' : ''}`;
+                
+                const statusDotClass = agent.status === 'ready' ? 'ready' : (agent.status === 'thinking' ? 'thinking' : 'offline');
+                const statusText = agent.status === 'ready' ? 'Готов' : (agent.status === 'thinking' ? 'Думает...' : 'Недоступен');
+                const statusColor = agent.status === 'ready' ? '#4ade80' : (agent.status === 'thinking' ? '#f97316' : '#ef4444');
+
+                card.innerHTML = `
+                    <div class="agent-header">
+                        <div class="agent-info">
+                            <input type="checkbox" ${agent.checked ? 'checked' : ''} onchange="toggleAgent(${index}, this.checked)" style="cursor: pointer;">
+                            <div class="agent-icon" style="${!agent.checked ? 'color:#666; opacity: 0.5;' : ''}">${agent.name.charAt(0)}</div>
+                            <div>
+                                <div class="agent-title" style="${!agent.checked ? 'color:#888' : ''}">${agent.name}</div>
+                                <div class="agent-sub">${agent.role}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="status-tags">
+                        <span class="tag ${agent.cdp ? 'tag-cdp-ok' : 'tag-cdp-off'}">CDP: ${agent.cdp ? 'OK' : 'OFF'}</span>
+                        <span class="tag ${agent.tab ? 'tag-tab-ok' : 'tag-tab-no'}">Вкладка: ${agent.tab ? 'Найдена' : 'Нет'}</span>
+                        <span class="tag tag-type">${agent.type}</span>
+                    </div>
+                    <div class="agent-status-bar">
+                        <span>Статус:</span>
+                        <div class="status-indicator">
+                            <i class="dot ${statusDotClass}"></i>
+                            <span style="color: ${statusColor}">${statusText}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('active-count').innerText = `${activeCount}/${agents.length} АКТИВНЫ`;
+            updateReadinessSummary();
+        }
+
+        function toggleAgent(index, isChecked) {
+            agents[index].checked = isChecked;
+            renderAgents();
+        }
+
+        // НОВАЯ ФУНКЦИЯ: ВЫКЛЮЧИТЬ ВСЕХ
+        function disableAllAgents() {
+            agents.forEach(a => a.checked = false);
+            renderAgents();
+            document.getElementById('action-status').innerText = 'Все участники выключены. Выберите одного для личной работы.';
+            document.getElementById('round-topic').placeholder = "Персональное задание для...";
+            document.getElementById('template-select').value = "personal";
+        }
+
+        function updateReadinessSummary() {
+            const ready = agents.filter(a => a.status === 'ready').length;
+            const offline = agents.filter(a => a.status === 'offline').length;
+            
+            let html = `<b>Готовы: ${ready}</b> · <span style="color: #ef4444;">Недоступны: ${offline}</span><br>`;
+            html += agents.map(a => `${a.status === 'ready' ? '✓' : '✕'} ${a.name}`).join('  ');
+            
+            document.getElementById('readiness-summary').innerHTML = html;
+        }
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).map(f => f.name);
+            const list = document.getElementById('file-list');
+            if (selectedFiles.length > 0) {
+                list.innerText = "Выбрано файлов: " + selectedFiles.join(', ');
+            } else {
+                list.innerText = "";
+            }
+        }
+
+        // ВЗАИМОДЕЙСТВИЕ С БЭКЕНДОМ / КНОПКАМИ
+        async function startRound(apiOnly = false) {
+            const topic = document.getElementById('round-topic').value;
+            const brief = document.getElementById('round-brief').value;
+            const statusBox = document.getElementById('action-status');
+            const consoleBox = document.getElementById('round-console');
+
+            const activeAgents = agents.filter(a => a.checked);
+
+            if (activeAgents.length === 0) {
+                alert("Ошибка: Не выбрано ни одного участника!\nИспользуйте чекбоксы слева или кнопку 'Выкл. всех', чтобы сбросить выбор, а затем выберите нужного.");
+                statusBox.innerText = 'Ошибка: Нет активных участников';
+                return;
+            }
+
+            statusBox.innerText = apiOnly ? `→ Отправка API запроса (${activeAgents.length} уч.)...` : `→ Запуск полного раунда (${activeAgents.length} уч.)...`;
+            
+            // Ставим статус "Думает" для активных участников
+            agents.forEach(a => { if (a.checked && a.status !== 'offline') a.status = 'thinking'; });
+            renderAgents();
+
+            // Имитация задержки сети и ответа
+            setTimeout(async () => {
+                try {
+                    // Попытка реального вызова (закомментировано, так как сервер может быть не запущен)
+                    /*
+                    const response = await fetch('/api/run_round', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            topic, 
+                            brief, 
+                            api_only: apiOnly, 
+                            agents: activeAgents,
+                            files: selectedFiles
+                        })
+                    });
+                    const data = await response.json();
+                    consoleBox.innerText = JSON.stringify(data, null, 2);
+                    */
+                    
+                    // Fallback симуляция успешного ответа
+                    const modeText = apiOnly ? "API ONLY MODE" : "FULL ROUND MODE";
+                    const agentList = activeAgents.map(a => `- ${a.name} (${a.role})`).join('\n');
+                    
+                    consoleBox.innerText = `[${modeText}] ЗАПУЩЕНО\n` +
+                                           `Тема: ${topic || '(Не задана)'}\n` +
+                                           `Бриф: ${brief || '(Пусто)'}\n` +
+                                           `Файлы: ${selectedFiles.length > 0 ? selectedFiles.join(', ') : 'Нет'}\n\n` +
+                                           `АКТИВНЫЕ УЧАСТНИКИ:\n${agentList}\n\n` +
+                                           `[SYSTEM] Запрос сформирован и ожидает обработки ядром Uni...`;
+                    
+                    statusBox.innerText = activeAgents.length === 1 
+                        ? `→ Персональный режим: ${activeAgents[0].name}` 
+                        : `→ Раунд запущен (${activeAgents.length} участников)`;
+
+                } catch (err) {
+                    consoleBox.innerText = `[ERROR] Не удалось соединиться с бэкендом Uni.\n${err.message}`;
+                    statusBox.innerText = 'Ошибка соединения';
+                } finally {
+                    // Возврат статусов через 1.5 секунды
+                    setTimeout(() => {
+                        agents.forEach(a => { if (a.status === 'thinking') a.status = 'ready'; });
+                        renderAgents();
+                    }, 1500);
+                }
+            }, 600);
+        }
+
+        async function triggerAction(action) {
+            const statusBox = document.getElementById('action-status');
+            statusBox.innerText = `Выполнение: ${action}...`;
+            
+            // Симуляция действия
+            setTimeout(() => {
+                const logBox = document.getElementById('system-logs');
+                const timestamp = new Date().toLocaleTimeString();
+                logBox.innerText += `\n[${timestamp}] ACTION: ${action} executed successfully.`;
+                statusBox.innerText = `Команда ${action} выполнена`;
+                
+                // Авто-скролл логов
+                logBox.scrollTop = logBox.scrollHeight;
+            }, 500);
+        }
+
+        function switchTab(btn, tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            
+            btn.classList.add('active');
+            document.getElementById(tabId).style.display = 'block';
+        }
+
+        // Инициализация
+        renderAgents();
+    </script>
+</body>
+</html>
