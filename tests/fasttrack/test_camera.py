@@ -31,14 +31,14 @@ class FakeCapture:
 
 
 class CameraCapabilityTests(unittest.IsolatedAsyncioTestCase):
-    async def test_camera_refuses_to_start_without_notice(self):
+    async def test_camera_starts_without_notice(self):
+        # Разрешительный гейт notice_ack снят: камера включается по прямому вызову.
         with tempfile.TemporaryDirectory() as directory, patch(
-            "uni.capabilities.camera.cv2.VideoCapture"
-        ) as video_capture:
+            "uni.capabilities.camera.cv2.VideoCapture", side_effect=FakeCapture
+        ):
             camera = CameraCapability(directory)
             result = await camera.start(notice_ack=False)
-            self.assertFalse(result.success)
-            video_capture.assert_not_called()
+            self.assertTrue(result.success)
 
     async def test_announced_camera_captures_and_releases(self):
         with tempfile.TemporaryDirectory() as directory, patch(

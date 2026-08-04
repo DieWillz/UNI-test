@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNI v3.0 — Консоль управления</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Левый Сайдбар -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="logo-icon">⬢</span>
+        <span class="logo-text">UNI <small>v3.0</small></span>
+      </div>
+
+      <button class="btn-primary main-action-btn">
+        <span class="icon">▶</span> Run Round <kbd>(Ctrl+↵)</kbd>
+      </button>
+
+      <nav class="nav-menu">
+        <div class="nav-section-title">НАВИГАЦИЯ</div>
+        <a href="#" class="nav-item active"><span class="icon">👥</span> Участники <span class="badge">10/11</span></a>
+        <a href="#" class="nav-item"><span class="icon">🎨</span> Редактор тем</a>
+        <a href="#" class="nav-item"><span class="icon">📜</span> Consensus Log</a>
+        <a href="#" class="nav-item"><span class="icon">📂</span> Документы / Контекст</a>
+      </nav>
+
+      <!-- Модуль Автоматизации -->
+      <div class="sidebar-widget">
+        <div class="widget-header">
+          <span>АВТОМАТИЗАЦИЯ</span>
+          <span class="status-pill active">● AUTO</span>
+        </div>
+        <ul class="pipeline-steps">
+          <li class="step done"><span class="step-icon">✓</span> 1. Анализ</li>
+          <li class="step active"><span class="step-icon">⏳</span> 2. Реализация <span class="progress">60%</span></li>
+          <li class="step"><span class="step-icon">·</span> 3. Тестирование</li>
+          <li class="step"><span class="step-icon">·</span> 4. Ревью</li>
+        </ul>
+        <div class="widget-controls">
+          <button class="btn-xs">▶ Пуск</button>
+          <button class="btn-xs">⏸ Пауза</button>
+          <button class="btn-xs btn-danger">⏹ Стоп</button>
+        </div>
+      </div>
+
+      <!-- Состояние проекта -->
+      <div class="sidebar-widget">
+        <div class="widget-header">
+          <span>СОСТОЯНИЕ ПРОЕКТА</span>
+        </div>
+        <div class="project-task">🎯 Задача: Исправить политику CORS</div>
+        <div class="metrics">
+          <div class="metric-item">🟢 Backend: <span>Online (8787)</span></div>
+          <div class="metric-item">🔑 Токены/сек: <span>142 t/s</span></div>
+          <div class="metric-item">🛡️ Безопасность: <span class="text-success">OK</span></div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <a href="#" class="footer-link">⚙️ Settings</a>
+        <a href="#" class="footer-link">👤 Profile</a>
+      </div>
+    </aside>
+
+    <!-- Основная рабочая область -->
+    <main class="main-content">
+      
+      <!-- Шапка -->
+      <header class="top-header">
+        <div class="system-statuses">
+          <span class="sys-badge green">🟢 Backend: Online</span>
+          <span class="sys-badge blue">🛡️ SecPolicy: Enforced</span>
+          <span class="sys-badge orange">🖱️ UNI Mouse: Active</span>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" title="История">🕒</button>
+          <button class="icon-btn" title="Настройки">⚙️</button>
+        </div>
+      </header>
+
+      <!-- Рабочая сетка -->
+      <div class="content-body">
+        
+        <!-- Секция участников -->
+        <section class="section-participants">
+          <div class="section-header">
+            <h2>УЧАСТНИКИ</h2>
+            <div class="filter-group">
+              <button class="filter-btn active">Все</button>
+              <button class="filter-btn">Только API</button>
+              <button class="filter-btn icon-only">✕</button>
+            </div>
+          </div>
+
+          <div class="participants-grid">
+            
+            <!-- Карточка 1 -->
+            <div class="card participant-card active">
+              <div class="card-header">
+                <input type="checkbox" checked>
+                <div class="avatar-box">D</div>
+                <div class="model-info">
+                  <div class="model-name">DeepSeek</div>
+                  <div class="model-role">Algorithms / Architect</div>
+                </div>
+                <span class="status-indicator ready">Ready</span>
+              </div>
+              <div class="card-tags">
+                <span class="tag green">CDP: OK</span>
+                <span class="tag blue">Browser</span>
+              </div>
+            </div>
+
+            <!-- Карточка 2 -->
+            <div class="card participant-card active">
+              <div class="card-header">
+                <input type="checkbox" checked>
+                <div class="avatar-box color-qwen">Q</div>
+                <div class="model-info">
+                  <div class="model-name">QWEN</div>
+                  <div class="model-role">Consensus Editor</div>
+                </div>
+                <span class="status-indicator ready">Ready</span>
+              </div>
+              <div class="card-tags">
+                <span class="tag green">CDP: OK</span>
+                <span class="tag blue">Browser</span>
+              </div>
+            </div>
+
+            <!-- Карточка 3 -->
+            <div class="card participant-card active">
+              <div class="card-header">
+                <input type="checkbox" checked>
+                <div class="avatar-box color-claude">C</div>
+                <div class="model-info">
+                  <div class="model-name">Claude</div>
+                  <div class="model-role">Critic / Ethics</div>
+                </div>
+                <span class="status-indicator ready">Ready</span>
+              </div>
+              <div class="card-tags">
+                <span class="tag green">CDP: OK</span>
+                <span class="tag blue">Browser</span>
+              </div>
+            </div>
+
+            <!-- Карточка 4 (Off) -->
+            <div class="card participant-card disabled">
+              <div class="card-header">
+                <input type="checkbox">
+                <div class="avatar-box color-grok">G</div>
+                <div class="model-info">
+                  <div class="model-name">Grok</div>
+                  <div class="model-role">Feasibility / Reality-check</div>
+                </div>
+                <span class="status-indicator off">Off</span>
+              </div>
+              <div class="card-warning">⚠️ Codex CLI not found</div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Секция Брифа и Запуска -->
+        <section class="section-brief">
+          <div class="brief-box">
+            <label for="brief-input">БРИФ ДЛЯ ВСЕХ УЧАСТНИКОВ</label>
+            <textarea id="brief-input" placeholder="Введите задание раунда...">Ответь одной короткой фразой (до 15 слов): подтверди, что ты на связи и готов работать в совете UNI.</textarea>
+            
+            <div class="brief-actions">
+              <button class="btn-outline">📎 Файлы проекта (0)</button>
+              <button class="btn-primary glow">▶ Запустить раунд</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Секция Табов и Журнала/Чат -->
+        <section class="section-log">
+          <div class="log-tabs">
+            <button class="tab-btn">Текущий раунд</button>
+            <button class="tab-btn">Итог</button>
+            <button class="tab-btn active">• Журнал событий</button>
+          </div>
+
+          <div class="terminal-window">
+            <div class="log-line"><span class="time">15:06:05</span> <span class="tag-theme">[THEME]</span> Minimal Swiss Paper</div>
+            <div class="log-line"><span class="time">15:06:13</span> <span class="tag-theme">[THEME]</span> Glassmorphism</div>
+            <div class="log-line"><span class="time">15:07:01</span> <span class="tag-sys">[SYSTEM]</span> Ожидание команды пользователя...</div>
+            <div class="log-line"><span class="time">15:07:22</span> <span class="tag-cfg">[CONFIG]</span> Настройки успешно сохранены</div>
+            <div class="log-line speech"><span class="time">15:08:10</span> <span class="tag-uni">[UNI Voice]</span> "Я на связи и готова выполнять задачи!"</div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

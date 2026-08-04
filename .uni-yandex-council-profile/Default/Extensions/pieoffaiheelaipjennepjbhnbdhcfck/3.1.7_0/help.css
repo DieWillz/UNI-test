@@ -1,0 +1,253 @@
+/* ═══════════════════════════════════════════════════════════════════
+   AnonVPN — help.html  (онбординг первого запуска)
+   [v3.0.2] Полный rewrite под стиль сайта anon-vpn.ru: тёмная тема,
+   зелёный бренд-акцент, мультицветные пути. Центр — вертикальный
+   3-колоночный блок «3 пути» (30 мин / 60 мин / безлимит).
+   Только внешний CSS (extension CSP style-src 'self' — inline запрещён).
+   Русский (перевод на 6 языков — после одобрения).
+   Никаких «подписка» — только «Premium / премиум-доступ / премиум-аккаунт».
+   ═══════════════════════════════════════════════════════════════════ */
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#4caf50; --green2:#66bb6a; --green3:#81c784; --green-d:#388e3c;
+  --blue:#42a5f5; --cyan:#26c6da; --amber:#ffb74d; --purple:#ab47bc; --teal:#26a69a;
+  --text:#c8cdd5; --text-dim:#8b93a1; --head:#eef2f7;
+  --card:linear-gradient(145deg,#1a1d28,#12141c);
+  --line:rgba(255,255,255,.08);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  background:linear-gradient(160deg,#0a0f1a 0%,#0d1520 30%,#091210 60%,#0a0f1a 100%);
+  background-attachment:fixed;
+  color:var(--text); line-height:1.6; min-height:100vh; overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+a,button{color:inherit;text-decoration:none}
+/* [feedback_no_pointer_cursor] Курсор: текст и всё подряд → default-стрелка (никакого I-beam
+   над текстом). А ссылки и кнопки → pointer (палец-указатель оставляем именно на них). */
+*,*::before,*::after{cursor:default}
+a,button,[role="button"]{cursor:pointer}
+img{display:block}
+/* [v3.0.2] мультиязычность: показываем только активный язык (выбирается body[data-app-lang]) */
+[data-lang]{display:none}
+body[data-app-lang="ru"] [data-lang="ru"],
+body[data-app-lang="en"] [data-lang="en"],
+body[data-app-lang="zh"] [data-lang="zh"],
+body[data-app-lang="es"] [data-lang="es"],
+body[data-app-lang="de"] [data-lang="de"],
+body[data-app-lang="fr"] [data-lang="fr"],
+body[data-app-lang="pt"] [data-lang="pt"]{display:inline}
+
+/* ─── Header ─── */
+.site-header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:rgba(8,11,18,.72);border-bottom:1px solid var(--line)}
+.site-header__inner{max-width:1240px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:1.12rem;
+  letter-spacing:.3px;color:#fff}
+.brand img{width:30px;height:30px;border-radius:7px}
+.brand b{background:linear-gradient(135deg,var(--green) 0%,var(--green3) 50%,var(--green) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header-cta{font-size:.82rem;font-weight:700;padding:9px 18px;border-radius:9px;
+  border:1px solid rgba(76,175,80,.3);color:var(--green2);transition:all .25s}
+.header-cta:hover{background:rgba(76,175,80,.1);border-color:rgba(76,175,80,.55)}
+.site-header__right{display:flex;align-items:center;gap:14px}
+.lang-switch{display:flex;flex-wrap:wrap;gap:2px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:9px;padding:3px}
+.lang-switch button{font-family:inherit;background:transparent;border:none;color:var(--text-dim);font-weight:700;font-size:.74rem;letter-spacing:.4px;padding:6px 9px;border-radius:6px;transition:color .2s,background .2s}
+.lang-switch button:hover{color:var(--text)}
+.lang-switch button.active{background:rgba(76,175,80,.16);color:var(--green2)}
+
+/* ─── Hero ─── */
+.hero{position:relative;text-align:center;padding:88px 24px 56px;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-30%;left:50%;transform:translateX(-50%);
+  width:900px;height:600px;max-width:120vw;
+  background:radial-gradient(ellipse at center,rgba(76,175,80,.14),transparent 62%);
+  pointer-events:none;z-index:0}
+.hero__inner{position:relative;z-index:1;max-width:860px;margin:0 auto}
+.hero__badge{display:inline-flex;align-items:center;gap:9px;font-size:.78rem;font-weight:700;
+  letter-spacing:.6px;text-transform:uppercase;color:var(--green2);
+  background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.18);
+  padding:7px 16px;border-radius:30px;margin-bottom:26px}
+.hero__badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 0 rgba(76,175,80,.6);animation:pulse 2.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(76,175,80,.5)}70%{box-shadow:0 0 0 12px rgba(76,175,80,0)}100%{box-shadow:0 0 0 0 rgba(76,175,80,0)}}
+.hero h1{font-size:clamp(2.1rem,5.4vw,3.5rem);line-height:1.12;font-weight:900;
+  color:var(--head);letter-spacing:-1px;margin-bottom:20px}
+.hero h1 .accent{background:linear-gradient(135deg,var(--green) 0%,var(--green3) 50%,var(--green) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero__sub{font-size:clamp(1rem,2.1vw,1.22rem);color:var(--text);max-width:660px;margin:0 auto 20px}
+.hero__note{display:flex;width:fit-content;max-width:100%;align-items:center;flex-wrap:wrap;justify-content:center;gap:6px;
+  margin:0 auto 32px;background:rgba(76,175,80,.1);border:1px solid rgba(76,175,80,.3);
+  border-radius:12px;padding:12px 20px;font-size:.96rem;font-weight:600;color:#dfeede}
+.hero__note b{color:var(--green2)}
+.hero__scroll{display:inline-flex;flex-direction:column;align-items:center;gap:8px;
+  font-size:.8rem;color:var(--text-dim);font-weight:600;letter-spacing:.5px}
+.hero__scroll svg{width:22px;height:22px;fill:var(--green2);animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+/* ─── 3 ПУТИ — вертикальный центр ─── */
+.paths{display:grid;grid-template-columns:1fr 1.12fr 1fr;
+  max-width:1320px;margin:0 auto;padding:0 18px;
+  border-radius:24px;overflow:hidden;
+  box-shadow:0 30px 90px rgba(0,0,0,.45)}
+.path{position:relative;display:flex;flex-direction:column;
+  padding:48px 34px 44px;min-height:560px;
+  border-right:1px solid rgba(255,255,255,.06);transition:transform .35s,box-shadow .35s}
+.path:last-child{border-right:none}
+.path::before{content:'';position:absolute;inset:0;z-index:0;opacity:.9;pointer-events:none}
+.path>*{position:relative;z-index:1}
+.path--a::before{background:linear-gradient(180deg,rgba(38,198,218,.14),rgba(38,198,218,.03) 55%,transparent),linear-gradient(145deg,#171b26,#101219)}
+.path--b::before{background:linear-gradient(180deg,rgba(76,175,80,.16),rgba(76,175,80,.04) 55%,transparent),linear-gradient(145deg,#181d24,#101318)}
+.path--c::before{background:linear-gradient(180deg,rgba(255,183,77,.15),rgba(76,175,80,.05) 55%,transparent),linear-gradient(145deg,#1c1b1a,#121316)}
+.path--c{box-shadow:inset 0 0 0 1px rgba(255,183,77,.22)}
+.path:hover{transform:translateY(-6px)}
+.path__top{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.path__icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:1.6rem;flex-shrink:0}
+.path--a .path__icon{background:rgba(38,198,218,.14);border:1px solid rgba(38,198,218,.28)}
+.path--b .path__icon{background:rgba(76,175,80,.14);border:1px solid rgba(76,175,80,.3)}
+.path--c .path__icon{background:rgba(255,183,77,.14);border:1px solid rgba(255,183,77,.32)}
+.path__eyebrow{font-size:.76rem;font-weight:700;letter-spacing:.7px;text-transform:uppercase}
+.path--a .path__eyebrow{color:var(--cyan)}
+.path--b .path__eyebrow{color:var(--green2)}
+.path--c .path__eyebrow{color:var(--amber)}
+.path__num{font-size:2.5rem;font-weight:900;color:var(--head);line-height:1.05;letter-spacing:-1px;margin-bottom:10px}
+/* [v3.0.2] плашка «за одно подключение» — критично: без неё большое «30 минут»
+   читается как общий лимит на весь интернет, и юзеры удаляли расширение, не подключившись */
+.path__per{align-self:flex-start;font-size:.72rem;font-weight:800;letter-spacing:.6px;
+  text-transform:uppercase;padding:5px 11px;border-radius:7px;margin-bottom:14px}
+.path--a .path__per{color:var(--cyan);background:rgba(38,198,218,.13);border:1px solid rgba(38,198,218,.22)}
+.path--b .path__per{color:var(--green2);background:rgba(76,175,80,.13);border:1px solid rgba(76,175,80,.22)}
+.path--c .path__per{color:var(--amber);background:rgba(255,183,77,.13);border:1px solid rgba(255,183,77,.22)}
+.path__cap{font-size:.96rem;color:var(--text);margin-bottom:22px}
+.path__list{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:22px}
+.path__list li{display:flex;align-items:flex-start;gap:11px;font-size:.93rem;color:var(--text)}
+.path__list li svg{width:18px;height:18px;flex-shrink:0;margin-top:2px}
+.path--a .path__list li svg{fill:var(--cyan)}
+.path--b .path__list li svg{fill:var(--green2)}
+.path--c .path__list li svg{fill:var(--amber)}
+.path__foot{margin-top:auto;font-size:.86rem;color:var(--text-dim);
+  padding-top:18px;border-top:1px dashed rgba(255,255,255,.1)}
+.path__badge{position:absolute;top:0;right:0;z-index:2;
+  background:linear-gradient(135deg,var(--amber),#fb8c00);color:#1a1206;
+  font-size:.64rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+  padding:6px 14px;border-bottom-left-radius:12px}
+.path__trial{background:rgba(255,183,77,.08);border:1px solid rgba(255,183,77,.2);
+  border-radius:12px;padding:13px 15px;font-size:.86rem;color:#f0d8b0;margin-bottom:18px}
+.path__trial b{color:var(--amber)}
+.btn-prem{display:inline-flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  padding:14px 22px;border-radius:12px;font-size:.92rem;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,var(--green),var(--green-d));
+  box-shadow:0 6px 24px rgba(76,175,80,.3);transition:all .28s;letter-spacing:.3px}
+.btn-prem:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(76,175,80,.42)}
+.path__free{display:inline-block;font-size:.8rem;font-weight:800;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--green2);background:rgba(76,175,80,.1);
+  border:1px solid rgba(76,175,80,.2);border-radius:8px;padding:9px 0;text-align:center;width:100%}
+.path--a .path__free{color:var(--cyan);background:rgba(38,198,218,.1);border-color:rgba(38,198,218,.2)}
+
+/* ─── Общие секции ─── */
+.section{max-width:1080px;margin:0 auto;padding:72px 24px}
+.section--narrow{max-width:820px}
+.sec-head{text-align:center;margin-bottom:46px}
+.sec-tag{display:inline-block;font-size:.74rem;font-weight:700;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--green2);background:rgba(76,175,80,.08);
+  border:1px solid rgba(76,175,80,.16);padding:6px 14px;border-radius:20px;margin-bottom:16px}
+.sec-title{font-size:clamp(1.6rem,3.6vw,2.3rem);font-weight:900;color:var(--head);
+  letter-spacing:-.5px;line-height:1.2}
+.sec-title .accent{background:linear-gradient(135deg,var(--green),var(--green3));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sec-sub{font-size:1.04rem;color:var(--text-dim);max-width:620px;margin:14px auto 0}
+.divider{max-width:420px;margin:0 auto;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(76,175,80,.18),transparent)}
+
+/* ─── Шаги ─── */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;position:relative}
+.steps::before{content:'';position:absolute;top:32px;left:16%;right:16%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(76,175,80,.25),transparent);z-index:0}
+.step{position:relative;z-index:1;text-align:center;padding:8px}
+.step-num{width:64px;height:64px;margin:0 auto 20px;border-radius:50%;
+  background:#0e131c;border:1px solid rgba(76,175,80,.25);
+  display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:900;
+  color:var(--green);transition:all .3s}
+.step:hover .step-num{background:rgba(76,175,80,.08);border-color:rgba(76,175,80,.5);
+  box-shadow:0 0 26px rgba(76,175,80,.18)}
+.step h3{font-size:1.12rem;color:var(--head);margin-bottom:9px;font-weight:800}
+.step p{font-size:.93rem;color:var(--text-dim)}
+
+/* ─── Регистрация не обязательна ─── */
+.noreg{max-width:980px;margin:0 auto;
+  background:var(--card);border:1px solid var(--line);border-radius:22px;
+  padding:44px 40px;display:flex;align-items:center;gap:40px;position:relative;overflow:hidden}
+.noreg::before{content:'';position:absolute;top:-40%;right:-10%;width:340px;height:340px;
+  background:radial-gradient(circle,rgba(66,165,245,.12),transparent 65%);pointer-events:none}
+.noreg__icon{flex-shrink:0;width:88px;height:88px;border-radius:22px;
+  background:linear-gradient(135deg,rgba(66,165,245,.16),rgba(66,165,245,.04));
+  border:1px solid rgba(66,165,245,.22);display:flex;align-items:center;justify-content:center}
+.noreg__icon svg{width:46px;height:46px;fill:var(--blue)}
+.noreg__body h2{font-size:1.5rem;color:var(--head);font-weight:900;margin-bottom:12px;letter-spacing:-.3px}
+.noreg__body p{color:var(--text);font-size:1rem;margin-bottom:18px}
+.noreg__tags{display:flex;flex-wrap:wrap;gap:10px}
+/* [v3.0.2] ">" — только пилюли-теги (прямые потомки), НЕ вложенные data-lang спаны:
+   иначе ".noreg__tags span" (0,1,1) перебивал "[data-lang]{display:none}" (0,1,0) → все языки видны. */
+.noreg__tags > span{font-size:.84rem;font-weight:700;color:var(--text);
+  background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:9px;padding:8px 14px;
+  display:inline-flex;align-items:center;gap:8px}
+.noreg__tags svg{width:15px;height:15px;fill:var(--green2)}
+
+/* ─── Честный раздел (поддержи проект) ─── */
+.honest{max-width:880px;margin:0 auto;
+  background:linear-gradient(135deg,rgba(76,175,80,.07) 0%,rgba(30,90,200,.045) 55%,rgba(171,71,188,.03) 100%);
+  border:1px solid rgba(76,175,80,.16);border-radius:24px;padding:52px 46px;position:relative;overflow:hidden}
+.honest::before{content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+.honest h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:900;color:var(--head);
+  text-align:center;letter-spacing:-.5px;margin-bottom:26px;line-height:1.22}
+.honest h2 .accent{background:linear-gradient(135deg,var(--amber),#ffd28a);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.honest p{font-size:1.04rem;color:var(--text);margin-bottom:18px}
+.honest p.lead strong{color:var(--head)}
+.honest p .hl{color:var(--green2);font-weight:700}
+.honest__cta{text-align:center;margin-top:30px}
+.honest__note{text-align:center;font-size:.85rem;color:var(--text-dim);margin-top:14px}
+.btn-support{display:inline-flex;align-items:center;gap:11px;padding:16px 38px;
+  background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff;border-radius:13px;
+  font-size:1rem;font-weight:800;box-shadow:0 6px 28px rgba(76,175,80,.32);
+  transition:all .3s;letter-spacing:.3px}
+.btn-support:hover{transform:translateY(-2px);box-shadow:0 12px 38px rgba(76,175,80,.45)}
+.btn-support svg{width:20px;height:20px;fill:currentColor}
+
+/* ─── Footer ─── */
+.foot{border-top:1px solid var(--line);margin-top:40px;padding:34px 24px 44px;text-align:center}
+.foot__links{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 26px;margin-bottom:18px}
+.foot__links a{font-size:.9rem;color:var(--text-dim);font-weight:600;transition:color .2s}
+.foot__links a:hover{color:var(--green2)}
+.foot__copy{font-size:.82rem;color:#5a626f}
+
+/* ─── fade-up ─── */
+.fade-up{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.fade-up.visible{opacity:1;transform:none}
+
+/* ─── Адаптив ─── */
+@media(max-width:880px){
+  .paths{grid-template-columns:1fr;border-radius:20px;padding:0}
+  .path{min-height:auto;border-right:none;border-bottom:1px solid rgba(255,255,255,.07);padding:38px 28px}
+  .path:last-child{border-bottom:none}
+  .steps{grid-template-columns:1fr;gap:30px}
+  .steps::before{display:none}
+  .noreg{flex-direction:column;text-align:center;padding:38px 26px}
+  .noreg__tags{justify-content:center}
+  .honest{padding:40px 26px}
+  .section{padding:56px 20px}
+}
+@media(max-width:560px){
+  .site-header__inner{padding:12px 18px}
+  .header-cta{display:none}
+  .hero{padding:60px 20px 40px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important}
+  .fade-up{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+}

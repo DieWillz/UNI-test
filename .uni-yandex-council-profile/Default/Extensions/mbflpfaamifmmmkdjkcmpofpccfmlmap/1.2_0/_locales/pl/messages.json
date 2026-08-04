@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Blisko"
+   },
+   "copy": {
+      "message": "Kopiuj URL"
+   },
+   "copy_success": {
+      "message": "Skopiowano pomyślnie."
+   },
+   "download": {
+      "message": "Ściągnij"
+   },
+   "filter_lead": {
+      "message": "Film, którego rozmiar mniejszy niż ta wartość nie zostanie przechwycony"
+   },
+   "hour": {
+      "message": "godzina"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesjonalny program do pobierania wideo do zapisywania filmów online, takich jak mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Pobieracz wideo - MPMux"
+   },
+   "minute": {
+      "message": "minuta"
+   },
+   "more_than_one_day": {
+      "message": "Ponad dzień"
+   },
+   "no_more_resolution": {
+      "message": "Nigdy więcej rozdzielczości"
+   },
+   "no_result": {
+      "message": "Nie znaleziono pliku zasobów!"
+   },
+   "no_video": {
+      "message": "Nie można nagrać wideo lub wideo nie istnieje!"
+   },
+   "not_support": {
+      "message": "Ta strona nie jest obsługiwana"
+   },
+   "play": {
+      "message": "Odtwórz wideo"
+   },
+   "popup_modal_body": {
+      "message": "Spróbuj wybrać stałą rozdzielczość przed nagrywaniem (jeśli wideo ma tę opcję). Ponieważ automatyczna rozdzielczość może generować klatki o różnych rozmiarach, powodując podział wideo."
+   },
+   "popup_modal_close": {
+      "message": "Blisko"
+   },
+   "popup_modal_confirm": {
+      "message": "Potwierdzać"
+   },
+   "popup_modal_title": {
+      "message": "Porady"
+   },
+   "recording_mode": {
+      "message": "Tryb nagrywania"
+   },
+   "second": {
+      "message": "sekundy"
+   },
+   "size_filter": {
+      "message": "Filtr"
+   },
+   "tips": {
+      "message": "Porady"
+   },
+   "tips_text_1": {
+      "message": "Niektóre filmy mogą nie zostać nagrane, dopóki nie zostaną odtworzone. Jeśli docelowego wideo nie ma na liście, spróbuj go odtworzyć lub odśwież stronę."
+   },
+   "tips_text_2": {
+      "message": "Jeśli po próbie nadal nie działa, pobierz go siłą w „trybie nagrywania”."
+   },
+   "video_flush_error": {
+      "message": "Błąd spłukiwania wideo"
+   }
+}

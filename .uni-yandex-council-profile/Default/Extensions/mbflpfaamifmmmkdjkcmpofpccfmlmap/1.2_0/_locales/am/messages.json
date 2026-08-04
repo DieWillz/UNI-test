@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "ገጠመ"
+   },
+   "copy": {
+      "message": "URL ቅዳ"
+   },
+   "copy_success": {
+      "message": "በተሳካ ሁኔታ ተቀድቷል።"
+   },
+   "download": {
+      "message": "አውርድ"
+   },
+   "filter_lead": {
+      "message": "ከዚህ እሴት ያነሰ መጠን ያለው ቪዲዮ አይቀረጽም።"
+   },
+   "hour": {
+      "message": "ሰአት"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "እንደ mp4, m3u8, hls, live ያሉ ቪዲዮዎችን ለማስቀመጥ ሙዚቃ ቪዲዮ አውስትና ስትሪም ሬኮርደር በሙያ የተሟላ።"
+   },
+   "manifest_name": {
+      "message": "ሁሉም ቪዲዮ ማውረጃ - MPMux"
+   },
+   "minute": {
+      "message": "ደቂቃ"
+   },
+   "more_than_one_day": {
+      "message": "ከአንድ ቀን በላይ"
+   },
+   "no_more_resolution": {
+      "message": "ከአሁን በኋላ መፍትሄ የለም።"
+   },
+   "no_result": {
+      "message": "ምንም የንብረት ፋይል አልተገኘም!"
+   },
+   "no_video": {
+      "message": "ቪዲዮ መቅዳት አይቻልም፣ ወይም ቪዲዮ የለም!"
+   },
+   "not_support": {
+      "message": "ይህ ጣቢያ አይደገፍም።"
+   },
+   "play": {
+      "message": "ቪዲዮ አጫውት።"
+   },
+   "popup_modal_body": {
+      "message": "ከመቅዳትዎ በፊት ቋሚ ጥራት ለመምረጥ ይሞክሩ (ቪዲዮው ይህ አማራጭ ካለው). ምክንያቱም አውቶማቲክ ጥራት የተለያየ መጠን ያላቸውን ክፈፎች ሊያወጣ ስለሚችል ቪዲዮው እንዲከፋፈል ያደርጋል።"
+   },
+   "popup_modal_close": {
+      "message": "ገጠመ"
+   },
+   "popup_modal_confirm": {
+      "message": "አረጋግጥ"
+   },
+   "popup_modal_title": {
+      "message": "ጠቃሚ ምክሮች"
+   },
+   "recording_mode": {
+      "message": "የመቅዳት ሁነታ"
+   },
+   "second": {
+      "message": "ሰከንዶች"
+   },
+   "size_filter": {
+      "message": "አጣራ"
+   },
+   "tips": {
+      "message": "ጠቃሚ ምክሮች"
+   },
+   "tips_text_1": {
+      "message": "አንዳንድ ቪዲዮዎች እስኪጫወቱ ድረስ ላይያዙ ይችላሉ። የታለመው ቪዲዮ በዝርዝሩ ውስጥ ከሌለ ለማጫወት ይሞክሩ ወይም ገጹን ያድሱ።"
+   },
+   "tips_text_2": {
+      "message": "ከሞከረ በኋላ አሁንም የማይሰራ ከሆነ \"በቀረጻ ሁነታ\" በግዳጅ ያውርዱት።"
+   },
+   "video_flush_error": {
+      "message": "የቪዲዮ ማፍሰሻ ስህተት"
+   }
+}

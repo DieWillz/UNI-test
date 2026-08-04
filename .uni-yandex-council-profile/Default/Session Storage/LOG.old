@@ -1,0 +1,6 @@
+2026/08/02-22:07:57.544 8eb4 File C:\LLM\UNI\.uni-yandex-council-profile\Default\Session Storage is locked for recovering successfully
+2026/08/02-22:07:57.544 8eb4 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\Session Storage since it was missing.
+2026/08/02-22:07:57.557 8eb4 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\Session Storage/MANIFEST-000001
+2026/08/03-07:20:34.819 8ec0 Level-0 table #5: started
+2026/08/03-07:20:34.823 8ec0 Level-0 table #5: 14595 bytes OK
+2026/08/03-07:20:34.825 8ec0 Delete type=0 #3

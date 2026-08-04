@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Close"
+   },
+   "copy": {
+      "message": "Copy URL"
+   },
+   "copy_success": {
+      "message": "Copied successfully."
+   },
+   "download": {
+      "message": "Download"
+   },
+   "filter_lead": {
+      "message": "Video which the size smaller than this value will not be captured"
+   },
+   "hour": {
+      "message": "hour"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "A professional online video downloader for saving videos such as mp4,m3u8,hls,live."
+   },
+   "manifest_name": {
+      "message": "Video Downloader - MPMux"
+   },
+   "minute": {
+      "message": "minute"
+   },
+   "more_than_one_day": {
+      "message": "Over a day"
+   },
+   "no_more_resolution": {
+      "message": "No more resolution"
+   },
+   "no_result": {
+      "message": "No resource file found!"
+   },
+   "no_video": {
+      "message": "Video cannot be recorded, or video does not exist!"
+   },
+   "not_support": {
+      "message": "This site is not supported"
+   },
+   "play": {
+      "message": "Play video"
+   },
+   "popup_modal_body": {
+      "message": "Try to choose a fixed resolution before recording (if the video has this option). Because auto-resolution may produce frames of different size, causing the video to be split."
+   },
+   "popup_modal_close": {
+      "message": "Close"
+   },
+   "popup_modal_confirm": {
+      "message": "Confirm"
+   },
+   "popup_modal_title": {
+      "message": "Tips"
+   },
+   "recording_mode": {
+      "message": "Recording Mode"
+   },
+   "second": {
+      "message": "seconds"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips_text_1": {
+      "message": "Some videos may not be captured until they are played. If the target video is not in the list, try to play it, or refresh the page."
+   },
+   "tips_text_2": {
+      "message": "If it still doesn't work after trying, download it forcibly with \"recording mode\"."
+   },
+   "video_flush_error": {
+      "message": "Video flush error"
+   }
+}

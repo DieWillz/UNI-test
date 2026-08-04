@@ -1,0 +1,83 @@
+/* ==========================================================================
+   Theme: Neon Cyberpunk (Dark)
+   ========================================================================== */
+
+:root {
+  --bg-main: #0a0c10;
+  --bg-card: rgba(18, 22, 31, 0.75);
+  --bg-input: #131822;
+  --text-main: #e2e8f0;
+  --text-muted: #8a99ad;
+  --accent-cyan: #00f2fe;
+  --accent-purple: #9d4edd;
+  --accent-glow: rgba(0, 242, 254, 0.25);
+  --border-color: rgba(0, 242, 254, 0.2);
+  --border-focus: #00f2fe;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+}
+
+body {
+  background-color: var(--bg-main) !important;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(157, 78, 221, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(0, 242, 254, 0.12) 0%, transparent 40%) !important;
+  color: var(--text-main) !important;
+  font-family: 'JetBrains Mono', monospace, system-ui !important;
+}
+
+/* Карточки и блоки */
+div, section, .card, fieldset {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+}
+
+/* Заголовки */
+h1, h2, h3, h4, .title {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 242, 254, 0.3) !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Кнопки */
+button, input[type="button"], input[type="submit"] {
+  background: linear-gradient(135deg, #7928ca 0%, #00dfd8 100%) !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 16px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+  box-shadow: 0 0 12px var(--accent-glow) !important;
+}
+
+button:hover, input[type="button"]:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.6) !important;
+}
+
+/* Инпуты, селекты, текстовые поля */
+input[type="text"], textarea, select {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--accent-cyan) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 12px !important;
+  outline: none !important;
+}
+
+input[type="text"]:focus, textarea:focus, select:focus {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 10px var(--accent-glow) !important;
+}
+
+/* Логи и консольный вывод */
+pre, code, .log-output {
+  background: #05070a !important;
+  border-left: 3px solid var(--accent-cyan) !important;
+  color: #39ff14 !important; /* Неоново-зелёный текст логов */
+}

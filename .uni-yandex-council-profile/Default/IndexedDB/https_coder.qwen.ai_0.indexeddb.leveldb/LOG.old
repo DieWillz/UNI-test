@@ -1,0 +1,32 @@
+2026/08/02-22:22:36.201 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:22:36.201 8d70 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb since it was missing.
+2026/08/02-22:22:36.208 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/02-22:22:38.491 8d74 Level-0 table #5: started
+2026/08/02-22:22:38.499 8d74 Level-0 table #5: 234546 bytes OK
+2026/08/02-22:22:38.502 8d74 Delete type=0 #3
+2026/08/02-22:22:38.603 8d7c Level-0 table #7: started
+2026/08/02-22:22:38.611 8d7c Level-0 table #7: 234217 bytes OK
+2026/08/02-22:22:38.614 8d7c Delete type=0 #4
+2026/08/02-22:22:38.761 8d7c Level-0 table #9: started
+2026/08/02-22:22:38.769 8d7c Level-0 table #9: 234492 bytes OK
+2026/08/02-22:22:38.772 8d7c Delete type=0 #6
+2026/08/02-22:22:38.896 8d70 Level-0 table #11: started
+2026/08/02-22:22:38.902 8d70 Level-0 table #11: 177649 bytes OK
+2026/08/02-22:22:38.904 8d70 Delete type=0 #8
+2026/08/02-22:22:38.904 8d70 Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at '\x00\x02\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 3309 : 1
+2026/08/02-22:22:38.905 8d70 Compacting 2@0 + 1@1 files
+2026/08/02-22:22:38.919 8d70 Generated table #12@0: 1440 keys, 12564 bytes
+2026/08/02-22:22:38.919 8d70 Compacted 2@0 + 1@1 files => 12564 bytes
+2026/08/02-22:22:38.921 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/02-22:22:38.921 8d70 Delete type=2 #11
+2026/08/02-22:22:38.921 8d70 Manual compaction at level-0 from '\x00\x02\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 3309 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/02-22:22:38.921 8d70 Manual compaction at level-1 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at '\x00\x02\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 5895 : 0
+2026/08/02-22:22:38.921 8d70 Compacting 1@1 + 1@2 files
+2026/08/02-22:22:38.938 8d70 Generated table #13@1: 19 keys, 532 bytes
+2026/08/02-22:22:38.938 8d70 Compacted 1@1 + 1@2 files => 532 bytes
+2026/08/02-22:22:38.940 8d70 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/02-22:22:38.940 8d70 Delete type=2 #12
+2026/08/02-22:22:38.941 8d70 Manual compaction at level-1 from '\x00\x02\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 5895 : 0 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-01:48:01.216 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb, waiting for background work finished
+2026/08/03-01:48:01.216 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb, background work finished
+2026/08/03-01:48:01.216 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb unlocked successfully

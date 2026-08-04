@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "閉じる"
+   },
+   "copy": {
+      "message": "アドレスをコピー"
+   },
+   "copy_success": {
+      "message": "コピー成功"
+   },
+   "download": {
+      "message": "ダウンロード"
+   },
+   "filter_lead": {
+      "message": "この値より小さいビデオはキャプチャされません"
+   },
+   "hour": {
+      "message": "時間"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "MP4、M3U8、HLS、ライブなどのビデオを保存するためのプロフェッショナルなビデオダウンローダーおよびストリームレコーダー。"
+   },
+   "manifest_name": {
+      "message": "オンラインビデオダウンローダー 無料 - MPMux"
+   },
+   "minute": {
+      "message": "分"
+   },
+   "more_than_one_day": {
+      "message": "1日以上"
+   },
+   "no_more_resolution": {
+      "message": "これ以上の解像度はありません"
+   },
+   "no_result": {
+      "message": "リソースファイルが見つかりません！"
+   },
+   "no_video": {
+      "message": "このページで記録可能なビデオが見つかりません！"
+   },
+   "not_support": {
+      "message": "このウェブサイトはサポートされていません"
+   },
+   "play": {
+      "message": "再生"
+   },
+   "popup_modal_body": {
+      "message": "記録する前に、できるだけ固定の解像度を選択してください（動画がそのオプションを提供している場合）。自動解像度の場合、異なる解像度のフレームが生成され、ビデオが分割される可能性があります。"
+   },
+   "popup_modal_close": {
+      "message": "閉じる"
+   },
+   "popup_modal_confirm": {
+      "message": "確認"
+   },
+   "popup_modal_title": {
+      "message": "ヒント"
+   },
+   "recording_mode": {
+      "message": "記録モード"
+   },
+   "second": {
+      "message": "秒"
+   },
+   "size_filter": {
+      "message": "フィルター"
+   },
+   "tips": {
+      "message": "ヒント"
+   },
+   "tips_text_1": {
+      "message": "一部の動画は再生前にキャプチャできない場合があります。目標動画がリストにない場合、再生してみるか、このページを更新してください。"
+   },
+   "tips_text_2": {
+      "message": "それでもリソースをキャプチャできない場合は、「記録モード」で強制ダウンロードを試みてください。"
+   },
+   "video_flush_error": {
+      "message": "ビデオのリフレッシュエラー"
+   }
+}

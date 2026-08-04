@@ -1,0 +1,11 @@
+2026/08/03-11:16:23.156 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/03-11:16:23.157 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/03-11:16:23.157 8d70 Recovering log #3
+2026/08/03-11:16:23.157 8d70 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb/000003.log 
+2026/08/03-11:16:27.186 8d74 Level-0 table #5: started
+2026/08/03-11:16:27.194 8d74 Level-0 table #5: 1254 bytes OK
+2026/08/03-11:16:27.197 8d74 Delete type=0 #3
+2026/08/03-11:16:27.197 8d74 Manual compaction at level-0 from (begin) .. (end); will stop at (end)
+2026/08/03-11:16:27.197 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb, waiting for background work finished
+2026/08/03-11:16:27.197 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb, background work finished
+2026/08/03-11:16:27.197 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_grok.com_0.indexeddb.leveldb unlocked successfully

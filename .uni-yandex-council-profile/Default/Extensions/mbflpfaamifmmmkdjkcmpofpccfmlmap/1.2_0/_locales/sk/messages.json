@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Zavrieť"
+   },
+   "copy": {
+      "message": "Kopírovať URL"
+   },
+   "copy_success": {
+      "message": "Úspešne skopírované."
+   },
+   "download": {
+      "message": "Stiahnuť ▼"
+   },
+   "filter_lead": {
+      "message": "Video, ktorého veľkosť je menšia ako táto hodnota, nebude zaznamenané"
+   },
+   "hour": {
+      "message": "hodina"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionálny sťahovač videí na ukladanie online videí ako mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Rozšírenia na stiahnutie videa - MPMux"
+   },
+   "minute": {
+      "message": "minútu"
+   },
+   "more_than_one_day": {
+      "message": "Viac ako jeden deň"
+   },
+   "no_more_resolution": {
+      "message": "Už žiadne rozlíšenie"
+   },
+   "no_result": {
+      "message": "Nenašiel sa žiadny zdrojový súbor!"
+   },
+   "no_video": {
+      "message": "Video sa nedá nahrať alebo video neexistuje!"
+   },
+   "not_support": {
+      "message": "Táto stránka nie je podporovaná"
+   },
+   "play": {
+      "message": "Prehrať video"
+   },
+   "popup_modal_body": {
+      "message": "Skúste pred nahrávaním zvoliť pevné rozlíšenie (ak má video túto možnosť). Pretože automatické rozlíšenie môže produkovať snímky rôznej veľkosti, čo spôsobí rozdelenie videa."
+   },
+   "popup_modal_close": {
+      "message": "Zavrieť"
+   },
+   "popup_modal_confirm": {
+      "message": "Potvrďte"
+   },
+   "popup_modal_title": {
+      "message": "Tipy"
+   },
+   "recording_mode": {
+      "message": "Režim nahrávania"
+   },
+   "second": {
+      "message": "sekúnd"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Tipy"
+   },
+   "tips_text_1": {
+      "message": "Niektoré videá sa nemusia nasnímať, kým sa neprehrajú. Ak cieľové video nie je v zozname, skúste ho prehrať alebo obnovte stránku."
+   },
+   "tips_text_2": {
+      "message": "Ak ani po vyskúšaní nefunguje, stiahnite si ho nasilu pomocou „režimu nahrávania“."
+   },
+   "video_flush_error": {
+      "message": "Chyba spustenia videa"
+   }
+}

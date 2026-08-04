@@ -1,0 +1,7 @@
+2026/08/02-22:25:06.805 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:25:06.805 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/02-22:25:06.806 8d70 Recovering log #3
+2026/08/02-22:25:06.806 8d70 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb/000003.log 
+2026/08/02-22:25:39.013 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb, waiting for background work finished
+2026/08/02-22:25:39.013 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb, background work finished
+2026/08/02-22:25:39.013 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_x.com_0.indexeddb.leveldb unlocked successfully

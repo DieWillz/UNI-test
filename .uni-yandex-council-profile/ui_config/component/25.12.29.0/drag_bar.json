@@ -1,0 +1,30 @@
+{
+  "style_sheet": [
+    {
+      "selector": [ 
+        	"#tabs_top_panel", 
+        	"#flute:not(:bottom_tabs)" 
+      ],
+      "caption_height": 12,
+      "top_padding": 12,
+    },
+    {
+      "selector": [ 
+        	"#tabs_top_panel[window=fullscreen]", 
+        	"#tabs_top_panel[window=maximized]", 
+        	"#flute[window=fullscreen]", 
+        	"#flute[window=maximized]" 
+      ],
+      "caption_height": 0,
+      "top_padding": 0,
+    }
+  ],
+  "browser_ui_config": {
+    "FluteBubbleWidget": {
+      "arrow_size": [
+        16,
+        9
+      ]
+    }
+  }
+}

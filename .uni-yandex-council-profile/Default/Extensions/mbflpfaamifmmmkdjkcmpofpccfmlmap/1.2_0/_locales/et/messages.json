@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Sulge"
+   },
+   "copy": {
+      "message": "Kopeeri URL"
+   },
+   "copy_success": {
+      "message": "Kopeerimine õnnestus."
+   },
+   "download": {
+      "message": "Lae alla"
+   },
+   "filter_lead": {
+      "message": "Sellest väärtusest väiksema suurusega videot ei jäädvustata"
+   },
+   "hour": {
+      "message": "tund"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Professionaalne videote allalaadija võrgus olevate videote salvestamiseks nagu mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Video allalaadimine - MPMux"
+   },
+   "minute": {
+      "message": "minut"
+   },
+   "more_than_one_day": {
+      "message": "Üle päeva"
+   },
+   "no_more_resolution": {
+      "message": "Pole enam resolutsiooni"
+   },
+   "no_result": {
+      "message": "Ressursifaili ei leitud!"
+   },
+   "no_video": {
+      "message": "Videot ei saa salvestada või videot pole olemas!"
+   },
+   "not_support": {
+      "message": "Seda saiti ei toetata"
+   },
+   "play": {
+      "message": "Esita video"
+   },
+   "popup_modal_body": {
+      "message": "Proovige enne salvestamist valida fikseeritud eraldusvõime (kui videol on see valik). Kuna automaatne eraldusvõime võib tekitada erineva suurusega kaadreid, mis põhjustab video poolitamist."
+   },
+   "popup_modal_close": {
+      "message": "Sulge"
+   },
+   "popup_modal_confirm": {
+      "message": "Kinnita"
+   },
+   "popup_modal_title": {
+      "message": "Näpunäiteid"
+   },
+   "recording_mode": {
+      "message": "Salvestusrežiim"
+   },
+   "second": {
+      "message": "sekundit"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Näpunäiteid"
+   },
+   "tips_text_1": {
+      "message": "Mõnda videot ei pruugita enne esitamist jäädvustada. Kui sihtvideot loendis pole, proovige seda esitada või värskendage lehte."
+   },
+   "tips_text_2": {
+      "message": "Kui see pärast proovimist ikka ei tööta, laadige see \"salvestusrežiimiga\" sunniviisiliselt alla."
+   },
+   "video_flush_error": {
+      "message": "Video loputamise viga"
+   }
+}

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "kiinni"
+   },
+   "copy": {
+      "message": "Kopioi URL-osoite"
+   },
+   "copy_success": {
+      "message": "Kopiointi onnistui."
+   },
+   "download": {
+      "message": "ladata"
+   },
+   "filter_lead": {
+      "message": "Tätä arvoa pienempiä videoita ei kaapata"
+   },
+   "hour": {
+      "message": "tunnin"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Ammattimainen videoiden latausohjelma verkossa olevien videoiden tallentamiseen, kuten mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Videon latausohjelma - MPMux"
+   },
+   "minute": {
+      "message": "minuutti"
+   },
+   "more_than_one_day": {
+      "message": "Yli päivä"
+   },
+   "no_more_resolution": {
+      "message": "Ei enää resoluutiota"
+   },
+   "no_result": {
+      "message": "Resurssitiedostoa ei löytynyt!"
+   },
+   "no_video": {
+      "message": "Videota ei voi tallentaa tai videota ei ole olemassa!"
+   },
+   "not_support": {
+      "message": "Tätä sivustoa ei tueta"
+   },
+   "play": {
+      "message": "Toista video"
+   },
+   "popup_modal_body": {
+      "message": "Yritä valita kiinteä tarkkuus ennen tallennusta (jos videossa on tämä vaihtoehto). Koska automaattinen resoluutio voi tuottaa erikokoisia kehyksiä, mikä aiheuttaa videon jakamisen."
+   },
+   "popup_modal_close": {
+      "message": "kiinni"
+   },
+   "popup_modal_confirm": {
+      "message": "Vahvistaa"
+   },
+   "popup_modal_title": {
+      "message": "Vinkkejä"
+   },
+   "recording_mode": {
+      "message": "Tallennustila"
+   },
+   "second": {
+      "message": "sekuntia"
+   },
+   "size_filter": {
+      "message": "Suodattaa"
+   },
+   "tips": {
+      "message": "Vinkkejä"
+   },
+   "tips_text_1": {
+      "message": "Joitakin videoita ei ehkä kaapata ennen kuin ne on toistettu. Jos kohdevideo ei ole luettelossa, yritä toistaa se tai päivittää sivu."
+   },
+   "tips_text_2": {
+      "message": "Jos se ei vieläkään toimi yrittämisen jälkeen, lataa se väkisin \"tallennustilassa\"."
+   },
+   "video_flush_error": {
+      "message": "Videon huuhteluvirhe"
+   }
+}

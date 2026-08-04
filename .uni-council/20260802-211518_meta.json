@@ -1,0 +1,21 @@
+{
+  "topic": "Создание плана разработки и распределение ролей",
+  "round_id": "20260802-211518",
+  "participants": [
+    "DeepSeek",
+    "QWEN",
+    "Hermes"
+  ],
+  "signatures": {},
+  "errors": {
+    "DeepSeek": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}",
+    "QWEN": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}",
+    "Hermes": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260802-211518_DeepSeek.md",
+    "QWEN": ".uni-council\\20260802-211518_QWEN.md",
+    "Hermes": ".uni-council\\20260802-211518_Hermes.md",
+    "report": ".uni-council\\20260802-211518_report.md"
+  }
+}

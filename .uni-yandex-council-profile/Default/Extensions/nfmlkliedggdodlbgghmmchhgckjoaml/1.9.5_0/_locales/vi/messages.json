@@ -1,0 +1,10 @@
+{
+   "description": {
+      "description": "Extension's description",
+      "message": "Blockify là trình chặn quảng cáo cho Spotify, chặn và loại bỏ quảng cáo âm thanh bằng công nghệ Spotify-adblock."
+   },
+   "name": {
+      "description": "Extension's name",
+      "message": "Chặn Quảng Cáo Spotify - Blockify"
+   }
+}

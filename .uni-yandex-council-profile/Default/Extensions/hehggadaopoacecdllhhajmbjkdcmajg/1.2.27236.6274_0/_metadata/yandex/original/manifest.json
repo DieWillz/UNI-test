@@ -1,0 +1,87 @@
+{
+"update_url": "https://clients2.google.com/service/update2/crx",
+
+  "manifest_version": 3,
+  "name": "ChatGPT",
+  "description": "Control your browser with ChatGPT.",
+  "version": "1.2.27236.6274",
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "128": "images/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://ab.chatgpt.com https://chatgpt.com https://api.openai.com https://api.openai.org; font-src 'self' https://cdn.openai.com;"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "alarms",
+    "bookmarks",
+    "debugger",
+    "downloads",
+    "favicon",
+    "history",
+    "nativeMessaging",
+    "notifications",
+    "scripting",
+    "sessions",
+    "storage",
+    "tabGroups",
+    "tabs",
+    "topSites",
+    "webNavigation",
+    "contextMenus",
+    "sidePanel"
+  ],
+  "action": {
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png"
+    },
+    "default_title": "ChatGPT"
+  },
+  "commands": {
+    "open-codex-side-panel": {
+      "description": "Open ChatGPT side panel",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Period",
+        "mac": "Command+Shift+Period"
+      }
+    }
+  },
+  "optional_permissions": [
+    "downloads.open"
+  ],
+  "side_panel": {
+    "default_path": "codex-sidepanel/index.html"
+  },
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "images/cursor-chat.png"
+      ]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "all_frames": false,
+      "run_at": "document_end",
+      "js": [
+        "content-scripts/chatgpt-website.js"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "banners": {
+    "passman": {
+      "title": "Доступ к менеджеру паролей и карт в один клик",
+      "text": "Рядом с адресной строкой появится иконка для быстрого доступа к вашим паролям и картам",
+      "icon": "images/passman.svg",
+      "button": {
+        "color": "action",
+        "text": "Включить",
+        "close_banner": true,
+        "action_list": [
+          {
+            "action": "set_pref",
+            "pref": "passman.fast_pass_enabled",
+            "value": true
+          }
+        ]
+      },
+      "constraints": {
+        "prefs": [{"passman.fast_pass_enabled": false}],
+        "close_count": 2,
+        "delay_after_close": 7,
+        "ui_urls": [ "passwords", "personal", "passwords-settings" ]
+      }
+    },
+    "master-password-v1": {
+      "title": "Защитите ваши данные от посторонних",
+      "text": "Чтобы ваши пароли и карты никто не узнал, зашифруйте их мастер-паролем. Мастер-пароль нужно запомнить, он не хранится в браузере и не передаётся по сети.",
+      "icon": "images/master-password.svg",
+      "button": {
+        "color": "action",
+        "text": "Создать мастер-пароль",
+        "close_banner": false,
+        "action_list": [
+          {
+            "action": "open_url",
+            "url": "browser://passwords-settings/?action=create_mp",
+            "use_current_tab": false
+          }
+        ]
+      },
+      "constraints": {
+        "max_browser_version": "22.9.1",
+        "min_passwords_saved": 2,
+        "prefs": [{"encryption.master_password_created": false}],
+        "delay_after_close": 7,
+        "close_count": 2,
+        "ui_urls": [ "passwords", "personal", "passwords-settings" ]
+      }
+    },
+    "master-password-v2": {
+      "title": "Защитите ваши данные от посторонних",
+      "text": "Чтобы ваши пароли и карты никто не узнал, зашифруйте их мастер-паролем. Мастер-пароль нужно запомнить, он не хранится в браузере и не передаётся по сети.",
+      "icon": "images/master-password.svg",
+      "button": {
+        "color": "action",
+        "text": "Создать мастер-пароль",
+        "close_banner": false,
+        "action_list": [
+          {
+            "action": "open_url",
+            "url": "browser://passwords-settings/?action=create_mp",
+            "use_current_tab": false
+          }
+        ]
+      },
+      "constraints": {
+        "min_browser_version": "22.9.1",
+        "max_browser_version": "24.12.2",
+        "min_passwords_saved": 2,
+        "prefs": [{"encryption.master_password_created": false, "passman.master_password_disabled": false}],
+        "delay_after_close": 7,
+        "close_count": 2,
+        "ui_urls": [ "passwords", "personal", "passwords-settings" ]
+      }
+    },
+    "master-password-v3": {
+      "title": "Защитите ваши данные от посторонних",
+      "text": "Чтобы ваши пароли и карты никто не узнал, зашифруйте их мастер-паролем. Мастер-пароль нужно запомнить, он не хранится в браузере и не передаётся по сети.",
+      "icon": "images/master-password.svg",
+      "button": {
+        "color": "action",
+        "text": "Создать мастер-пароль",
+        "close_banner": false,
+        "action_list": [
+          {
+            "action": "open_url",
+            "url": "browser://personal/settings?action=create_mp",
+            "use_current_tab": false
+          }
+        ]
+      },
+      "constraints": {
+        "min_browser_version": "24.12.2",
+        "min_passwords_saved": 2,
+        "prefs": [{"encryption.master_password_created": false, "passman.master_password_disabled": false}],
+        "delay_after_close": 7,
+        "close_count": 2,
+        "ui_urls": [ "personal" ]
+      }
+    }
+  }
+}

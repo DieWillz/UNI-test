@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Nah dran"
+   },
+   "copy": {
+      "message": "URL kopieren"
+   },
+   "copy_success": {
+      "message": "Erfolgreich kopiert."
+   },
+   "download": {
+      "message": "Download"
+   },
+   "filter_lead": {
+      "message": "Videos, die kleiner als dieser Wert sind, werden nicht erfasst"
+   },
+   "hour": {
+      "message": "Stunde"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Ein professioneller Video-Downloader und kann Online-Videos wie HLS, m3u8, mp4 usw. speichern oder aufnehmen."
+   },
+   "manifest_name": {
+      "message": "Videos downloaden von Webseiten - MPMux"
+   },
+   "minute": {
+      "message": "Minute"
+   },
+   "more_than_one_day": {
+      "message": "Über einen Tag"
+   },
+   "no_more_resolution": {
+      "message": "Keine Auflösung mehr"
+   },
+   "no_result": {
+      "message": "Keine Ressourcendatei gefunden!"
+   },
+   "no_video": {
+      "message": "Video kann nicht aufgenommen werden oder Video ist nicht vorhanden!"
+   },
+   "not_support": {
+      "message": "Diese Seite wird nicht unterstützt"
+   },
+   "play": {
+      "message": "Video abspielen"
+   },
+   "popup_modal_body": {
+      "message": "Versuchen Sie, vor der Aufnahme eine feste Auflösung zu wählen (falls das Video diese Option hat). Weil die automatische Auflösung Frames unterschiedlicher Größe erzeugen kann, wodurch das Video geteilt wird."
+   },
+   "popup_modal_close": {
+      "message": "Nah dran"
+   },
+   "popup_modal_confirm": {
+      "message": "Bestätigen"
+   },
+   "popup_modal_title": {
+      "message": "Tipps"
+   },
+   "recording_mode": {
+      "message": "Aufnahmemodus"
+   },
+   "second": {
+      "message": "Sekunden"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Tipps"
+   },
+   "tips_text_1": {
+      "message": "Einige Videos werden möglicherweise erst aufgenommen, wenn sie abgespielt werden. Wenn das Zielvideo nicht in der Liste enthalten ist, versuchen Sie es abzuspielen oder aktualisieren Sie die Seite."
+   },
+   "tips_text_2": {
+      "message": "Wenn es nach dem Versuch immer noch nicht funktioniert, laden Sie es zwangsweise im \"Aufnahmemodus\" herunter."
+   },
+   "video_flush_error": {
+      "message": "Video-Flush-Fehler"
+   }
+}

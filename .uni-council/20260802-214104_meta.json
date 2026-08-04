@@ -1,0 +1,15 @@
+{
+  "topic": "тест",
+  "round_id": "20260802-214104",
+  "participants": [
+    "Groq"
+  ],
+  "signatures": {
+    "Groq": "твоя редакция концепции дружественного и информативного ассистента; подписываюсь под концепцией."
+  },
+  "errors": {},
+  "artifacts": {
+    "Groq": ".uni-council\\20260802-214104_Groq.md",
+    "report": ".uni-council\\20260802-214104_report.md"
+  }
+}

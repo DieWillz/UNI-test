@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<!--
+    Support Blockify - Opt-in Page
+    ==============================
+    This page is displayed once to ask users if they want to help promote
+    Blockify by auto-posting comments on YouTube.
+
+    Storage key used:
+    - promo_autocomment_enabled: boolean - Whether user opted in (true/false)
+
+    @see promo_optin.js for behavior logic
+    @see yt_autocomment.js for the YouTube commenting feature
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Blockify</title>
+    <link rel="stylesheet" href="promo_optin.css">
+    <script src="promo_optin.js" async></script>
+</head>
+<body>
+ 
+    <!-- Ambient background glow -->
+    <div class="bg-glow"></div>
+
+    <div class="page-container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="hero-header">
+                <h1 class="hero-title">
+                    Help Keep Blockify
+                    <span class="title-highlight">Alive!</span>
+                </h1>
+            </div>
+
+            <p class="hero-subtitle">
+                Till date, you've blocked <span class="highlight" id="adsBlockedCount">...</span> ads with Blockify
+            </p>
+
+            <!-- Impact Stats -->
+            <div class="impact-stats" id="impactStats">
+                <div class="impact-stat" id="timeSavedStat">
+                    <span class="stat-icon">⏱️</span>
+                    <span class="stat-value" id="timeSaved">...</span>
+                    <span class="stat-label">Of Painful Ads<br> Avoided</span>
+                </div>
+                <div class="impact-divider" id="divider1"></div>
+                <div class="impact-stat" id="energySavedStat">
+                    <span class="stat-icon">⚡</span>
+                    <span class="stat-value" id="energySaved">...</span>
+                    <span class="stat-label">of energy<br> saved</span>
+                </div>
+                <div class="impact-divider" id="divider2"></div>
+                <div class="impact-stat" id="co2SavedStat">
+                    <span class="stat-icon">🌱</span>
+                    <span class="stat-value" id="co2Saved">...</span>
+                    <span class="stat-label">Of CO₂<br> reduced</span>
+                </div>
+                <p class="time-sentence none" id="timeSentence">That's over <span class="highlight" id="timeSavedHours">0</span> <span class="highlight">hours</span> of non-stop, painful ads you've avoided successfully!</p>
+            </div>
+        </header>
+
+        <!-- Main Card -->
+        <main class="card">
+            <div class="card-glow"></div>
+
+            <div class="card-header">
+                    <div class="logo-container">
+                    <div class="logo-glow"></div>
+                    <img src="yt.png" alt="Blockify" class="logo">
+                    </div>
+                <div class="card-header-text">
+                    <h2>Help us spread the word on YouTube!</h2>
+                   <p class="card-tagline">Power the tool that protects your time.</p>
+                </div>
+            </div>
+
+            <p class="card-intro">
+                Support Blockify by allowing the extension to <b> <span>automatically post friendly shoutout comments on YouTube videos</span></b> you watch (example shown below), helping others effortlessly discover the same ad-free bliss you enjoy. Commenting is 100% passive & requires no involvement, so your experience stays uninterrupted.
+            </p>
+
+ 
+
+            <!-- Sample Comment Preview (YouTube-style) -->
+            <div class="yt-comment">
+                <div class="yt-comment-avatar">
+                    <div class="yt-avatar-placeholder">
+                        <svg viewBox="0 0 24 24" fill="#909090"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </div>
+                </div>
+                <div class="yt-comment-content">
+                    <div class="yt-comment-header">
+                        <span class="yt-comment-author">john doe</span>
+                        <span class="yt-comment-time">just now</span>
+                    </div>
+                    <div class="yt-comment-text">loving this video ad-free with Blockify!! 🎵</div>
+                    <div class="yt-comment-actions">
+                        <button class="yt-action-btn">
+                            <svg viewBox="0 0 24 24" class="yt-action-icon"><path d="M18.77,11h-4.23l1.52-4.94C16.38,5.03,15.54,4,14.38,4c-0.58,0-1.14,0.24-1.52,0.65L7,11H3v10h4h1h9.43 c1.06,0,1.98-0.67,2.19-1.61l1.34-6C21.23,12.15,20.18,11,18.77,11z M7,20H4v-8h3V20z M19.98,13.17l-1.34,6 C18.54,19.65,18.03,20,17.43,20H8v-8.61l5.6-6.06C13.79,5.12,14.08,5,14.38,5c0.26,0,0.5,0.11,0.63,0.3 c0.07,0.1,0.15,0.26,0.09,0.47l-1.52,4.94L13.18,12h1.35h4.23c0.41,0,0.8,0.17,1.03,0.46C19.92,12.61,20.05,12.86,19.98,13.17z"/></svg>
+                        </button>
+                        <span class="yt-like-count">7</span>
+                        <button class="yt-action-btn">
+                            <svg viewBox="0 0 24 24" class="yt-action-icon"><path d="M17,4h-1H6.57C5.5,4,4.59,4.67,4.38,5.61l-1.34,6C2.77,12.85,3.82,14,5.23,14h4.23l-1.52,4.94C7.62,19.97,8.46,21,9.62,21 c0.58,0,1.14-0.24,1.52-0.65L17,14h4V4H17z M10.4,19.67C10.21,19.88,9.92,20,9.62,20c-0.26,0-0.5-0.11-0.63-0.3 c-0.07-0.1-0.15-0.26-0.09-0.47l1.52-4.94l0.4-1.29H9.46H5.23c-0.41,0-0.8-0.17-1.03-0.46c-0.12-0.15-0.25-0.4-0.18-0.71l1.34-6 C5.46,5.35,5.97,5,6.57,5H16v8.61L10.4,19.67z M20,13h-3V5h3V13z"/></svg>
+                        </button>
+                        <span class="yt-reply-btn">Reply</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- First-time visitor buttons (when promo_autocomment_enabled is not set) -->
+            <div class="first-visit-buttons" id="firstVisitButtons">
+                
+                <button class="btn-primary-gradient" id="supportBtn">
+                    <span id="hart">&#x2764;</span> Enable Auto-Commenting<br> on YouTube
+                </button>
+                <button class="btn-secondary" id="dontCareBtn">Nah, Keep It Disabled</button>
+            </div>
+
+            <!-- Returning visitor UI (when promo_autocomment_enabled is set) -->
+            <div class="returning-visitor-ui none" id="returningVisitorUI">
+                <div class="support-toggle-container">
+                    <div class="support-toggle-left">
+                        <div class="card-icon-wrapper">
+                            <span class="card-icon">&#128154;</span>
+                        </div>
+                        <div class="support-toggle-label">
+                            <span class="support-toggle-title">Auto-post comments on YouTube</span>
+                            <span class="support-toggle-desc">Support Blockify</span>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="supportToggle">
+                        <span class="toggle-slider">
+                            <span class="toggle-knob"></span>
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Close CTA -->
+                <button class="btn-close-tab" id="closeTabBtn">All set — keep browsing</button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p class="footer-text">
+                Help us keep this project <strong>alive</strong> and <strong>free for everyone</strong> &#10084;&#65039;
+
+            </p>
+            <p class="footer-reassurance">
+               Changed your mind? <b>Disable anytime</b> via settings! 
+            </p>
+        </footer>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="confirm-overlay none" id="confirmModal">
+        <div class="confirm-box">
+            <p class="confirm-message">Are you sure you don't want to support Blockify?</p>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-btn-negative" id="confirmNoSupport">I don't support Blockify</button>
+                <button class="confirm-btn confirm-btn-positive" id="confirmYesSupport">I do support Blockify</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thank You Overlay -->
+    <div class="thank-you-overlay none" id="thankYouOverlay">
+        <div class="thank-you-box">
+            <div class="thank-you-left">
+                <span class="thank-you-icon">💚</span>
+                <p class="thank-you-message">Want to turn off <br>auto-commenting?</p>
+                <p class="thank-you-disable-hint"><b>Disable auto-commenting anytime via the extension menu! &#128073;</b><br>Thank you for supporting the ad-free movement!</p>
+                <button class="btn-primary-gradient thank-you-btn" id="thankYouGotItBtn">Got It!</button>
+            </div>
+            <div class="thank-you-right">
+                <img src="supporter.png" alt="Supporter menu" class="thank-you-image">
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
+

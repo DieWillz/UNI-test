@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Isara"
+   },
+   "copy": {
+      "message": "Kopyahin ang URL"
+   },
+   "copy_success": {
+      "message": "Matagumpay na nakopya."
+   },
+   "download": {
+      "message": "I-download"
+   },
+   "filter_lead": {
+      "message": "Hindi kukunan ang video na mas maliit sa halagang ito ang laki"
+   },
+   "hour": {
+      "message": "oras"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Isang propesyonal na downloader ng video para sa pag-save ng mga online na video tulad ng mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Propesyonal/Plus ng Video Downloader - MPMux"
+   },
+   "minute": {
+      "message": "minuto"
+   },
+   "more_than_one_day": {
+      "message": "Mahigit isang araw"
+   },
+   "no_more_resolution": {
+      "message": "Wala nang resolution"
+   },
+   "no_result": {
+      "message": "Walang nakitang resource file!"
+   },
+   "no_video": {
+      "message": "Hindi mai-record ang video, o wala ang video!"
+   },
+   "not_support": {
+      "message": "Ang site na ito ay hindi suportado"
+   },
+   "play": {
+      "message": "I-play ang video"
+   },
+   "popup_modal_body": {
+      "message": "Subukang pumili ng nakapirming resolution bago mag-record (kung ang video ay may ganitong opsyon). Dahil ang auto-resolution ay maaaring gumawa ng mga frame na may iba't ibang laki, na nagiging sanhi ng paghahati ng video."
+   },
+   "popup_modal_close": {
+      "message": "Isara"
+   },
+   "popup_modal_confirm": {
+      "message": "Kumpirmahin"
+   },
+   "popup_modal_title": {
+      "message": "Mga tip"
+   },
+   "recording_mode": {
+      "message": "Mode ng Pagre-record"
+   },
+   "second": {
+      "message": "segundo"
+   },
+   "size_filter": {
+      "message": "Salain"
+   },
+   "tips": {
+      "message": "Mga tip"
+   },
+   "tips_text_1": {
+      "message": "Ang ilang mga video ay maaaring hindi makunan hanggang sa i-play ang mga ito. Kung wala sa listahan ang target na video, subukang i-play ito, o i-refresh ang page."
+   },
+   "tips_text_2": {
+      "message": "Kung hindi pa rin ito gumana pagkatapos subukan, i-download ito nang pilit gamit ang \"recording mode\"."
+   },
+   "video_flush_error": {
+      "message": "Error sa pag-flush ng video"
+   }
+}

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Stänga"
+   },
+   "copy": {
+      "message": "Kopiera URL"
+   },
+   "copy_success": {
+      "message": "Kopierades framgångsrikt."
+   },
+   "download": {
+      "message": "Ladda ner"
+   },
+   "filter_lead": {
+      "message": "Video som är mindre än detta värde kommer inte att spelas in"
+   },
+   "hour": {
+      "message": "timme"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "En professionell videonedladdare för att spara onlinevideor som mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Videonedladdare - MPMux"
+   },
+   "minute": {
+      "message": "minut"
+   },
+   "more_than_one_day": {
+      "message": "Över en dag"
+   },
+   "no_more_resolution": {
+      "message": "Ingen mer upplösning"
+   },
+   "no_result": {
+      "message": "Ingen resursfil hittades!"
+   },
+   "no_video": {
+      "message": "Video kan inte spelas in, eller så finns det inte video!"
+   },
+   "not_support": {
+      "message": "Denna webbplats stöds inte"
+   },
+   "play": {
+      "message": "Spela filmen"
+   },
+   "popup_modal_body": {
+      "message": "Försök att välja en fast upplösning innan du spelar in (om videon har detta alternativ). Eftersom automatisk upplösning kan producera bildrutor av olika storlek, vilket gör att videon delas."
+   },
+   "popup_modal_close": {
+      "message": "Stänga"
+   },
+   "popup_modal_confirm": {
+      "message": "Bekräfta"
+   },
+   "popup_modal_title": {
+      "message": "Tips"
+   },
+   "recording_mode": {
+      "message": "Inspelningsläge"
+   },
+   "second": {
+      "message": "sekunder"
+   },
+   "size_filter": {
+      "message": "Filtrera"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips_text_1": {
+      "message": "Vissa videor kanske inte spelas in förrän de spelas upp. Om målvideon inte finns i listan, försök att spela upp den eller uppdatera sidan."
+   },
+   "tips_text_2": {
+      "message": "Om det fortfarande inte fungerar efter att ha försökt, ladda ner det med tvång med \"inspelningsläge\"."
+   },
+   "video_flush_error": {
+      "message": "Videospolningsfel"
+   }
+}

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Menutup"
+   },
+   "copy": {
+      "message": "Salin URL"
+   },
+   "copy_success": {
+      "message": "berhasil disalin."
+   },
+   "download": {
+      "message": "Unduh"
+   },
+   "filter_lead": {
+      "message": "Video yang ukurannya lebih kecil dari nilai ini tidak akan direkam"
+   },
+   "hour": {
+      "message": "jam"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Pengunduh video profesional untuk menyimpan video online seperti mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Semua pengunduh video - MPMux"
+   },
+   "minute": {
+      "message": "menit"
+   },
+   "more_than_one_day": {
+      "message": "Lebih dari satu hari"
+   },
+   "no_more_resolution": {
+      "message": "Tidak ada lagi resolusi"
+   },
+   "no_result": {
+      "message": "Tidak ada file sumber daya yang ditemukan!"
+   },
+   "no_video": {
+      "message": "Video tidak dapat direkam, atau video tidak ada!"
+   },
+   "not_support": {
+      "message": "Situs ini tidak didukung"
+   },
+   "play": {
+      "message": "Putar video"
+   },
+   "popup_modal_body": {
+      "message": "Cobalah untuk memilih resolusi tetap sebelum merekam (jika video memiliki opsi ini). Karena resolusi otomatis dapat menghasilkan bingkai dengan ukuran berbeda, menyebabkan video terbelah."
+   },
+   "popup_modal_close": {
+      "message": "Menutup"
+   },
+   "popup_modal_confirm": {
+      "message": "Mengonfirmasi"
+   },
+   "popup_modal_title": {
+      "message": "Tips"
+   },
+   "recording_mode": {
+      "message": "Mode Perekaman"
+   },
+   "second": {
+      "message": "detik"
+   },
+   "size_filter": {
+      "message": "Saring"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips_text_1": {
+      "message": "Beberapa video mungkin tidak direkam sebelum diputar. Jika video target tidak ada dalam daftar, coba putar, atau segarkan halaman."
+   },
+   "tips_text_2": {
+      "message": "Jika masih tidak berhasil setelah dicoba, unduh secara paksa dengan \"mode perekaman\"."
+   },
+   "video_flush_error": {
+      "message": "Kesalahan pembilasan video"
+   }
+}

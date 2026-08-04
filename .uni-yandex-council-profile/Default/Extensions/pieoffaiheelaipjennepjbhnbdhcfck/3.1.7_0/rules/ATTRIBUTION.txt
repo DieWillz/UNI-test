@@ -1,0 +1,67 @@
+═══════════════════════════════════════════════════════════════════════
+AnonVPN — Ad-Blocker Filter Rules Attribution
+═══════════════════════════════════════════════════════════════════════
+
+The ad-blocker filter rules in `blocklist.json` are derived from
+uBlock Origin Lite (uBOL) DNR rulesets, combined and re-indexed
+for use as a single Chrome Manifest V3 static ruleset.
+
+Source rulesets used (uBOL `chromium/rulesets/main/` directory):
+  · easylist.json        — EasyList ad-block (3 640 rules)
+  · easyprivacy.json     — EasyPrivacy tracker block (8 718 rules)
+  · rus-0.json           — Russian filter set 0 (5 918 rules)
+  · rus-1.json           — Russian filter set 1 (963 rules)
+
+Total: 19 239 rules.
+
+═══════════════════════════════════════════════════════════════════════
+Licenses
+═══════════════════════════════════════════════════════════════════════
+
+uBlock Origin Lite (uBOL):
+  Repository: https://github.com/uBlockOrigin/uBOL-home
+  License:    GNU General Public License v3.0 (see LICENSE.txt)
+  Copyright:  Raymond Hill (gorhill) and uBO Lite contributors
+
+EasyList:
+  Source:     https://easylist.to
+  License:    Creative Commons Attribution-ShareAlike 3.0 Unported
+              and GNU General Public License v3.0 (dual-licensed)
+  Copyright:  EasyList authors
+
+EasyPrivacy:
+  Source:     https://easylist.to/easylist/easyprivacy.txt
+  License:    Same as EasyList (CC BY-SA 3.0 / GPL-3.0)
+  Copyright:  EasyList authors
+
+RU AdList (Russian filter):
+  Source:     https://easylist-downloads.adblockplus.org/ruadlist+easylist.txt
+  License:    Same as EasyList (CC BY-SA 3.0 / GPL-3.0)
+  Copyright:  RU AdList contributors
+
+═══════════════════════════════════════════════════════════════════════
+Modifications
+═══════════════════════════════════════════════════════════════════════
+
+The original rulesets are combined into a single JSON file with
+sequential rule IDs (1..19 239). Rule conditions, actions, and
+priorities are preserved unchanged from upstream uBOL DNR JSON.
+
+This combined ruleset is bundled inside the AnonVPN Chrome extension
+and loaded via Chrome's Manifest V3 declarativeNetRequest API.
+The ruleset is disabled by default and enabled only for users with
+an active Premium subscription (toggle in popup → Premium tab).
+
+No changes to the underlying filter rules. No remote loading.
+All rules are bundled locally in the CRX package.
+
+═══════════════════════════════════════════════════════════════════════
+Update policy
+═══════════════════════════════════════════════════════════════════════
+
+The bundled ruleset is refreshed periodically by re-running
+the combine script against the latest uBOL release on GitHub.
+Each refresh is shipped as a new AnonVPN extension version
+through the Chrome Web Store standard release process.
+
+═══════════════════════════════════════════════════════════════════════

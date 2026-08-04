@@ -1,0 +1,33 @@
+{
+   "action": {
+      "default_title": "Better DeepSeek"
+   },
+   "background": {
+      "service_worker": "background.js"
+   },
+   "content_scripts": [ {
+      "css": [ "content.css" ],
+      "js": [ "content.js" ],
+      "matches": [ "https://chat.deepseek.com/*" ],
+      "run_at": "document_start"
+   } ],
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self'",
+      "sandbox": "sandbox allow-scripts allow-forms allow-popups; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; object-src 'self'"
+   },
+   "description": "Enhanced UX layer for DeepSeek with hidden prompts, tools, memory, document generation, and long-work packaging.",
+   "host_permissions": [ "https://chat.deepseek.com/*", "https://codeload.github.com/*", "https://cdn.jsdelivr.net/*", "https://pyscript.net/*", "\u003Call_urls>" ],
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo6LQCxXygtebKoOa8beBk5vM4NGt09ZxVEXjvjHEsBLvIKtBZxVzEtDF30RckdqREExdzu0rCtWITE97+quIegsXaz7Nsx+uHNqvi5lA3bueqEo77Igrqv75llLQkAScdyKcJkbHbGIiOzD398+b3gk/XHv1Eb9F0uBKFxUPo/f1Yu9apwKzD7kiMipilS/t9vqfwrhBWO/3MPloQzVFiLqkZX4edElE6MQEc5WKyEuWVQMO8nFOdKsRNTjAEl3YmIo/U1ZvKPY7p4if4m3bY5g6ugKWxF9xt5cO+SVdsEj1yrEiat6H1De8aXFEZWKdwo9STViRLBU5ao/43VnLWwIDAQAB",
+   "manifest_version": 3,
+   "name": "Better DeepSeek",
+   "permissions": [ "storage" ],
+   "sandbox": {
+      "pages": [ "sandbox.html" ]
+   },
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "0.1.11",
+   "web_accessible_resources": [ {
+      "matches": [ "https://chat.deepseek.com/*" ],
+      "resources": [ "injected.js", "sandbox.html", "sandbox.js", "static/loading/*.svg" ]
+   } ]
+}

@@ -1,0 +1,146 @@
+================================================================
+ ОТЧЁТ: Расширение DevCoord (MVP + Knowledge Base)
+ Дата: 2026-08-03
+ Автор: Hermes (код-агент)
+ Задача: TASK_hermes_devcoord_knowledge_base.md (Qwen3.8)
+================================================================
+
+1. ЦЕЛЬ
+----------------------------------------------------------------
+По файлу задания адаптировать и реализовать расширение DevCoord:
+  Фаза 0 — снять блокер архитектурного гейта (check_architecture).
+  Фаза 1 — Knowledge Base (долгосрочная память на SQLite).
+  Фаза 2 — расширить Coordinator (select_participants, промпты,
+           advisor в run_next), Aggregator (score_response /
+           aggregate_with_quality), Pipeline, CouncilBridge, CLI.
+  Фаза 3 — тесты и интерфейс командной строки.
+
+ВАЖНО: код в ТЗ (от Qwen) был написан под ВЫМЫШЛЕННЫЙ API
+(Coordinator/DevTask, ProviderResult.response/.provider/.confidence).
+Все модули переписаны под РЕАЛЬНОЕ API репозитория:
+  DevelopmentCoordinator / DevelopmentTask /
+  ProviderResult.content / .provider_id (поле confidence добавлено).
+
+2. ИЗМЕНЁННЫЕ И НОВЫЕ ФАЙЛЫ
+----------------------------------------------------------------
+ ФАЗА 0 (блокер):
+   uni/action_badge.py                    — ПЕРЕНОС из
+                                             uni/capabilities/uni_action_badge.py
+                                             (файл вне папки capabilities, чтобы
+                                             не нарушать инвариант «capability не
+                                             импортирует другой capability»)
+   uni/capabilities/computer.py           — импорт → from uni.action_badge
+                                             import UniActionBadge
+   uni/docs/AGENT_CURSOR.md               — правка пути в документации
+
+ ФАЗА 1 (Knowledge Base):
+   uni/knowledge/__init__.py              — пустой init (пакет)
+   tests/test_knowledge_base.py           — 6 тестов
+
+ ФАЗА 2 (расширение devcoord):
+   uni/devcoord/models.py                 — поле confidence: float = 0.5
+                                            в ProviderResult
+   uni/prompts/system_prompt_advisor.txt  — ролевой промпт Advisor
+   uni/prompts/system_prompt_critic.txt   — ролевой промпт Critic
+   uni/prompts/system_prompt_executor.txt — ролевой промпт Executor
+   uni/devcoord/coordinator.py            — select_participants(budget,max),
+                                            загрузка промптов, advisor в run_next,
+                                            опц. kb / prompts_dir
+   uni/devcoord/aggregator.py             — aggregate + score_response +
+                                            aggregate_with_quality
+   uni/devcoord/pipeline.py               — DevPipeline.process_task (real API)
+   uni/devcoord/council_bridge.py         — CouncilBridge (real DevelopmentTask)
+
+ ФАЗА 3 (тесты + CLI):
+   tests/test_devcoord_pipeline.py        — 6 тестов (aggregator/select/pipeline/
+                                            bridge)
+   uni/knowledge/__main__.py              — CLI: list-skills / search / export-skills
+   uni/devcoord/__main__.py               — CLI: confirm <id> [--repo DIR]
+
+3. ЧТО НЕ ТРОГАЛОСЬ (жёсткие рамки ТЗ)
+----------------------------------------------------------------
+  - uni/webui/*, uni/council/*, scripts/dev_panel.py — зона пользователя/совета.
+  - planner.py / planner_interface.py — отдельная задача, вне scope.
+  - auto_dev_loop.py и critic_handler.py НЕ создавались (дублируют
+    существующие pipeline.py / verifier.py — прямое указание Qwen, Фаза 2.4).
+  - Реализация кода Qwen (aggregator/pipeline/council_bridge) взята как
+    СПЕЦИФИКАЦИЯ и переписана под реальные модели, а не скопирована.
+
+4. КЛЮЧЕВЫЕ РЕШЕНИЯ
+----------------------------------------------------------------
+  a) Блокер check_architecture: раньше был 1 error на computer.py
+     (импорт uni_action_badge из папки capabilities). После переноса
+     файла в uni/action_badge.py и правки импорта гейт чист:
+     0 error(s), 0 warning(s).
+
+  b) Промпты советника/критика/исполнителя вынесены в uni/prompts/*.txt
+     (Markdown-тексты), Coordinator подгружает их и вставляет advisor
+     в инструкции handoff для каждого участника (run_next).
+
+  c) select_participants: адаптирован к реальному ProviderRegistry
+     (конфигурации в self.providers.configs.values(), не .providers),
+     читает прошлый успех из KnowledgeBase.find_similar_responses,
+     сортирует по confidence, фильтрует по бюджету (парсинг api_cost:
+     "free"→0.0, "unknown"→0.5, число→float, иначе→1.0).
+
+  d) Aggregator: dedup по md5(content), агрегация с качеством
+     (verified 0.4 + tests 0.3 + follows_architecture 0.3), кэш в JSON.
+
+  e) DevPipeline.process_task: реальный цикл — проверка утверждений
+     (verifier), агрегация, применение патча (Applier.apply_and_test),
+     сохранение ответов в KnowledgeBase, извлечение навыков.
+
+  f) CouncilBridge: строит реальный DevelopmentTask (goal/instructions/
+     provider_sequence) из топика совета и делегирует DevPipeline.
+
+  g) CLI confirm: единственный путь merge. Applier.apply_and_test
+     НЕ коммитит и НЕ мержит (status=awaiting_human_confirmation,
+     ветка review/<id> остаётся). Merge только вручную через
+     `python -m uni.devcoord confirm <id> [--repo DIR]`. Базовая ветка
+     сохраняется в .uni-dev/review_base_<id>.txt для кросс-процессного
+     подтверждения.
+
+5. ПРОВЕРКА (реальные команды и вывод)
+----------------------------------------------------------------
+  > scripts/check_architecture.py --strict
+    UNI architecture audit
+    Summary: 0 error(s), 0 warning(s)
+
+  > pytest tests/test_knowledge_base.py tests/test_devcoord_pipeline.py \
+         tests/test_devcoord_verifier_applier.py -q
+    ...........................
+    27 passed in 26.49s
+
+  > python -m uni.knowledge list-skills      -> (no skills yet)        [OK]
+  > python -m uni.knowledge search "retry"    -> (no matching responses)[OK]
+  > python -m uni.knowledge export-skills     -> экспорт пустой KB      [OK]
+
+  Сквозной smoke-тест (отдельный scratch git-репозиторий):
+    Applier.apply_and_test("SMOKE", patch)
+       -> status="awaiting_human_confirmation", ветка review/SMOKE создана
+    confirm_merge("SMOKE") (in-process + через CLI --repo)
+       -> merge-коммит в base-ветку, review-ветка сохранена
+
+  ВСЕ .py-модули проходят py_compile без ошибок.
+
+6. ЧТО ДОЛЖЕН СДЕЛАТЬ ЧЕЛОВЕК
+----------------------------------------------------------------
+  - При реальном патче через Pipeline/Applier ветка review/<id>
+    остаётся. Посмотреть diff и вывод тестов, затем вручную:
+      cd C:\LLM\UNI
+      set PYTHONPATH=C:\LLM\UNI
+      C:\LLM\python312\python.exe -m uni.devcoord confirm <id>
+  - apply_and_test не коммитит и не мержит автоматически (безопасность).
+
+7. ЗАМЕЧАНИЯ
+----------------------------------------------------------------
+  - Реализация зеркально покрыта тестами (12 новых тестов + 9 ранее
+    по verifier/applier = 21 тест devcoord/knowledge).
+  - Временные файлы (.tmp_scratch2, .tmp_smoke_apply.py) удалены,
+    рабочая копия чиста.
+  - Запись в AI_WORKLOG.md добавлена (с подписью и разделом «Проверено»).
+
+================================================================
+Hermes = DevCoord MVP+KB реализован и проверен (27 тестов, гейт 0 errors,
+        smoke merge ок) от 2026-08-03
+================================================================

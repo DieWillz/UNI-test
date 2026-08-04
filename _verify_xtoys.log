@@ -1,0 +1,14 @@
+init...
+open: success=True msg=Вкладка XToys.app открыта и выбрана url=https://xtoys.app/
+status: Получено видимое состояние вкладки XToys | menu
+XToys
+add
+public
+more_vert
+About
+XToys is a cross-platform app for controlling and automating your toys.
+Get Started
+Add a new toy or other block
+set_intensity(8): Слайдер XToys не изменён: Speed показывает 3, ожидалось 8 verified_physical=False
+read_intensity: Нет видимого input[type=range]
+intensity -> 0

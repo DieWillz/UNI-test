@@ -1,0 +1,74 @@
+{
+"update_url": "https://clients2.google.com/service/update2/crx",
+
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "short_name": "AnonVPN",
+  "version": "3.1.7",
+  "description": "__MSG_extDesc__",
+  "author": "AnonVPN Team",
+  "homepage_url": "https://anon-vpn.ru",
+  "icons": {
+    "16": "icons/AnonVPN16.png",
+    "32": "icons/AnonVPN32.png",
+    "48": "icons/AnonVPN48.png",
+    "64": "icons/AnonVPN64.png",
+    "128": "icons/AnonVPN128.png",
+    "256": "icons/AnonVPN256.png",
+    "512": "icons/AnonVPN512.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/disabledop.png",
+      "32": "icons/disabledop.png",
+      "48": "icons/disabledop.png"
+    }
+  },
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "commands": {
+    "toggle-vpn": {
+      "suggested_key": {
+        "default": "Alt+Shift+V",
+        "mac": "Alt+Shift+V"
+      },
+      "description": "Toggle VPN on/off"
+    }
+  },
+  "permissions": [
+    "proxy",
+    "storage",
+    "alarms",
+    "webRequest",
+    "webRequestAuthProvider",
+    "declarativeNetRequest",
+    "offscreen",
+    "notifications"
+  ],
+  "optional_permissions": [
+    "management",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ad_blocker",
+      "enabled": false,
+      "path": "rules/blocklist.json"
+    }]
+  },
+  "web_accessible_resources": [{
+    "resources": ["ae-gate.html"],
+    "matches": ["<all_urls>"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; connect-src http: https://api.bot-support.ru https://n1.bot-support.ru https://g1.bot-support.ru https://api.unkill.ru https://n1.unkill.ru https://g1.unkill.ru https://api.sibirlife.ru https://n1.sibirlife.ru https://g1.sibirlife.ru https://api.1150.ru https://n1.1150.ru https://g1.1150.ru https://api.foofle.ru https://n1.foofle.ru https://g1.foofle.ru https://cp.cloudflare.com https://api.ipify.org https://ipinfo.io https://www.youtube.com https://www.google.com; script-src 'self'; style-src 'self'; frame-src https://apiget.ru https://balancing.apiget.ru; object-src 'none';"
+  },
+  "offline_enabled": true,
+  "minimum_chrome_version": "109",
+  "default_locale": "ru"
+}

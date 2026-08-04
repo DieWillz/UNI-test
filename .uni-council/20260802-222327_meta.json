@@ -1,0 +1,39 @@
+{
+  "topic": "Проверка связи",
+  "round_id": "20260802-222327",
+  "participants": [
+    "DeepSeek",
+    "QWEN",
+    "Claude",
+    "Grok",
+    "Gemini",
+    "Groq",
+    "OpenRouter",
+    "HuggingFace",
+    "Hermes"
+  ],
+  "signatures": {
+    "Groq": "твоя редакция концепции интерфейса пользователя и сети; подписываюсь под концепцией.",
+    "HuggingFace": "твоя редакция концепции успешного подключения к сетям и системам с использованием интерфейсов типа UNI; подписываюсь под концепцией."
+  },
+  "errors": {
+    "DeepSeek": "TimeoutError: Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator(\"button[type='submit'], button[aria-label='Send']\").first\n",
+    "Claude": "TimeoutError: Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator(\"button[aria-label='Send'], button[type='submit']\").first\n",
+    "Grok": "TimeoutError: Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator(\"div[contenteditable='true'], textarea\").first\n    - locator resolved to <div tabindex=\"0\" role=\"textbox\" spellcheck=\"true\" aria-multiline=\"true\" contenteditable=\"true\" aria-autocomplete=\"list\" aria-label=\"Текст поста\" data-testid=\"tweetTextarea_0\" no-focustrapview-refocus=\"true\" aria-describedby=\"placeholder-d73p6\" aria-controls=\"typeaheadDropdownWrapped-0\" class=\"notranslate public-DraftEditor-content\" aria-activedescendant=\"typeaheadFocus-0.8586612908136685\">…</div>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div data-testid=\"mask\" class=\"css-175oi2r r-1p0dtai r-1d2f490 r-1xcajam r-zchlnj r-ipm5af r-1ffj0ar\"></div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div data-testid=\"mask\" class=\"css-175oi2r r-1p0dtai r-1d2f490 r-1xcajam r-zchlnj r-ipm5af r-1ffj0ar\"></div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    6 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div data-testid=\"mask\" class=\"css-175oi2r r-1p0dtai r-1d2f490 r-1xcajam r-zchlnj r-ipm5af r-1ffj0ar\"></div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n    3 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"css-175oi2r r-1awozwy r-f8sm7e r-wech8c r-3pj75a r-wk8lta r-q4m81j r-13qz1uu r-184en5c\">…</div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n    - done scrolling\n    - <div class=\"css-175oi2r r-16y2uox r-1pcd2l5 r-1knelpx\">…</div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n  2 × retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"css-175oi2r r-1awozwy r-18u37iz r-9aw3ui\">…</div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n  3 × retrying click action\n      - waiting 500ms\n      - waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"css-175oi2r r-1awozwy r-f8sm7e r-wech8c r-3pj75a r-wk8lta r-q4m81j r-13qz1uu r-184en5c\">…</div> from <div id=\"layers\" class=\"r-zchlnj r-1d2f490 r-u8s1d r-ipm5af\">…</div> subtree intercepts pointer events\n  - retrying click action\n    - waiting 500ms\n",
+    "Gemini": "ConnectError: [Errno 11001] getaddrinfo failed",
+    "OpenRouter": "HTTP 403: {\"error\":{\"message\":\"Key limit exceeded (total limit). Manage it using https://openrouter.ai/workspaces/free/keys/5edfc1b4d67156a134445ca362466a696a2d6fbe60e95b06621d5394617f44b4\",\"code\":403}}",
+    "Hermes": "ConnectError: All connection attempts failed"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260802-222327_DeepSeek.md",
+    "QWEN": ".uni-council\\20260802-222327_QWEN.md",
+    "Claude": ".uni-council\\20260802-222327_Claude.md",
+    "Grok": ".uni-council\\20260802-222327_Grok.md",
+    "Gemini": ".uni-council\\20260802-222327_Gemini.md",
+    "Groq": ".uni-council\\20260802-222327_Groq.md",
+    "OpenRouter": ".uni-council\\20260802-222327_OpenRouter.md",
+    "HuggingFace": ".uni-council\\20260802-222327_HuggingFace.md",
+    "Hermes": ".uni-council\\20260802-222327_Hermes.md",
+    "report": ".uni-council\\20260802-222327_report.md"
+  }
+}

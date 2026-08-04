@@ -1,0 +1,116 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "images/128.png",
+         "256": "images/256.png",
+         "32": "images/32.png",
+         "48": "images/48.png",
+         "64": "images/64.png"
+      },
+      "default_popup": "popup.html",
+      "default_title": "Blockify Ad Blocker"
+   },
+   "author": "Spotify Ad Blocker: Blockify",
+   "background": {
+      "service_worker": "background.js"
+   },
+   "commands": {
+      "open_spotify": {
+         "description": "Press Alt + S to open Spotify (option + S for MacOS)",
+         "suggested_key": {
+            "chromeos": "Alt+S",
+            "default": "Alt+S",
+            "linux": "Alt+S",
+            "mac": "Alt+S",
+            "windows": "Alt+S"
+         }
+      }
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "css": [ "yt.css" ],
+      "js": [ "notifyonads.js" ],
+      "matches": [ "https://*.youtube.com/*" ],
+      "run_at": "document_start"
+   }, {
+      "all_frames": true,
+      "js": [ "opt/yt_autocomment.js" ],
+      "matches": [ "https://*.youtube.com/*" ],
+      "run_at": "document_start"
+   }, {
+      "all_frames": false,
+      "js": [ "yt_sw_update.js" ],
+      "matches": [ "https://*.youtube.com/*" ],
+      "run_at": "document_idle"
+   }, {
+      "exclude_matches": [ "https://open.spotify.com/*", "https://*.youtube.com/*" ],
+      "js": [ "css.js", "sharebx.js" ],
+      "matches": [ "*://*/*" ],
+      "run_at": "document_idle"
+   }, {
+      "css": [ "styles.css" ],
+      "js": [ "content_script.js", "frames.js" ],
+      "matches": [ "https://open.spotify.com/*" ],
+      "run_at": "document_idle"
+   }, {
+      "js": [ "hulu_cs.js" ],
+      "matches": [ "*://*.hulu.com/*" ],
+      "run_at": "document_start"
+   }, {
+      "js": [ "twitch_cs.js" ],
+      "matches": [ "*://*.twitch.tv/*" ],
+      "run_at": "document_start"
+   } ],
+   "declarative_net_request": {
+      "rule_resources": [ {
+         "enabled": true,
+         "id": "ruleset_0",
+         "path": "rules.json"
+      }, {
+         "enabled": true,
+         "id": "ublock-filters",
+         "path": "/filters/ublock-filters.json"
+      }, {
+         "enabled": true,
+         "id": "easylist",
+         "path": "/filters/easylist.json"
+      }, {
+         "enabled": true,
+         "id": "easyprivacy",
+         "path": "/filters/easyprivacy.json"
+      }, {
+         "enabled": true,
+         "id": "pgl",
+         "path": "/filters/pgl.json"
+      }, {
+         "enabled": true,
+         "id": "urlhaus-full",
+         "path": "/filters/urlhaus-full.json"
+      } ]
+   },
+   "default_locale": "en",
+   "description": "__MSG_description__",
+   "homepage_url": "https://getblockify.com",
+   "host_permissions": [ "*://*/*" ],
+   "icons": {
+      "128": "images/128.png",
+      "256": "images/256.png",
+      "32": "images/32.png",
+      "48": "images/48.png",
+      "64": "images/64.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjGVLDF+fMQoQ0DlgrZlU6jN/2T6eza69lx2XklpNmm0HUECTGZpKC65PJGp/BvcfcinNnr5MRem6ipCrMnVxoDqdPGbH8ou3h12gzO0bxM04cNqb9gV70fqY8kHX2oRZdtr9cPZi0P9630HBGj0xQm9oH7/Z9pgYnSRAmK9HUL8cjej1aCiaVkm03pAx2Ez2NmPN6dlVqC4ZzKAKZep3rp+S0+jCaSPzo1lyROfQz92cW2tnnZydgph11EvTMSOp1V9Wr7jA0ZZrqmzQL4K10Pp0P9DHFPrVa5dWfkKuVoaso4Ugghauhd1pX6WgiUxcjwuHcr6hjiFsWifP7cTHwQIDAQAB",
+   "manifest_version": 3,
+   "name": "__MSG_name__",
+   "offline_enabled": true,
+   "permissions": [ "declarativeNetRequest", "declarativeNetRequestFeedback", "scripting", "storage", "background", "activeTab", "webNavigation", "tabs", "alarms" ],
+   "short_name": "Spotify Ad Blocker",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.9.5",
+   "web_accessible_resources": [ {
+      "all_frames": true,
+      "extension_ids": [ "*" ],
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "*" ]
+   } ]
+}

@@ -1,18 +1,26 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 import yaml
 
 class BrainConfig(BaseModel):
     base_url: str = "http://localhost:1234/v1"
     api_key: str = "lm-studio"
-    model: str = "qwen2.5-7b-instruct-1m"
+    model: str = "auto"
     vision_model: Optional[str] = None
     vision_base_url: Optional[str] = None
     vision_api_key: Optional[str] = None
     temperature: float = 0.8
     max_tokens: int = 2000
     timeout_seconds: float = 20.0
+
+class AgentCursorConfig(BaseModel):
+    """Page overlay cursor labeled UNI — does not move the OS mouse."""
+    enabled: bool = True
+    label: str = "UNI"
+    move_ms: int = Field(default=220, ge=0, le=2000)
+    hide_after_ms: int = Field(default=1200, ge=0, le=10_000)
+
 
 class BrowserConfig(BaseModel):
     headless: bool = False
@@ -23,11 +31,14 @@ class BrowserConfig(BaseModel):
     search_engine: str = "https://www.bing.com/search?q={query}"
     image_search_engine: str = "https://yandex.ru/images/search?text={query}"
     cdp_url: Optional[str] = None  # e.g. "http://127.0.0.1:9222" to attach to your running Chrome
+    agent_cursor: AgentCursorConfig = Field(default_factory=AgentCursorConfig)
 
 class ComputerConfig(BaseModel):
     use_uia: bool = True
     failsafe: bool = True
     mouse_move_duration: float = Field(default=0.35, ge=0.0, le=2.0)
+    action_badge: bool = True  # desktop «UNI» badge near pyautogui clicks
+    action_badge_label: str = "UNI"
 
 class CameraConfig(BaseModel):
     enabled: bool = True
@@ -75,6 +86,44 @@ class XToysConfig(BaseModel):
     url: str = "https://xtoys.app"
     max_intensity: int = Field(default=50, ge=0, le=100)
     autonomous_physical: bool = Field(default=False)  # explicit opt-in to move the device unsupervised
+
+
+class SafetySettings(BaseModel):
+    autonomy_level: str = Field(default="off", pattern="^(off|observe|suggest|act)$")
+
+
+class DemoXToysSettings(BaseModel):
+    """Часть демо-сценария «Игрушки Uni» (python -m uni --demo xtoys)."""
+    url: str = ""  # пусто -> берётся из XToysConfig.url
+    wander_seconds: float = Field(default=12.0, ge=1.0, le=300.0)
+    pet_points: int = Field(default=6, ge=1, le=32)
+
+
+class DemoMouseSettings(BaseModel):
+    label_text: str = "Uni"
+    speed: float = Field(default=1.0, ge=0.1, le=5.0)
+    fps: int = Field(default=90, ge=30, le=240)
+    failsafe: bool = True
+
+
+class DemoSettings(BaseModel):
+    xtoys: DemoXToysSettings = Field(default_factory=DemoXToysSettings)
+    mouse: DemoMouseSettings = Field(default_factory=DemoMouseSettings)
+
+
+class ContextFeedConfig(BaseModel):
+    """Внешние источники контекста/стиля для чат-хаба (опц., безопасно выключено).
+
+    Внешний текст всегда считается недоверенными данными (как в council).
+    """
+    enabled: bool = False
+    allow_external_scrape: bool = Field(
+        default=False,  # безопасность: NSFW/внешний скрейп по умолчанию ВЫКЛ
+    )
+    injection_rate: float = Field(default=0.6, ge=0.0, le=1.0)
+    feeds: list[str] = Field(default_factory=list)
+    tonal_mode: str = "playful"  # playful | spicy | custom
+
 
 class CapabilitiesConfig(BaseModel):
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
@@ -149,6 +198,20 @@ class CouncilConfig(BaseModel):
     min_interval_seconds: float = Field(default=8.0, gt=0.0, le=120.0)  # rate limit / pauses
     # Separate browser profile so web-AI sessions never mix with user bank/mail/intimate.
     browser_profile: str = ".uni-council-browser-profile"
+    # API endpoints for council participants (OpenRouter / Groq / ...). Keys come from the
+    # local config only — never from code. WebUI settings panel edits this block.
+    api_endpoints: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "openrouter": {
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": "",  # set in local config.yaml (secret)
+            },
+            "groq": {
+                "base_url": "https://api.groq.com/openai/v1",
+                "api_key": "",  # set in local config.yaml (secret)
+            },
+        }
+    )
 
 class Config(BaseModel):
     brain: BrainConfig = Field(default_factory=BrainConfig)
@@ -158,6 +221,9 @@ class Config(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     autonomous: AutonomousConfig = Field(default_factory=AutonomousConfig)
     council: CouncilConfig = Field(default_factory=CouncilConfig)
+    demo: DemoSettings = Field(default_factory=DemoSettings)
+    context: ContextFeedConfig = Field(default_factory=ContextFeedConfig)
+    safety: SafetySettings = Field(default_factory=SafetySettings)
 
 def load_config(path: str = "config.yaml") -> Config:
     p = Path(path)

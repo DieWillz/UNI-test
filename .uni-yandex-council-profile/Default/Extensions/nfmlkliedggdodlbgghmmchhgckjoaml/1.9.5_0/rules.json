@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        {
+          "header": "Content-Security-Policy",
+          "operation": "set",
+          "value": "default-src * 'unsafe-inline' 'unsafe-eval' 'unsafe-hashes' data: blob:"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter" :  "*://open.spotify.com*"
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "responseHeaders": [
+        {
+          "header": "X-XSS-Protection",
+          "operation": "remove"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter" :  "*://open.spotify.com*"
+    }
+  },
+  {
+    "id": 3,
+    "priority": 100000,
+    "action": {
+      "redirect": {
+        "url": "https://cdn.getblockify.com/noop-1s.mp4"
+      },
+      "type": "redirect"
+    },
+    "condition": {
+      "initiatorDomains": ["open.spotify.com"],
+      "requestDomains": ["2mdn.net", "amillionads.com"],
+      "resourceTypes": ["media"]
+    }
+  }, 
+  {
+      "id": 4,
+      "priority": 100000,
+      "action": {
+        "type": "allow"
+      },
+      "condition": {
+        "urlFilter": "||spclient.wg.spotify.com/",
+        "resourceTypes": ["xmlhttprequest"],
+        "initiatorDomains": ["spotify.com"]
+      }
+  },
+  {
+    "id": 5,
+    "priority": 100000000,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "urlFilter": "||getblockify.com/*",
+      "excludedInitiatorDomains": ["adblock-test.getblockify.com"],
+      "excludedRequestDomains": ["adblock-test.getblockify.com"]
+    }
+  }
+  ,
+  {
+    "id": 6,
+    "priority": 100000000,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "urlFilter": "chrome-extension://nfmlkliedggdodlbgghmmchhgckjoaml/*"
+    }
+  }
+  ,
+  {
+    "id": 7,
+    "priority": 100000000,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "urlFilter": "https://o4508943608381440.ingest.us.sentry.io/*"
+    }
+  },
+  {
+    "id": 8,
+    "priority": 100000,
+    "action": {
+      "redirect": {
+        "url": "https://blockify.b-cdn.net/noop-1s.mp4"
+      },
+      "type": "redirect"
+    },
+    "condition": {
+      "initiatorDomains": ["open.spotify.com"],
+      "requestDomains": ["2mdn.net", "amillionads.com"],
+      "resourceTypes": ["media"]
+    }
+  }
+  ,
+  {
+    "id": 9,
+    "priority": 100000000,
+    "action": {
+      "type": "allow"
+    },
+    "condition": {
+      "urlFilter": "https://sentry.getblockify.com/*"
+    }
+  }
+]

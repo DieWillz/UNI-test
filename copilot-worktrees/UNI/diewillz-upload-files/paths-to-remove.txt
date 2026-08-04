@@ -1,0 +1,17 @@
+﻿.uni-yandex-council-profile/
+.uni-browser-profile/
+.uni-council-browser-profile/
+.uni-logs/
+.uni-voice-samples/
+Telegram/
+.Telegram/
+copilot-worktrees/
+screenshots/
+desktop-attachments/
+*.onnx
+*.tflite
+*.crx
+*.dll
+*.exe
+*.zip
+*.tar

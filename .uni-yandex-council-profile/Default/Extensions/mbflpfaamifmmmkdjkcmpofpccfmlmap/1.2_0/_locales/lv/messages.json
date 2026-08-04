@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Aizvērt"
+   },
+   "copy": {
+      "message": "Kopēt URL"
+   },
+   "copy_success": {
+      "message": "Veiksmīgi nokopēts."
+   },
+   "download": {
+      "message": "Lejupielādēt"
+   },
+   "filter_lead": {
+      "message": "Video, kura izmērs ir mazāks par šo vērtību, netiks uzņemts"
+   },
+   "hour": {
+      "message": "stunda"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionāls video lejupielādētājs, lai saglabātu tiešsaistes video, piemēram, mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Video lejupielādētājs - MPMux"
+   },
+   "minute": {
+      "message": "minūte"
+   },
+   "more_than_one_day": {
+      "message": "Vairāk nekā dienu"
+   },
+   "no_more_resolution": {
+      "message": "Izšķirtspējas vairs nav"
+   },
+   "no_result": {
+      "message": "Resursa fails nav atrasts!"
+   },
+   "no_video": {
+      "message": "Video nevar ierakstīt, vai video neeksistē!"
+   },
+   "not_support": {
+      "message": "Šī vietne netiek atbalstīta"
+   },
+   "play": {
+      "message": "Atskaņot video"
+   },
+   "popup_modal_body": {
+      "message": "Pirms ierakstīšanas mēģiniet izvēlēties fiksētu izšķirtspēju (ja videoklipam ir šī opcija). Tā kā automātiskā izšķirtspēja var radīt dažāda izmēra kadrus, izraisot video sadalīšanu."
+   },
+   "popup_modal_close": {
+      "message": "Aizvērt"
+   },
+   "popup_modal_confirm": {
+      "message": "Apstiprināt"
+   },
+   "popup_modal_title": {
+      "message": "Padomi"
+   },
+   "recording_mode": {
+      "message": "Ierakstīšanas režīms"
+   },
+   "second": {
+      "message": "sekundes"
+   },
+   "size_filter": {
+      "message": "Filtrs"
+   },
+   "tips": {
+      "message": "Padomi"
+   },
+   "tips_text_1": {
+      "message": "Daži videoklipi var netikt uzņemti, kamēr tie nav atskaņoti. Ja mērķa videoklips nav sarakstā, mēģiniet to atskaņot vai atsvaidziniet lapu."
+   },
+   "tips_text_2": {
+      "message": "Ja pēc mēģinājuma tas joprojām nedarbojas, lejupielādējiet to piespiedu kārtā, izmantojot \"ieraksta režīmu\"."
+   },
+   "video_flush_error": {
+      "message": "Video skalošanas kļūda"
+   }
+}

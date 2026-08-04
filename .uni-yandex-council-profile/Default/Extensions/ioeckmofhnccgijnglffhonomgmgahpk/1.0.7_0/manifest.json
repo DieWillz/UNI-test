@@ -1,0 +1,21 @@
+{
+   "action": {
+      "default_icon": "icon.png"
+   },
+   "content_scripts": [ {
+      "js": [ "script.js" ],
+      "matches": [ "https://civitai.com/*", "https://civitai.red/*", "https://civitai.green/*" ],
+      "run_at": "document_end"
+   } ],
+   "description": "This extension adds a button to the CivitAI interface that allows you download a given model with Stability Matrix.",
+   "icons": {
+      "128": "icon.png",
+      "16": "icon.png",
+      "48": "icon.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmH/pj/iHC4p5G1h8hH2l9GxTZTcU0YAFmdrLIo0EreZzIHQ+icekSwsWzvj8RVizaKa7n2KOuiURfjOqHAVJ5dul/rsj9wsDM9FOUfjM78weO3JKs+1erjOznTHdOfHe2ebbDf0AsyCH3ibH9W1t7xAHZQ5w7aByFdIw8pCgd0ZtJM/BIVoaM9l93Z4WTFFNQ5MRBGSlkZdgIFKbVVk/KfbjR9ijvvhnWKmrg2qNrFOT8fy4ZQWv/iCsvc7AR0kF4eQ3oS0Efr6HY1F5dYyV7CFe7UeF82TM/Ykp+wF0nS9wALz/23pyiPP0B8EhUZ8HQxyar8dW7vCwi/mjR1QVawIDAQAB",
+   "manifest_version": 3,
+   "name": "Stability Matrix CivitAI Integration",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.0.7"
+}

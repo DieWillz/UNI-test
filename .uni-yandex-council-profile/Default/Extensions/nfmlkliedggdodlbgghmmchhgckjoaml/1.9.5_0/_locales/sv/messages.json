@@ -1,0 +1,10 @@
+{
+   "description": {
+      "description": "Extension's description",
+      "message": "Blockify är en Spotify-annonsblockerare som blockerar och tar bort ljudannonser med hjälp av Spotify-adblock-teknik."
+   },
+   "name": {
+      "description": "Extension's name",
+      "message": "Spotify Annonsblockerare - Blockify"
+   }
+}

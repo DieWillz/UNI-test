@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "ปิด I"
+   },
+   "copy": {
+      "message": "คัดลอก URL"
+   },
+   "copy_success": {
+      "message": "คัดลอกเรียบร้อยแล้ว"
+   },
+   "download": {
+      "message": "ดาวน์โหลด"
+   },
+   "filter_lead": {
+      "message": "วิดีโอที่ขนาดที่เล็กกว่าค่านี้จะไม่ถูกบันทึก"
+   },
+   "hour": {
+      "message": "ชั่วโมง"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "เครื่องมือดาวน์โหลดวิดีโอมืออาชีพสำหรับบันทึกวิดีโอออนไลน์ เช่น mp4, m3u8, hls, live。"
+   },
+   "manifest_name": {
+      "message": "เครื่องมือดาวน์โหลดวิดีโอ - MPMux"
+   },
+   "minute": {
+      "message": "นาที"
+   },
+   "more_than_one_day": {
+      "message": "เกินวัน"
+   },
+   "no_more_resolution": {
+      "message": "ไม่มีความละเอียดอีกต่อไป"
+   },
+   "no_result": {
+      "message": "ไม่พบไฟล์ทรัพยากร!"
+   },
+   "no_video": {
+      "message": "ไม่สามารถบันทึกวิดีโอหรือไม่มีวิดีโออยู่!"
+   },
+   "not_support": {
+      "message": "ไม่รองรับเว็บไซต์นี้"
+   },
+   "play": {
+      "message": "เล่นวีดีโอ"
+   },
+   "popup_modal_body": {
+      "message": "ลองเลือกความละเอียดคงที่ก่อนบันทึก (หากวิดีโอมีตัวเลือกนี้) เนื่องจากความละเอียดอัตโนมัติอาจสร้างเฟรมที่มีขนาดต่างกัน ทำให้วิดีโอถูกแยกออก"
+   },
+   "popup_modal_close": {
+      "message": "ปิด I"
+   },
+   "popup_modal_confirm": {
+      "message": "ยืนยัน"
+   },
+   "popup_modal_title": {
+      "message": "เคล็ดลับ"
+   },
+   "recording_mode": {
+      "message": "โหมดบันทึก"
+   },
+   "second": {
+      "message": "วินาที"
+   },
+   "size_filter": {
+      "message": "กรอง"
+   },
+   "tips": {
+      "message": "เคล็ดลับ"
+   },
+   "tips_text_1": {
+      "message": "วิดีโอบางรายการอาจไม่ถูกบันทึกจนกว่าจะเล่น หากวิดีโอเป้าหมายไม่อยู่ในรายการ ให้ลองเล่นหรือรีเฟรชหน้า"
+   },
+   "tips_text_2": {
+      "message": "หากพยายามแล้วยังไม่ทำงาน ให้ดาวน์โหลดโดยใช้ \"โหมดบันทึก\""
+   },
+   "video_flush_error": {
+      "message": "ข้อผิดพลาดการล้างวิดีโอ"
+   }
+}

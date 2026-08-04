@@ -1,0 +1,22 @@
+2026/08/02-22:23:28.863 8d74 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:23:28.864 8d74 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/02-22:23:28.864 8d74 Recovering log #10
+2026/08/02-22:23:28.864 8d74 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb/000010.log 
+2026/08/02-22:23:28.865 8d74 Delete type=2 #5
+2026/08/02-22:23:28.865 8d74 Delete type=2 #7
+2026/08/02-22:23:28.865 8d74 Delete type=2 #9
+2026/08/03-21:12:26.100 8d70 Level-0 table #16: started
+2026/08/03-21:12:26.111 8d70 Level-0 table #16: 259 bytes OK
+2026/08/03-21:12:26.114 8d70 Delete type=0 #10
+2026/08/03-21:12:26.114 8d70 Manual compaction at level-0 from (begin) .. (end); will stop at (end)
+2026/08/03-21:12:26.114 8d70 Manual compaction at level-1 from (begin) .. (end); will stop at '\x00\x00\x00\x002\x02\xe2\x03\x01\x00\x00\x00\x00\x00\x00\x00\x00' @ 5896 : 0
+2026/08/03-21:12:26.114 8d70 Compacting 1@1 + 1@2 files
+2026/08/03-21:12:26.126 8d70 Generated table #17@1: 19 keys, 526 bytes
+2026/08/03-21:12:26.127 8d70 Compacted 1@1 + 1@2 files => 526 bytes
+2026/08/03-21:12:26.137 8d70 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/03-21:12:26.137 8d70 Delete type=2 #13
+2026/08/03-21:12:26.137 8d70 Delete type=2 #16
+2026/08/03-21:12:26.138 8d70 Manual compaction at level-1 from '\x00\x00\x00\x002\x02\xe2\x03\x01\x00\x00\x00\x00\x00\x00\x00\x00' @ 5896 : 0 .. (end); will stop at (end)
+2026/08/03-21:12:26.138 8d74 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb, waiting for background work finished
+2026/08/03-21:12:26.138 8d74 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb, background work finished
+2026/08/03-21:12:26.138 8d74 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.qwen.ai_0.indexeddb.leveldb unlocked successfully

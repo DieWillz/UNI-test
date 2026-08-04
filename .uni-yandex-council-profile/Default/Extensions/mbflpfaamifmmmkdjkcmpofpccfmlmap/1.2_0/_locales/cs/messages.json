@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Zavřít"
+   },
+   "copy": {
+      "message": "Kopírovat URL"
+   },
+   "copy_success": {
+      "message": "Úspěšně zkopírováno."
+   },
+   "download": {
+      "message": "Stažení"
+   },
+   "filter_lead": {
+      "message": "Video, jehož velikost je menší než tato hodnota, nebude pořízeno"
+   },
+   "hour": {
+      "message": "hodina"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionální stahovač pro ukládání online videí jako mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Stahování videí z internetu - MPMux"
+   },
+   "minute": {
+      "message": "minuta"
+   },
+   "more_than_one_day": {
+      "message": "Přes den"
+   },
+   "no_more_resolution": {
+      "message": "Žádné další rozlišení"
+   },
+   "no_result": {
+      "message": "Nebyl nalezen žádný zdrojový soubor!"
+   },
+   "no_video": {
+      "message": "Video nelze nahrát nebo video neexistuje!"
+   },
+   "not_support": {
+      "message": "Tato stránka není podporována"
+   },
+   "play": {
+      "message": "Přehrát video"
+   },
+   "popup_modal_body": {
+      "message": "Zkuste před nahráváním zvolit pevné rozlišení (pokud video tuto možnost má). Protože automatické rozlišení může vytvářet snímky různé velikosti, což způsobí rozdělení videa."
+   },
+   "popup_modal_close": {
+      "message": "Zavřít"
+   },
+   "popup_modal_confirm": {
+      "message": "Potvrdit"
+   },
+   "popup_modal_title": {
+      "message": "Tipy"
+   },
+   "recording_mode": {
+      "message": "Režim nahrávání"
+   },
+   "second": {
+      "message": "sekundy"
+   },
+   "size_filter": {
+      "message": "Filtr"
+   },
+   "tips": {
+      "message": "Tipy"
+   },
+   "tips_text_1": {
+      "message": "Některá videa nemusí být zachycena, dokud nejsou přehrána. Pokud cílové video není v seznamu, zkuste ho přehrát nebo obnovte stránku."
+   },
+   "tips_text_2": {
+      "message": "Pokud to ani po vyzkoušení nefunguje, stáhněte si to násilně pomocí \"režimu nahrávání\"."
+   },
+   "video_flush_error": {
+      "message": "Chyba vyprázdnění videa"
+   }
+}

@@ -1,0 +1,151 @@
+================================================================================
+РАЗБОР И ВЕРДИКТЫ: «Предложения по улучшению Юни»
+Сводка подготовлена Hermes — факт-чек по реальному коду C:\LLM\UNI\uni
+(чтение только, правок в проект не вносилось)
+================================================================================
+
+ИСТОЧНИКИ (4 разных ИИ):
+  1. Mistral — концепции Threading / Mouse Control / Vision+Site Templates /
+     Status Check / SiteProfile / Auditor. Опираются на HTML-файлы, которых
+     НЕТ в репо. Описывают архитектуру, которой в UNI сейчас нет.
+  2. Copilot (github copilot/c/...) — инфраструктура: CI, config.sample.yaml,
+     LICENSE, унификация контрактов, дедуп веток, E2E YouTube-тест.
+  3. z.ai (chat.z.ai/...) — «детальный анализ файлов». САМЫЙ НЕДОСТОВЕРНЫЙ:
+     описывает несуществующий Config (debug=True и т.п.), выдуманные строки,
+     несуществующий self._history. Видимо, файлы не читал.
+  4. chat.deepseek (...) — разбор реальных файлов. САМЫЙ ТОЧНЫЙ: нашёл
+     реальный баг re_search, плюс валидные замечания по concurrency/селекторам.
+
+================================================================================
+ФАКТ-ЧЕК (что реально есть в коде)
+================================================================================
+
+ПОДТВЕРЖДЕНО (реальные находки):
+  [P0] autonomous.py:208  →  `re_search(r"...")`  вместо  `re.search(...)`.
+       Гарантированный NameError при включённом require_connect (проверка
+       подключения XToys). Единственный баг, который реально «падает».
+  [ ]  autonomous.py:244  →  `import json` внутри _conductor_loop. Мелочь.
+  [ ]  browser_session.py:67 → `__import__("rich.console", ...)`. Мелочь, стиль.
+  [ ]  autonomous._run_tool (строка 76) НЕ берёт _tool_lock, тогда как
+       event_loop._run_tool (строка 496) берёт. Оба делят один BrowserSession →
+       при параллельной работе ручного и автономного режима возможен конфликт
+       Playwright (клик «не туда» / race на DOM).
+  [ ]  browser_session.py:184-234 → хрупкие селекторы Bing (li.b_algo h2 a,
+       a.iusc). Перестанут работать при смене вёрстки поисковика. Есть fallback
+       на a[href^='http'], но он слабее.
+  [ ]  autonomous._conductor_loop парсит LLM-JSON «как есть» (json.loads без
+       снятия ```json-блока). Локальные модели (LM Studio) часто оборачивают
+       JSON в markdown → парсинг тихо падает в except. event_loop делает очистку,
+       conductor — нет (несимметрично).
+  [ ]  autonomous._next_phrase — фразы захардкожены в коде (строки 125-145).
+       Можно вынести в роль/config, безопасность не страдает.
+  [ ]  event_loop._clean_answer (317) делит предложения через
+       re.split(r"(?<=[.!?])\s+") — ломается на «т.д.», «г.», инициалах.
+       Влияет только на укорачивание ответа (<=3 предложения).
+  [ ]  contracts.py — 8 строк, data: Optional[Any], error: Optional[str].
+       Реально простой, но рабочий. Расширять — низкий ROI.
+  [ ]  planner.py / planner_interface.py НЕ подключены к рантайму
+       (0 ссылок на PlannerImpl в живом коде). Мёртвый/экспериментальный код.
+  [ ]  executor (tools/executors.py:57) УЖЕ мапит underscore→dotted через
+       _API_ALIASES. Т.е. блокер BUILD_STATUS «planner dotted vs executor
+       underscore» фактически УЖЕ закрыт в текущем executor'е.
+  [ ]  Нет LICENSE, config.sample.yaml, CONTRIBUTING.md, SECURITY.md — правда.
+
+НЕ ПОДТВЕРЖДЕНО / СФАБРИКОВАНО (игнорировать):
+  [X]  z.ai: Config имеет debug: True, log_level: "DEBUG", allow_camera: True,
+       allow_screenshot: True. → В реальном config.py ЭТИХ ПОЛЕЙ НЕТ.
+       Рекомендация «исправить опасные дефолты» НЕ ПРИМЕНИМА.
+  [X]  z.ai: event_loop — God Object «300+ строк», _parse_direct_command 150+,
+       _execute_camera_action 70 строк и т.п. → Файл РЕАЛЬНО 1032 строки.
+       Command-паттерн уже частично реализован (DirectCommand + parse_direct_command
+       возвращает команды, _execute_direct диспетчеризует). Серьёзность
+       преувеличена.
+  [X]  z.ai: «магические числа self._history[-8:] / [-16:]». → В коде НЕТ
+       self._history. Выдумано.
+  [X]  z.ai: «__main__.py мутирует config после загрузки → нужен immutable
+       config». → config мутируется НАМЕРЕННО и безопасно (флаги --text /
+       --autonomous / input_mode). Заморозка сломала бы CLI. НЕ ДЕЛАТЬ.
+  [X]  Источник 1 (Mistral): Threading/SiteProfile/Auditor/MouseControl-dual-mode
+       → концепции из ДРУГИХ HTML-файлов, которых нет в репо. К текущей
+       архитектуре UNI не привязаны. Зеленопольные идеи, не приоритет.
+
+================================================================================
+ВЕРДИКТЫ: ЧТО ДЕЛАТЬ
+================================================================================
+
+ДЕЛАТЬ СЕЙЧАС (высокая ценность, реальные баги/риски):
+  1. [P0] Исправить re_search → re.search в autonomous.py:208.
+     Механически, 1 строка, убирает гарантированный краш проверки подключения.
+  2. [P1] Поделить _tool_lock между EventLoop и AutonomousController, либо
+     пускать общие ресурсы (браузер/мышь) через единый guard. Безопасность
+     физического устройства НЕ затрагивается (остановка — через
+     state.request_stop синхронно), но стабильность UI — да.
+  3. [P2] Очистка ```json в _conductor_loop перед json.loads (как в event_loop).
+     Убирает тихие сбои Conductor-шага.
+  4. [P2] Селекторы поисковиков → усилить fallback (Accessibility Tree /
+     универсальные селекторы), убрать зависимость от li.b_algo / a.iusc.
+     Либо (по желанию) официальные Search API.
+
+СДЕЛАТЬ ПОТОМ (инфраструктура, низкий риск, реально нужно):
+  5. Добавить LICENSE (MIT) + CONTRIBUTING.md + SECURITY.md.
+  6. Добавить config.sample.yaml с комментариями (LM Studio URL, vision mock,
+     browser profile placeholder).
+  7. Добавить GitHub Actions (ubuntu + windows) с mock-Brain/Playwright и
+     pytest smoke-тестами. CI сейчас нет → регрессии не ловятся.
+  8. working_memory.py: синхронный persist() блокирует event loop (threading.
+     RLock + write_text). Реально, но влияние низкое (маленький JSON, редко).
+     Перенос на asyncio + debounce — можно, не срочно.
+  9. brain.py: нет retry/circuit-breaker (есть только try/except →
+     BrainResponse.error). Добавить tenacity — защита от мигания LM Studio.
+     Опционально.
+ 10. capability autodiscovery вместо явной регистрации в Agent.__init__ —
+     nice-to-have, не срочно (сейчас регистрация — один чистый цикл по 7
+     capability, а не «40+ строк», как утверждал z.ai).
+
+НЕ ДЕЛАТЬ / НЕ ПРИМЕНИМО (шум, ложные тревоги, не тот код):
+  – «Исправить опасные дефолты config (debug=True и т.п.)» — поля не
+    существуют. Игнор.
+  – «Заморозить config (frozen=True)» — сломает CLI-флаги. Игнор.
+  – «Вынесите _history[-8:]/[-16:] в config» — нет таких полей. Игнор.
+  – Полный рефакторинг event_loop под Command Pattern «с нуля» — уже есть
+    частично; переписывать 1032 строки ради этого — риск без выгоды.
+  – Расширение ToolResult до Generic[T] + ErrorDetail — низкий ROI, ломает
+    весь код. Не сейчас.
+  – Унификация контрактов Planner↔Executor — planner мёртвый, executor уже
+    принимает оба формата имён. Блокер BUILD_STATUS устарел.
+  – Концепции Mistral (Threading ID, SiteProfile JSON, Auditor, Mouse dual-mode)
+    — отдельная зеленопольная ветка, к текущему рантайму не привязана.
+    Рассматривать только как будущий дизайн, не как правки.
+
+СОХРАНИТЬ ОБЯЗАТЕЛЬНО (инварианты безопасности — не трогать):
+  – xtoys.max_intensity кап (config, по умолчанию 50).
+  – autonomous_physical=False по умолчанию + двойное подтверждение
+    (config.autonomous.enabled И config.capabilities.xtoys.autonomous_physical).
+  – notice_ack / set_verified_physical перед движением устройства.
+  – ESC / стоп / «красный» → мгновенный request_stop (интенсивность 0).
+  – Камера: явное озвучивание включения.
+
+================================================================================
+РЕКОМЕНДУЕМЫЙ ПОРЯДОК (если пойдём вперёд)
+================================================================================
+  Шаг 1 (1 строка): re_search → re.search.            [крит]
+  Шаг 2 (маленький PR): config.sample.yaml + LICENSE + CONTRIBUTING.
+  Шаг 3: GitHub Actions smoke-тест (mock brain/playwright).
+  Шаг 4: поделить _tool_lock между ручным и автономным режимом.
+  Шаг 5: очистка ```json в conductor + усиление fallback селекторов.
+  Шаг 6 (опц): working_memory async + brain retry.
+
+  НЕ трогать: концепции Mistral, «опасные дефолты» z.ai, frozen config,
+  переписывание event_loop, расширение ToolResult.
+
+================================================================================
+ИТОГ
+================================================================================
+Из 4-х источников только chat.deepseek дал проверяемо-точный разбор; z.ai
+во многом сфабриковал детали и его «критические» пункты (debug, _history,
+frozen config) НЕ ПРИМЕНИМЫ. Источник 1 (Mistral) — интересные, но оторванные
+от кода концепции. Источник 2 (Copilot) — здравая инфраструктурная база
+(CI/license/sample-config), которой реально не хватает.
+
+Реально действовать стоит по 10 пунктам выше (1 критический баг + concurrency
++ инфраструктура). «Архитектурные» переписывания из z.ai — отбросить.

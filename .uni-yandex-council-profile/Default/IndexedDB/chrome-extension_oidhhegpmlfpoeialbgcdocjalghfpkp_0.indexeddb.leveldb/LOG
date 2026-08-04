@@ -1,0 +1,4 @@
+2026/08/04-02:52:46.137 8d74 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/04-02:52:46.138 8d74 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/04-02:52:46.139 8d74 Recovering log #7
+2026/08/04-02:52:46.186 8d74 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb/000007.log 

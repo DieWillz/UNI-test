@@ -1,0 +1,40 @@
+{
+  "style_sheet":
+  [
+    {
+      "selector": ":b2020#flute > #flute_login_button:not(.signed_in, .plus_subscription)",
+      "foreground !imp": ["#666666", "#373737", "#373737", "#0000"],
+      "background !imp": ["#0000"]
+    },
+    {
+      "selector": [
+        ":b2020#flute > button",
+        ":b2020#flute > button:is([theme=silver]:not([state=ntp], :sly_zen))",
+      ],
+      "background !imp": ["var(light_bg_normal)", "var(dark_bg_hovered)", "var(dark_bg_pressed)", "#0000"],
+      "foreground !imp": ["var(dark_fg_normal)", "var(dark_fg_hovered)", "var(dark_fg_pressed)", "var(dark_fg_disabled)"],
+    },
+    {
+      "selector": [
+        ":b2020#flute > button:where(:dark_wp_top, :incognito[state=ntp], :incognito)",
+        ":b2020#flute > button:where([theme=dark]:not([state=ntp], :sly_zen))",
+      ],
+      "background !imp": ["var(light_bg_normal)", "var(light_bg_hovered)", "var(light_bg_pressed)", "#0000"],
+      "foreground !imp": ["var(light_fg_normal)", "var(light_fg_hovered)", "var(light_fg_pressed)", "var(light_fg_disabled)"],
+    },
+     {
+      "selector": ":b2020#flute > button:is([tint=color], [tint=half], [tint=light]):where(:not([state=ntp], :sly_zen))",
+      "background !imp": ["var(dark_bg_normal)", "var(dark_bg_hovered)", "var(dark_bg_pressed)", "#0000"],
+      "foreground !imp": ["var(dark_fg_normal)", "var(dark_fg_hovered)", "var(dark_fg_pressed)", "var(dark_fg_disabled)"],
+    },
+    {
+      "selector": [
+        ":b2020#flute > button[tint=full]:where(:not([state=ntp], :sly_zen))",
+        ":b2020#flute > button[tint=color]:where(:not([state=ntp], :sly_zen, [theme=yellow]))",
+        ":b2020#flute > button[tint=half]:where(:not([state=ntp], :sly_zen, [theme=aqua], [theme=green], [theme=yellow]))",
+      ],
+      "background !imp": ["var(light_bg_normal)", "var(light_bg_hovered)", "var(light_bg_pressed)", "#0000"],
+      "foreground !imp": ["var(light_fg_normal)", "var(light_fg_hovered)", "var(light_fg_pressed)", "var(light_fg_disabled)"],
+    },
+  ],
+}

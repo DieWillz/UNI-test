@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Uždaryti"
+   },
+   "copy": {
+      "message": "Kopijuoti URL"
+   },
+   "copy_success": {
+      "message": "Nukopijuota sėkmingai."
+   },
+   "download": {
+      "message": "parsisiųsti"
+   },
+   "filter_lead": {
+      "message": "Vaizdo įrašas, kurio dydis mažesnis už šią vertę, nebus užfiksuotas"
+   },
+   "hour": {
+      "message": "valandą"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionalus vaizdo įrašų atsisiuntėjas, skirtas išsaugoti internetinius vaizdo įrašus, tokius kaip mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Video Downloader Professional / Plus - MPMux"
+   },
+   "minute": {
+      "message": "minutė"
+   },
+   "more_than_one_day": {
+      "message": "Per dieną"
+   },
+   "no_more_resolution": {
+      "message": "Nebėra rezoliucijos"
+   },
+   "no_result": {
+      "message": "Ištekliaus failas nerastas!"
+   },
+   "no_video": {
+      "message": "Vaizdo įrašas negali būti įrašytas arba vaizdo įrašo nėra!"
+   },
+   "not_support": {
+      "message": "Ši svetainė nepalaikoma"
+   },
+   "play": {
+      "message": "Leisti vaizdo įrašą"
+   },
+   "popup_modal_body": {
+      "message": "Prieš įrašydami pabandykite pasirinkti fiksuotą skiriamąją gebą (jei vaizdo įraše yra ši parinktis). Kadangi automatinė skyra gali sukurti skirtingo dydžio kadrus, todėl vaizdo įrašas gali būti padalintas."
+   },
+   "popup_modal_close": {
+      "message": "Uždaryti"
+   },
+   "popup_modal_confirm": {
+      "message": "Patvirtinti"
+   },
+   "popup_modal_title": {
+      "message": "Patarimai"
+   },
+   "recording_mode": {
+      "message": "Įrašymo režimas"
+   },
+   "second": {
+      "message": "sekundžių"
+   },
+   "size_filter": {
+      "message": "Filtras"
+   },
+   "tips": {
+      "message": "Patarimai"
+   },
+   "tips_text_1": {
+      "message": "Kai kurie vaizdo įrašai gali būti neužfiksuojami, kol jie nebus paleisti. Jei tikslinio vaizdo įrašo sąraše nėra, pabandykite jį paleisti arba atnaujinkite puslapį."
+   },
+   "tips_text_2": {
+      "message": "Jei pabandžius vis tiek neveikia, atsisiųskite jį priverstinai su „įrašymo režimu“."
+   },
+   "video_flush_error": {
+      "message": "Vaizdo įrašo praplovimo klaida"
+   }
+}

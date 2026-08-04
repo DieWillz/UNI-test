@@ -1,0 +1,12 @@
+2026/08/02-22:12:25.094 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:12:25.095 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/02-22:12:25.095 8d70 Recovering log #3
+2026/08/02-22:12:25.095 8d70 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb/000003.log 
+2026/08/02-22:12:25.098 8d7c Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/02-22:12:25.233 8da4 Level-0 table #5: started
+2026/08/02-22:12:25.243 8da4 Level-0 table #5: 3280 bytes OK
+2026/08/02-22:12:25.245 8da4 Delete type=0 #3
+2026/08/02-22:12:25.245 8d70 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/02-22:12:54.158 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb, waiting for background work finished
+2026/08/02-22:12:54.158 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb, background work finished
+2026/08/02-22:12:54.158 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb unlocked successfully

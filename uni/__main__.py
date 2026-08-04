@@ -32,7 +32,26 @@ async def async_main() -> int:
     parser.add_argument("--text", action="store_true", help="Текстовый интерактивный режим вместо микрофона")
     parser.add_argument("--voice", action="store_true", help="Только голосовой ввод")
     parser.add_argument("--autonomous", action="store_true", help="Автономный режим без команд пользователя")
+    parser.add_argument("--webui", action="store_true", help="Запустить веб-консоль разработки (UNI Council GUI)")
+    parser.add_argument(
+        "--demo",
+        choices=("xtoys",),
+        default=None,
+        help="Запустить демо-сценарий вместо основного цикла агента",
+    )
     args = parser.parse_args()
+
+    if args.webui:
+        from uni.webui import run_webui
+
+        run_webui()
+        return 0
+
+    if args.demo == "xtoys":
+        from uni.scenarios.xtoys import run_xtoys_demo
+
+        await run_xtoys_demo(config)
+        return 0
 
     config = load_config(args.config)
     if args.text:

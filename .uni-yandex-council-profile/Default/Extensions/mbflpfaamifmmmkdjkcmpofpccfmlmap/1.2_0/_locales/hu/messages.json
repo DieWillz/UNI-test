@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Bezárás"
+   },
+   "copy": {
+      "message": "URL másolása"
+   },
+   "copy_success": {
+      "message": "Sikeres másolás."
+   },
+   "download": {
+      "message": "Letöltés"
+   },
+   "filter_lead": {
+      "message": "Az ennél kisebb méretű videót a rendszer nem rögzíti"
+   },
+   "hour": {
+      "message": "óra"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Professzionális videó letöltő online videók mentéséhez, mint például mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Online film/video letöltő program - MPMux"
+   },
+   "minute": {
+      "message": "perc"
+   },
+   "more_than_one_day": {
+      "message": "Több mint egy nap"
+   },
+   "no_more_resolution": {
+      "message": "Nincs több felbontás"
+   },
+   "no_result": {
+      "message": "Nem található erőforrásfájl!"
+   },
+   "no_video": {
+      "message": "A videót nem lehet rögzíteni, vagy a videó nem létezik!"
+   },
+   "not_support": {
+      "message": "Ez a webhely nem támogatott"
+   },
+   "play": {
+      "message": "Videó lejátszása"
+   },
+   "popup_modal_body": {
+      "message": "Rögzítés előtt próbáljon meg rögzített felbontást választani (ha a videó rendelkezik ezzel a lehetőséggel). Mivel az automatikus felbontás különböző méretű képkockákat eredményezhet, ami a videó felosztását okozhatja."
+   },
+   "popup_modal_close": {
+      "message": "Bezárás"
+   },
+   "popup_modal_confirm": {
+      "message": "megerősít"
+   },
+   "popup_modal_title": {
+      "message": "Tippek"
+   },
+   "recording_mode": {
+      "message": "Felvételi mód"
+   },
+   "second": {
+      "message": "másodpercig"
+   },
+   "size_filter": {
+      "message": "Szűrő"
+   },
+   "tips": {
+      "message": "Tippek"
+   },
+   "tips_text_1": {
+      "message": "Előfordulhat, hogy egyes videók lejátszása előtt nem rögzíthetők. Ha a célvideó nem szerepel a listában, próbálja meg lejátszani, vagy frissítse az oldalt."
+   },
+   "tips_text_2": {
+      "message": "Ha próbálkozás után sem működik, akkor \"rögzítési móddal\" töltsd le erőszakosan."
+   },
+   "video_flush_error": {
+      "message": "Videó öblítési hiba"
+   }
+}

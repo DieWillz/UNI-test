@@ -1,0 +1,6 @@
+2026/08/02-22:14:37.783 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store is locked for recovering successfully
+2026/08/02-22:14:37.784 8d78 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store since it was missing.
+2026/08/02-22:14:37.793 8d78 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store/MANIFEST-000001
+2026/08/02-22:15:08.304 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store, waiting for background work finished
+2026/08/02-22:15:08.304 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store, background work finished
+2026/08/02-22:15:08.304 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\GCM Store unlocked successfully

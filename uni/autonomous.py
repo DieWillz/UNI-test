@@ -187,7 +187,9 @@ class AutonomousController:
             return
         current = self.state.intensity
         target = self._next_target(current)
-        target = max(0, min(self.config.capabilities.xtoys.max_intensity, target))
+        # Физический предел устройства — только из конфига XToys (guard-лимит снят).
+        cap = self.config.capabilities.xtoys.max_intensity
+        target = max(0, min(cap, target))
         if target != current:
             res = await self._run_tool("xtoys.ramp_intensity", {"value": target, "steps": 5})
             if res.success:
@@ -260,6 +262,18 @@ class AutonomousController:
         xtoys = self.agent.capabilities.get("xtoys")
         if xtoys is not None:
             await self._run_tool("xtoys.open", {})
+        # Автономия включена (уровень != off) — Юни сама включает камеру
+        # (разрешительный гейт notice_ack снят, стартуем напрямую).
+        camera = self.agent.capabilities.get("camera")
+        if camera is not None:
+            level = getattr(getattr(self.agent, "guard", None), "cfg", None)
+            level = getattr(level, "autonomy_level", "off") if level is not None else "off"
+            if level != "off":
+                try:
+                    await self._run_tool("camera.start", {"notice_ack": False})
+                    logger.info("📷 камера включена автономно")
+                except Exception as exc:
+                    logger.warning("камера недоступна для автономии: %s", exc)
         if self.device_allowed and xtoys is not None:
             await self._run_tool("xtoys.set_verified_physical", {"verified": True})
             await self._run_tool("xtoys.ramp_intensity", {"value": 0, "steps": 3})

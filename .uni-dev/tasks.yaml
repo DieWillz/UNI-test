@@ -677,3 +677,81 @@ tasks:
       - tasks terminate after their explicit provider sequence
       - CLI can create inspect and run a development task
       - tests and architecture audit pass
+
+  - id: WEBUI-001
+    title: Make the UNI Council WebUI truthful and operational
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [DEV-COORD-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/webui
+      - uni/council/provider.py
+      - uni/browser_session.py
+      - tests/council/test_webui.py
+      - tests/fasttrack/test_browser_session.py
+      - web.bat
+      - Запустить UNI WebUI.bat
+      - Запустить Юни.bat
+    acceptance:
+      - attached text files are actually delivered with explicit size limits
+      - participant states distinguish configured unavailable and ready
+      - browser sessions start and close on the active async event loop
+      - browser rounds require an explicit terms notice acknowledgement
+      - settings writes are bounded and never expose stored keys through the API
+      - saved round history and synthesis are visible in the interface
+      - Codex JSONL final messages are parsed from the current event schema
+      - WebUI API tests and architecture audit pass
+
+  - id: WEBUI-002
+    title: Finalize Council WebUI integrity and current browser routes
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [WEBUI-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/webui/index.html
+      - uni/council/participants.py
+      - tests/council/test_webui.py
+    acceptance:
+      - frontend contains no NUL bytes or content after the closing html tag
+      - Grok browser routing targets the current grok.com host
+      - WebUI regression tests and architecture audit pass
+
+  - id: LMSTUDIO-AUTO-001
+    title: Automatically select the model currently loaded in LM Studio
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [FASTTRACK-MVP-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/config.py
+      - uni/brain.py
+      - config.yaml
+      - tests/fasttrack/test_brain_model_selection.py
+    acceptance:
+      - auto mode selects the model exposed by the LM Studio models endpoint
+      - a stale configured model falls back to an actually loaded model
+      - an explicit loaded model remains selected
+      - no loaded models produces an actionable error
+      - selected text and vision model settings remain independent
+      - targeted tests and architecture audit pass
+
+  - id: WEBUI-003
+    title: Repair roll call and expose truthful live browser participants
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [WEBUI-002]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/webui/index.html
+      - uni/webui/server.py
+      - uni/council/participants.py
+      - tests/council/test_webui.py
+    acceptance:
+      - roll call starts without depending on a removed checkbox
+      - browser automation notice is not repeated in the main round form
+      - browser participant readiness reflects an actually open matching CDP tab
+      - Qwen Studio and Qwen Coder are represented as separate participants
+      - browser automation remains explicitly enabled or disabled in settings
+      - targeted tests and architecture audit pass

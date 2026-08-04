@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "tutup"
+   },
+   "copy": {
+      "message": "Salin URL"
+   },
+   "copy_success": {
+      "message": "Berjaya disalin."
+   },
+   "download": {
+      "message": "Muat turun"
+   },
+   "filter_lead": {
+      "message": "Video yang saiznya lebih kecil daripada nilai ini tidak akan ditangkap"
+   },
+   "hour": {
+      "message": "jam"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Pemuat turun video profesional untuk menyimpan video dalam talian seperti mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Pemuat Turun Video - MPMux"
+   },
+   "minute": {
+      "message": "minit"
+   },
+   "more_than_one_day": {
+      "message": "Lebih sehari"
+   },
+   "no_more_resolution": {
+      "message": "Tiada lagi resolusi"
+   },
+   "no_result": {
+      "message": "Tiada fail sumber ditemui!"
+   },
+   "no_video": {
+      "message": "Video tidak boleh dirakam, atau video tidak wujud!"
+   },
+   "not_support": {
+      "message": "Tapak ini tidak disokong"
+   },
+   "play": {
+      "message": "Mainkan video"
+   },
+   "popup_modal_body": {
+      "message": "Cuba pilih peleraian tetap sebelum merakam (jika video mempunyai pilihan ini). Kerana resolusi auto mungkin menghasilkan bingkai dengan saiz yang berbeza, menyebabkan video terbelah."
+   },
+   "popup_modal_close": {
+      "message": "tutup"
+   },
+   "popup_modal_confirm": {
+      "message": "sahkan"
+   },
+   "popup_modal_title": {
+      "message": "Petua"
+   },
+   "recording_mode": {
+      "message": "Mod Rakaman"
+   },
+   "second": {
+      "message": "detik"
+   },
+   "size_filter": {
+      "message": "Penapis"
+   },
+   "tips": {
+      "message": "Petua"
+   },
+   "tips_text_1": {
+      "message": "Sesetengah video mungkin tidak ditangkap sehingga ia dimainkan. Jika video sasaran tiada dalam senarai, cuba mainkannya atau muat semula halaman."
+   },
+   "tips_text_2": {
+      "message": "Jika ia masih tidak berfungsi selepas mencuba, muat turun secara paksa dengan \"mod rakaman\"."
+   },
+   "video_flush_error": {
+      "message": "Ralat siram video"
+   }
+}

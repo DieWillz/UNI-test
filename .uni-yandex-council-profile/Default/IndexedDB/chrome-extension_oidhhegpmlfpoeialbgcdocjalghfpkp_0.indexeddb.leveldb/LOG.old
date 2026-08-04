@@ -1,0 +1,7 @@
+2026/08/04-02:50:49.910 8d7c File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/04-02:50:49.911 8d7c Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/04-02:50:49.912 8d7c Recovering log #7
+2026/08/04-02:50:49.969 8d7c Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb/000007.log 
+2026/08/04-02:52:45.939 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb, waiting for background work finished
+2026/08/04-02:52:45.940 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb, background work finished
+2026/08/04-02:52:45.941 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\chrome-extension_oidhhegpmlfpoeialbgcdocjalghfpkp_0.indexeddb.leveldb unlocked successfully

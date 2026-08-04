@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Literal
+from typing import Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
@@ -27,12 +27,28 @@ class ArtifactRef(BaseModel):
     text_excerpt: str | None = Field(default=None, max_length=50_000)
 
 
+class ClaimVerificationResult(BaseModel):
+    """Outcome of verifying an AI claim against the real repository.
+
+    Defined here (not in verifier.py) so ``ProviderResult.verified`` can hold a
+    typed value without creating a circular import (verifier imports this model).
+    """
+
+    claim: str = Field(min_length=1, max_length=4000)
+    verified: bool
+    evidence: str = Field(max_length=4000)
+    checked_at: str = Field(default_factory=utc_now)
+
+
 class ProviderResult(BaseModel):
     provider_id: str = Field(min_length=1, max_length=100)
     transport: Literal["api", "browser"]
     content: str = Field(max_length=200_000)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     created_at: str = Field(default_factory=utc_now)
     error: str | None = Field(default=None, max_length=4000)
+    # Set by DevelopmentCoordinator when an optional Verifier is wired in.
+    verified: Optional[ClaimVerificationResult] = None
 
 
 class HandoffPackage(BaseModel):
@@ -96,6 +112,7 @@ class ProviderConfig(BaseModel):
     prompt_selector: str | None = None
     submit_selector: str | None = None
     response_selector: str | None = None
+    visual_cursor: bool = Field(default=False, description="Show visible UNI cursor overlay in browser")
 
     @model_validator(mode="after")
     def validate_transport_fields(self) -> "ProviderConfig":

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "關閉"
+   },
+   "copy": {
+      "message": "複製網址"
+   },
+   "copy_success": {
+      "message": "複製成功。"
+   },
+   "download": {
+      "message": "下載"
+   },
+   "filter_lead": {
+      "message": "小於此值的影片將不會被捕獲"
+   },
+   "hour": {
+      "message": "小時"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "免費的網站影片下載擴充，它可以保存或記錄線上影片，如 HLS、m3u8、mp4 等。"
+   },
+   "manifest_name": {
+      "message": "萬用線上影片下載工具 - MPMux"
+   },
+   "minute": {
+      "message": "分鐘"
+   },
+   "more_than_one_day": {
+      "message": "一天多"
+   },
+   "no_more_resolution": {
+      "message": "沒有更多的分辨率"
+   },
+   "no_result": {
+      "message": "找不到資源文件！"
+   },
+   "no_video": {
+      "message": "無法錄製影片，或影片不存在！"
+   },
+   "not_support": {
+      "message": "不支持此網站"
+   },
+   "play": {
+      "message": "播放視頻"
+   },
+   "popup_modal_body": {
+      "message": "錄製前嘗試選擇固定分辨率（如果影片有此選項）。因為自動分辨率可能會產生不同大小的幀，導致影片被分割。"
+   },
+   "popup_modal_close": {
+      "message": "關閉"
+   },
+   "popup_modal_confirm": {
+      "message": "確認"
+   },
+   "popup_modal_title": {
+      "message": "提示"
+   },
+   "recording_mode": {
+      "message": "記錄模式"
+   },
+   "second": {
+      "message": "秒"
+   },
+   "size_filter": {
+      "message": "篩選"
+   },
+   "tips": {
+      "message": "提示"
+   },
+   "tips_text_1": {
+      "message": "某些影片在播放之前可能無法捕獲。如果目標影片不在列表中，請嘗試播放，或刷新頁面。"
+   },
+   "tips_text_2": {
+      "message": "如果試了還是不行，就用“記錄模式”強制下載。"
+   },
+   "video_flush_error": {
+      "message": "影片刷新錯誤"
+   }
+}

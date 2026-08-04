@@ -1,0 +1,48 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; cursor: default; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+  color: #1f2937;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.card {
+  background: #fff;
+  padding: 32px 40px;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.04);
+  max-width: 420px; width: 100%;
+  text-align: center;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #2196f3;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 18px;
+}
+.spinner.hidden { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* [v2.7.4 audit] a11y consistency — popup.css/help.css/premium-upsell.css уже имеют */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+}
+h1 { font-size: 17px; font-weight: 600; margin: 0 0 6px; color: #111827; }
+h1.err { color: #c62828; }
+p { font-size: 14px; margin: 4px 0; color: #4b5563; line-height: 1.4; }
+.target {
+  font-size: 11px; color: #9ca3af; margin-top: 12px;
+  word-break: break-all; font-family: 'SF Mono', Consolas, monospace;
+}
+button {
+  margin-top: 18px; padding: 9px 18px;
+  background: #2196f3; color: #fff;
+  border: 0; border-radius: 8px;
+  cursor: pointer; font-size: 13px; font-weight: 500;
+  font-family: inherit;
+}
+button:hover { background: #1976d2; }
+button.secondary { background: #e5e7eb; color: #1f2937; margin-left: 8px; }
+button.secondary:hover { background: #d1d5db; }

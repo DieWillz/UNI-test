@@ -1,0 +1,4 @@
+2026/08/02-22:07:57.353 8da4 File C:\LLM\UNI\.uni-yandex-council-profile\Default\AliceChatHistory\dialogs is locked for recovering successfully
+2026/08/02-22:07:57.353 8da4 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\AliceChatHistory\dialogs, waiting for background work finished
+2026/08/02-22:07:57.356 8da4 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\AliceChatHistory\dialogs, background work finished
+2026/08/02-22:07:57.356 8da4 File C:\LLM\UNI\.uni-yandex-council-profile\Default\AliceChatHistory\dialogs unlocked successfully

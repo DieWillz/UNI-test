@@ -1,0 +1,15 @@
+{
+  "topic": "Короткая проверка реального пути совета",
+  "round_id": "20260803-133144",
+  "participants": [
+    "Hermes"
+  ],
+  "signatures": {},
+  "errors": {
+    "Hermes": "ReadTimeout: "
+  },
+  "artifacts": {
+    "Hermes": ".uni-council\\20260803-133144_Hermes.md",
+    "report": ".uni-council\\20260803-133144_report.md"
+  }
+}

@@ -1,0 +1,7 @@
+body[bl-ext-enbld-hai-k-na="T"]
+*
+ytd-ad-slot-renderer,
+tp-yt-paper-toast#toast[aria-label="toast"]
+{
+    display: none !important;
+}

@@ -1,0 +1,154 @@
+================================================================================
+ОТЧЁТ: расширение uni/devcoord — Verifier + Applier
+Дата: 2026-08-03
+Автор: Hermes
+Основание: TASK_hermes_verifier_applier.md (задание от Claude)
+Принцип: расширение существующего devcoord, НЕ пересборка; одна задача = одно изменение
+================================================================================
+
+## 1. Суть задания
+
+Добавить в уже работающий `uni/devcoord/` два новых модуля поверх существующих
+`models.py`, `coordinator.py`, `providers.py`, `store.py` (импортировать, а не
+переписывать):
+
+  - `verifier.py`  — проверять утверждения ИИ о коде по РЕАЛЬНОМУ репозиторию
+                     (grep/AST), а не верить ответу модели на слово.
+  - `applier.py`   — применять предложенный патч в отдельной git-ветке, гнать
+                     тесты и ОСТАНАВЛИВАТЬСЯ перед коммитом. Никакого авто-коммита
+                     и авто-мержа (это жёсткое ограничение, не подлежащее
+                     обсуждению — причина: уже пойманные противоречивые фактические
+                     утверждения разных ИИ об одном и том же коде).
+
+## 2. Что сделано (по пунктам)
+
+### Пункт 1 — uni/devcoord/models.py (расширение)
+  · Добавлен `ClaimVerificationResult(BaseModel)`:
+      claim: str, verified: bool, evidence: str, checked_at: str
+  · В `ProviderResult` добавлено одно поле:
+      verified: Optional[ClaimVerificationResult] = None
+  · Классы НЕ переписывались, импорты не сломаны.
+
+### Пункт 2 — uni/devcoord/verifier.py (новый модуль)
+  · `Verifier(repo_root)` с методом `verify_claim(claim, file_hint=None)`.
+  · Логика: извлекает «code-подобные» токены из утверждения (snake_case /
+    camelCase / с цифрами), ищет их подстрокой в РЕАЛЬНЫХ файлах репозитория
+    (grep-подобно, без внешних зависимостей).
+  · Поддержка отрицательных утверждений: «X НЕ существует» → если совпадений
+    нет, это трактуется как подтверждение отрицания (verified=True).
+  · Исключает справочные/архивные каталоги (Uni-Claude, backup, copilot-worktrees
+    и т.п.), чтобы не получать ложные срабатывания.
+  · `ClaimVerificationResult` намеренно размещён в models.py (а не в verifier.py),
+    чтобы не возникал цикл импортов (verifier импортирует models; models не
+    импортирует verifier). Требование «одно поле verified в models.py» выполнено.
+
+### Пункт 3 — uni/devcoord/coordinator.py (интеграция)
+  · `__init__` получил опциональный `verifier: Verifier | None = None`.
+  · После получения ответа от провайдера в `run_next` (и проброшено в `run_all`):
+      if verify_claim and self.verifier is not None:
+          result.verified = self.verifier.verify_claim(verify_claim)
+  · Результат кладётся в `task.results[i].verified` и сохраняется через
+    `CoordinationStore` (round-trip проверен тестом).
+
+### Пункт 4 — uni/devcoord/applier.py (новый модуль)
+  · `ApplyResult(BaseModel)`: branch, diff, tests_passed, test_output, status.
+  · `Applier.apply_and_test(task_id, patch)` (async):
+      1. `git checkout -B review/<task_id>` (из текущей ветки)
+      2. `git apply --whitespace=nowarn < patch`
+      3. `pytest -q`  +  `python scripts/check_architecture.py --strict`
+         (если скрипт есть в репозитории; если нет — пропускается)
+      4. ТЕСТЫ УПАЛИ или патч не применился → `git checkout <base>` + удаление
+         ветки, status="reverted"
+      5. ТЕСТЫ ПРОШЛИ → status="awaiting_human_confirmation"
+         НИКАКОГО коммита и НИКАКОГО мержа.
+  · `Applier.confirm_merge(task_id)` (async) — вызывается ТОЛЬКО человеком:
+      коммитит подтверждённое изменение на ветке review, затем мержит в base.
+      Никогда не вызывается автоматически из apply_and_test.
+
+### Пункт 5 — tests/test_devcoord_verifier_applier.py (новые тесты)
+  · Verifier на РЕАЛЬНОМ репозитории:
+      - true claim («_API_ALIASES в executors.py») → verified=True
+      - false claim («nonexistent_xyz_token_abc в executors.py») → verified=False
+      - negated claim («... НЕ существует») → verified=True (не найдено = ок)
+      - no tokens → verified=False
+  · Coordinator round-trip: verify_claim → result.verified заполнен и
+    сохранён в store (read-back совпадает).
+  · Applier на scratch git-репозитории:
+      - pass → awaiting_human_confirmation, ветка остаётся, базовая ветка НЕ
+        закоммичена автоматически; confirm_merge → merge-коммит в base.
+      - fail (добавлен падающий тест) → reverted, ветка удалена, база нетронута.
+      - unapplicable patch (контекст не совпадает) → reverted, ветка удалена.
+
+### Пункт 6 — запуск проверок
+  · См. «Проверено» ниже.
+
+### Пункт 7 — запись в AI_WORKLOG.md
+  · Добавлена запись сверху с таблицей изменённых файлов, «Проверено» и
+    подписью `Hermes = ... от 2026-08-03` (по правилам журнала).
+
+## 3. Что НЕ трогалось (по жёстким рамкам задания)
+
+  · uni/webui/index.html, script.js, style.css, scripts/dev_panel.py
+  · devcoord/store.py, devcoord/providers.py (только импортировались)
+  · uni/planner.py, planner_interface.py (мёртвый код, не оживлялся)
+  · НЕ созданы «второй контур управления»: devcoord/dispatch.py,
+    devcoord/cli.py, devcoord/providers/openai_compat.py
+
+## 4. Проверено (реальные выводы команд)
+
+--------------------------------------------------------------------------------
+PYTHONPATH=/c/LLM/UNI /c/LLM/python312/python.exe -m pytest tests/test_devcoord_verifier_applier.py -q
+→ .........
+  9 passed in 25.71s
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+PYTHONPATH=/c/LLM/UNI /c/LLM/python312/python.exe -m pytest tests/ -q
+→ 119 passed, 7 subtests passed, 1 failed
+  (единственный fail: tests/council/test_webui.py::
+   test_frontend_roll_call_has_no_removed_notice_dependency
+   — про фронтенд runRollCall; НЕ мой код, предсуществующий; devcoord не затронут)
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+/c/LLM/python312/python.exe scripts/check_architecture.py --strict
+→ Summary: 1 error(s), 0 warning(s)
+   ERROR: uni/capabilities/computer.py: capability imports another capability:
+          uni.capabilities.uni_action_badge
+  (предсуществующая ошибка архитектуры, НЕ в моих файлах; по заданию computer.py
+   не трогать. ВАЖНО: из-за неё Applier в РЕАЛЬНОМ репозитории сейчас вернёт
+   status="reverted" для любого патча — потому что check_architecture падает.
+   Это корректное поведение гейта, а не баг Applier. Чинить computer.py — вне
+   scope этого задания.)
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+/c/LLM/python312/python.exe -m py_compile uni/devcoord/verifier.py \
+    uni/devcoord/applier.py uni/devcoord/coordinator.py \
+    uni/devcoord/models.py tests/test_devcoord_verifier_applier.py
+→ py_compile OK
+--------------------------------------------------------------------------------
+
+## 5. Что должен сделать человек (ручное действие)
+
+  При реальном применении патча через `Applier.apply_and_test(...)`:
+    1. Ветка `review/<task_id>` остаётся в репозитории до явного подтверждения.
+    2. Посмотреть diff (`git diff review/<task_id>`) и вывод тестов
+       (`ApplyResult.test_output`).
+    3. Только вручную вызвать `confirm_merge("<task_id>")` — это сделает
+       merge в base-ветку. `apply_and_test` сам НЕ коммитит и НЕ мержит.
+
+  Также рекомендуется (вне scope, но мешает Applier'у в живом репо): устранить
+  предсуществующую ошибку `computer.py` → `uni_action_badge`, иначе гейт
+  check_architecture всегда будет «красным».
+
+## 6. Итог
+
+  Задание выполнено полностью и проверено тестами: добавлены verifier.py и
+  applier.py, расширены models.py (поле verified) и coordinator.py (интеграция),
+  написаны 9 тестов (все проходят), запись в AI_WORKLOG сделана. Ни один из
+  защищённых файлов не изменён, «второй контур управления» не создан,
+  жёсткое ограничение «apply_and_test никогда не коммитит/мержит» соблюдено.
+
+Hermes = добавил devcoord/verifier.py + applier.py + поле verified в models/coordinator, 9 новых тестов проходят; отчёт сформирован от 2026-08-03
+================================================================================

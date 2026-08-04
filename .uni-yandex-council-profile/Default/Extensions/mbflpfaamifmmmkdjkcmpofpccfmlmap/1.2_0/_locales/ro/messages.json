@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Închide"
+   },
+   "copy": {
+      "message": "Copiați adresa URL"
+   },
+   "copy_success": {
+      "message": "Copiat cu succes."
+   },
+   "download": {
+      "message": "Descarca"
+   },
+   "filter_lead": {
+      "message": "Videoclipul cu dimensiunea mai mică decât această valoare nu va fi capturat"
+   },
+   "hour": {
+      "message": "ora"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Un descărcător de videoclipuri profesionist pentru salvarea videoclipurilor online precum mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Descărcător video - MPMux"
+   },
+   "minute": {
+      "message": "minut"
+   },
+   "more_than_one_day": {
+      "message": "Peste o zi"
+   },
+   "no_more_resolution": {
+      "message": "Gata cu rezoluția"
+   },
+   "no_result": {
+      "message": "Nu a fost găsit niciun fișier de resurse!"
+   },
+   "no_video": {
+      "message": "Videoclipul nu poate fi înregistrat sau videoclipul nu există!"
+   },
+   "not_support": {
+      "message": "Acest site nu este acceptat"
+   },
+   "play": {
+      "message": "Rulează video"
+   },
+   "popup_modal_body": {
+      "message": "Încercați să alegeți o rezoluție fixă ​​înainte de înregistrare (dacă videoclipul are această opțiune). Deoarece rezoluția automată poate produce cadre de dimensiuni diferite, ceea ce face ca videoclipul să fie divizat."
+   },
+   "popup_modal_close": {
+      "message": "Închide"
+   },
+   "popup_modal_confirm": {
+      "message": "A confirma"
+   },
+   "popup_modal_title": {
+      "message": "sfaturi"
+   },
+   "recording_mode": {
+      "message": "Modul de înregistrare"
+   },
+   "second": {
+      "message": "secunde"
+   },
+   "size_filter": {
+      "message": "Filtru"
+   },
+   "tips": {
+      "message": "sfaturi"
+   },
+   "tips_text_1": {
+      "message": "Este posibil ca unele videoclipuri să nu fie capturate până când sunt redate. Dacă videoclipul țintă nu este în listă, încercați să-l redați sau reîmprospătați pagina."
+   },
+   "tips_text_2": {
+      "message": "Dacă tot nu funcționează după ce ați încercat, descărcați-l forțat cu „modul de înregistrare”."
+   },
+   "video_flush_error": {
+      "message": "Eroare de spălare video"
+   }
+}

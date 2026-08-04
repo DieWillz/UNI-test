@@ -1,0 +1,268 @@
+/*
+* Prefixed by https://autoprefixer.github.io
+* PostCSS: v8.4.14,
+* Autoprefixer: v10.4.7
+* Browsers: last 10 version
+*/
+
+html, body
+{
+    background: none;
+background-color: unset;
+}
+body {
+font-family: Segoe UI, Tahoma, Calibri, Verdana, Helvetica, sans-serif;
+margin: 0;
+padding: 0;
+color: white;
+font-size: 14px;
+}
+
+.customConfirmBackdrop {
+display: none;
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-color: #ffffff11;
+-webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+}
+
+.customConfirmModal {display: none;position: fixed;top: 50%;left: 50%;-webkit-transform: translate(-50%, -50%);-ms-transform: translate(-50%, -50%);transform: translate(-50%, -50%);background: #103633;border-radius: 15px;-webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);max-width: 470px;width: 80%;border: 1px solid #1a5f59;}
+
+.customConfirmContent {padding: 20px;z-index: 11;position: relative;border-radius: inherit;overflow: hidden;}
+
+.customConfirmContent p {
+margin: 0 0 20px;
+}
+
+.customConfirmContent button {border: none;border-radius: 4px;padding: 10px 25px;cursor: pointer;}
+
+.customConfirmContent button#confirmYes,
+.customConfirmContent button#knowMore
+{background-color: #00ffa1;color: #000000dd;font-weight: 600;font-size: 14px; margin-right: 10px; }
+#knowMore
+{
+    background-color: transparent !important;
+    color: #00ffa1 !important;
+    border-color: #00ffa1 !important;
+    border: 2px solid #00ffa1 !important;
+}
+.customConfirmContent button#confirmNo {
+background-color: #f44336;
+color: #fff;
+}
+.green
+{
+    color: #00ffa1;
+}
+#bigger
+{font-size: 19px;display: inline-block;margin-bottom: 22px;-webkit-user-select: none;-moz-user-select: none;-ms-user-select: none;user-select: none;}
+.col
+{
+    color: #00ffa1;
+}
+.colr
+{
+    background: -o-linear-gradient(356deg, #61c4ff 21.76%, #00ffa1 81.98%);
+    background: /*linear-gradient(86.7deg, #38ABEF 21.76%, #09E4AD 81.98%);*/ -o-linear-gradient(94deg, #61c4ff 21.76%, #00ffa1 81.98%);
+    background: /*linear-gradient(86.7deg, #38ABEF 21.76%, #09E4AD 81.98%);*/ linear-gradient(356deg, #61c4ff 21.76%, #00ffa1 81.98%);
+    -webkit-background-clip: text;-webkit-text-fill-color: transparent;background-clip: text;
+    text-fill-color: transparent;
+    font-weight: 600 !important;
+}
+#update
+{font-size: 14px;color: #ddd;font-weight: 400;}
+#customConfirmModal.show, #customConfirmBackdrop.show {
+display: block;
+}
+#grid
+{
+    
+display: -webkit-box;
+    
+display: -ms-flexbox;
+    
+display: flex;
+    
+-webkit-box-orient: horizontal;
+    
+-webkit-box-direction: normal;
+    
+    -ms-flex-direction: row;
+    
+        flex-direction: row;
+    
+-ms-flex-wrap: wrap;
+    
+    flex-wrap: wrap;
+    
+height: 32px;
+    
+width: 100%;
+    
+margin-top: 5px;
+    
+margin-bottom: 15px;
+    
+-webkit-box-align: center;
+    
+    -ms-flex-align: center;
+    
+        align-items: center;
+    
+-ms-flex-line-pack: center;
+    
+    align-content: center;
+    
+-webkit-box-pack: end;
+    
+    -ms-flex-pack: end;
+    
+        justify-content: flex-end;
+
+-webkit-user-select: none;
+
+   -moz-user-select: none;
+
+    -ms-user-select: none;
+
+        user-select: none;
+}
+
+#grid
+{
+    position: fixed;
+    right: 0;
+    top: 18px;
+}
+img#ar
+{
+    opacity: 0.5;
+    margin-right: 16px !important;
+    height: 50% !important;
+}
+#grid > img
+{
+    height: 100%;
+    width: auto;
+    margin-right: 20px;
+}
+
+div#customConfirmModal::before {
+    background: -o-linear-gradient(304deg, #64c5ff 21.76%, #00ffa1 81.98%);
+    background: linear-gradient(146deg, #64c5ff 21.76%, #00ffa1 81.98%);
+    border-radius: inherit;
+    content: "";
+    height: calc(100% + 2.5px);
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    -webkit-transform: translate3d(-50%, -50%, 0);
+    transform: translate3d(-50%, -50%, 0);
+    width: calc(100% + 2.5px);
+    z-index: -1;
+}
+
+
+div#customConfirmModal::after {
+    content: "";
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: #103633;
+    z-index: 0;
+    border-radius: inherit;
+}
+
+body[popup="yes"] * #grid,
+body[popup="yes"] * #firstl,
+body[popup="yes"] * #afterclick,
+body[popup="yes"] * #knowMore
+{
+    display: none !important;
+} 
+body[popup="yes"] * #secondl > span
+{
+    color: #00ffa1 !important;
+}
+.Q
+{
+    font-weight: 500;
+    margin-bottom: 10px !important;
+    color: #00ffa1 !important;
+}
+#afterclick
+{
+    margin-top: 25px;
+    display: none;
+}
+body[moreinfo="yes"] * #afterclick
+{
+    display: block !important;
+}
+body[moreinfo="yes"] >
+.customConfirmModal
+{
+    height: auto !important;
+    width: auto !important;
+
+    min-width: 68vw !important;
+
+    max-width: calc(100% - 20px) !important;
+
+    max-height: calc(100% - 20px) !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    /*
+    display: flex !important;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+    */
+}
+body[moreinfo="yes"] >
+div#customConfirmModal::before,
+body[moreinfo="yes"] >
+div#customConfirmModal::after
+{
+    content: none !important;
+}
+body[moreinfo="yes"] >
+div#customConfirmModal
+{
+    border: 2px solid #1a5f59 !important;
+}
+.none
+{
+    display: none !important;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    cursor: pointer;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    border-radius: 50px;
+    cursor: pointer;
+    background: #ffffff70  !important;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    cursor: pointer;
+    background: #ffffffaa !important;
+  }

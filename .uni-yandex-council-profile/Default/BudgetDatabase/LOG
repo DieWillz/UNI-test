@@ -1,0 +1,4 @@
+2026/08/02-22:08:01.947 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\BudgetDatabase is locked for recovering successfully
+2026/08/02-22:08:01.947 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\BudgetDatabase, waiting for background work finished
+2026/08/02-22:08:01.947 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\BudgetDatabase, background work finished
+2026/08/02-22:08:01.947 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\BudgetDatabase unlocked successfully

@@ -1,0 +1,46 @@
+== initialize agent ==
+screen size: 1920x1080
+
+== 1) Плавное движение мыши ==
+  move -> (960,540); before=Point(x=960, y=520) after=Point(x=960, y=540) ok=True
+  move -> (200,200); before=Point(x=960, y=540) after=Point(x=200, y=200) ok=True
+  move -> (1720,880); before=Point(x=200, y=200) after=Point(x=1720, y=880) ok=True
+  move -> (960,150); before=Point(x=1720, y=880) after=Point(x=960, y=150) ok=True
+
+== 2) Клики ЛКМ ==
+  click LMB at (960,540) ok
+  click LMB at (300,300) ok
+  click LMB at (1620,780) ok
+
+== 3) Drag (зажать ЛКМ, вверх 20px, отжать) ==
+  drag: before=Point(x=960, y=540) after_release=Point(x=960, y=520) moved_up=20px (ожидалось ~20)
+
+== 4) Яндекс: поиск веб и картинки ==
+  web: Открыт поиск: UNI голосовой помощник. Найдено результатов: 8
+    1. Установите Яндекс БраузерЯндекс Браузер -> https://yabs.yandex.ru/count/WauejI_zOoVX2Lax0WKI02EWUaP8G3yqYeI6OXI8A
+    2. +25° -> https://yandex.ru/pogoda?lat=55.755863&lon=37.6177&utm_campaign=inform
+    3. Войти -> https://passport.yandex.ru/auth?retpath=https%3A%2F%2Fyandex.ru%2Fsear
+  images: Открыт поиск изображений: котик. Найдено: 12
+    найдено картинок: 12; пример: https://avatars.mds.yandex.net/i?id=f85ca71dcdb39e33a87e9b488529233978
+
+== 5) XToys (только UI) ==
+  open: Вкладка XToys.app открыта и выбрана | url=https://xtoys.app/
+  status: Получено видимое состояние вкладки XToys | текст:~menu
+XToys
+add
+public
+more_vert
+  set_intensity(8): Слайдер XToys не изменён: Не найден контрол Speed | verified_physical=False
+  read_intensity: Нет видимого input[type=range]
+  intensity возвращена в 0
+
+== 6) Vision: скриншот рабочего стола ==
+  сохранён скриншот: .uni-logs\verify_desktop_2026-08-03_18-49-17.png ((1920, 1080))
+  analyze: Активная вкладка проанализирована |  The image shows a browser screenshot with a red background and a black screen. The browser has a navigation bar with a purple header and a gray navigation bar. The main text on the screen reads "Cont
+
+== 7) Веб-камера ==
+  start(notice_ack=True): success=True
+  кадр получен и сохранён: .uni-logs\verify_camera_2026-08-03_18-49-24.png (65784 bytes)
+  camera stop ok
+
+== ГОТОВО ==

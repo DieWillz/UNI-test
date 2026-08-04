@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UNI Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --bg2: #121821;
+      --bg3: #1a2230;
+      --line: #243044;
+      --text: #e8eef7;
+      --muted: #8b9bb4;
+      --accent: #6ee7ff;
+      --accent2: #a78bfa;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --radius: 14px;
+      --shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(110,231,255,.12), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, rgba(167,139,250,.12), transparent 50%),
+        var(--bg);
+    }
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      width: 46px; height: 46px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: grid; place-items: center;
+      font-weight: 700; color: #061018;
+      box-shadow: 0 0 24px rgba(110,231,255,.35);
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      letter-spacing: .02em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: .85rem;
+      margin-top: 2px;
+    }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      font-size: .75rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--bg2);
+      color: var(--muted);
+    }
+    .badge.on { color: var(--ok); border-color: rgba(52,211,153,.35); }
+    .badge.off { color: var(--warn); border-color: rgba(251,191,36,.35); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 18px;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(26,34,48,.9), rgba(18,24,33,.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-h {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(0,0,0,.15);
+    }
+    .card-h h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .card-b { padding: 16px; }
+
+    label {
+      display: block;
+      font-size: .78rem;
+      color: var(--muted);
+      margin: 10px 0 6px;
+    }
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(110,231,255,.55);
+      box-shadow: 0 0 0 3px rgba(110,231,255,.12);
+    }
+    textarea { min-height: 88px; resize: vertical; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+
+    .btn {
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: .9rem;
+      transition: transform .1s, opacity .15s, background .15s;
+    }
+    .btn:active { transform: scale(.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #5ee7ff, #8b7cf7);
+      color: #061018;
+      box-shadow: 0 8px 24px rgba(110,231,255,.25);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    .btn-sm { padding: 6px 10px; font-size: .78rem; }
+    .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+    .task-list { display: flex; flex-direction: column; gap: 10px; max-height: 520px; overflow: auto; }
+    .task {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.2);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .task:hover { border-color: rgba(110,231,255,.35); background: rgba(110,231,255,.04); }
+    .task.active { border-color: rgba(167,139,250,.5); }
+    .task-title { font-weight: 600; margin-bottom: 4px; }
+    .task-meta {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      font-size: .75rem; color: var(--muted);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+    .pill.pending { color: var(--warn); }
+    .pill.running, .pill.in_progress { color: var(--accent); }
+    .pill.done, .pill.completed, .pill.done_local { color: var(--ok); }
+    .pill.failed, .pill.error { color: var(--danger); }
+
+    .detail {
+      font-family: "JetBrains Mono", monospace;
+      font-size: .78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      max-height: 280px;
+      overflow: auto;
+      color: #c9d6ea;
+    }
+
+    .log {
+      max-height: 200px;
+      overflow: auto;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .log div { padding: 6px 0; border-bottom: 1px dashed rgba(36,48,68,.8); }
+
+    footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: .75rem;
+      text-align: center;
+    }
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--bg3);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      z-index: 50;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="logo">U</div>
+        <div>
+          <h1>UNI Control Panel</h1>
+          <div class="sub">задачи · мониторинг · координация разработки</div>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="badge" id="badge-devcoord">devcoord…</span>
+        <span class="badge" id="badge-ws">workspace…</span>
+        <button class="btn btn-ghost btn-sm" onclick="refreshAll()">Обновить</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Create -->
+      <section class="card">
+        <div class="card-h"><h2>Новая задача</h2></div>
+        <div class="card-b">
+          <label>Заголовок</label>
+          <input id="title" placeholder="Например: Review ADR-0005" />
+
+          <label>Цель</label>
+          <textarea id="goal" placeholder="Что нужно получить на выходе"></textarea>
+
+          <label>Инструкции</label>
+          <textarea id="instructions" placeholder="Ограничения, формат ответа, что не делать"></textarea>
+
+          <div class="row">
+            <div>
+              <label>Провайдеры (через запятую)</label>
+              <input id="providers" value="local_lm_studio" />
+            </div>
+            <div>
+              <label>Файлы (относительные пути)</label>
+              <input id="files" placeholder="docs/UNI_CONCEPT.md, uni/contracts.py" />
+            </div>
+          </div>
+
+          <label>Ожидаемый результат</label>
+          <input id="expected" value="Structured review and recommendations" />
+
+          <div class="actions">
+            <button class="btn btn-primary" onclick="createTask()">Создать задачу</button>
+            <button class="btn btn-ghost" onclick="createAndRun()">Создать и запустить</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- List + detail -->
+      <section class="card">
+        <div class="card-h">
+          <h2>Очередь задач</h2>
+          <span class="badge" id="task-count">0</span>
+        </div>
+        <div class="card-b">
+          <div class="task-list" id="task-list"></div>
+          <div style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong style="font-size:.85rem">Детали</strong>
+              <button class="btn btn-ghost btn-sm" id="btn-run" onclick="runSelected()" disabled>Run</button>
+            </div>
+            <div class="detail" id="detail">Выберите задачу</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid" style="margin-top:18px">
+      <section class="card">
+        <div class="card-h"><h2>События</h2></div>
+        <div class="card-b"><div class="log" id="events"></div></div>
+      </section>
+      <section class="card">
+        <div class="card-h"><h2>Заметка координатору</h2></div>
+        <div class="card-b">
+          <textarea id="note" placeholder="Идея / решение / блокер…"></textarea>
+          <div class="actions">
+            <button class="btn btn-ghost" onclick="saveNote()">Сохранить локально</button>
+          </div>
+          <div class="log" id="notes" style="margin-top:12px"></div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      UNI Panel · localhost:8787 · Manifesto v2.5 · proposals не правят код сами
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let selectedId = null;
+    let tasksCache = [];
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function statusPill(s) {
+      const v = (s || 'pending').toLowerCase();
+      return `<span class="pill ${v}">${v}</span>`;
+    }
+
+    async function loadStatus() {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      const b = document.getElementById('badge-devcoord');
+      if (d.devcoord) {
+        b.textContent = 'devcoord ON';
+        b.className = 'badge on';
+      } else {
+        b.textContent = 'local store';
+        b.className = 'badge off';
+      }
+      document.getElementById('badge-ws').textContent = d.workspace || '?';
+    }
+
+    async function loadTasks() {
+      const r = await fetch('/api/tasks');
+      const d = await r.json();
+      tasksCache = d.tasks || [];
+      document.getElementById('task-count').textContent = String(tasksCache.length);
+      const list = document.getElementById('task-list');
+      if (!tasksCache.length) {
+        list.innerHTML = '<div class="sub">Пока пусто — создай первую задачу</div>';
+        return;
+      }
+      list.innerHTML = tasksCache.map(t => {
+        const id = t.id || t.task_id || '?';
+        const title = t.title || '(без названия)';
+        const st = t.status?.value || t.status || 'pending';
+        const active = id === selectedId ? 'active' : '';
+        return `<div class="task ${active}" onclick="selectTask('${id}')">
+          <div class="task-title">${escapeHtml(title)}</div>
+          <div class="task-meta">${statusPill(st)}<span>${id}</span></div>
+        </div>`;
+      }).join('');
+    }
+
+    async function selectTask(id) {
+      selectedId = id;
+      document.getElementById('btn-run').disabled = false;
+      await loadTasks();
+      const r = await fetch('/api/tasks/' + encodeURIComponent(id));
+      if (!r.ok) {
+        document.getElementById('detail').textContent = 'Не найдена';
+        return;
+      }
+      const d = await r.json();
+      document.getElementById('detail').textContent = JSON.stringify(d.task, null, 2);
+    }
+
+    async function createTask(runAfter) {
+      const body = {
+        title: document.getElementById('title').value.trim(),
+        goal: document.getElementById('goal').value.trim(),
+        instructions: document.getElementById('instructions').value.trim(),
+        providers: document.getElementById('providers').value.trim(),
+        files: document.getElementById('files').value.trim(),
+        expected_output: document.getElementById('expected').value.trim(),
+      };
+      if (!body.title || !body.goal) {
+        toast('Нужны title и goal');
+        return null;
+      }
+      const r = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        toast(d.detail || 'Ошибка');
+        return null;
+      }
+      toast('Задача создана: ' + (d.task?.id || ''));
+      selectedId = d.task?.id;
+      await refreshAll();
+      if (runAfter && selectedId) await runSelected();
+      return d.task;
+    }
+
+    async function createAndRun() { await createTask(true); }
+
+    async function runSelected() {
+      if (!selectedId) return;
+      toast('Запуск…');
+      const r = await fetch('/api/tasks/' + encodeURIComponent(selectedId) + '/run', { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) {
+        toast(typeof d.detail === 'string' ? d.detail : 'Run failed');
+        return;
+      }
+      toast('Run завершён');
+      document.getElementById('detail').textContent = JSON.stringify(d.task, null, 2);
+      await loadTasks();
+      await loadEvents();
+    }
+
+    async function loadEvents() {
+      const r = await fetch('/api/events');
+      const d = await r.json();
+      const el = document.getElementById('events');
+      const ev = (d.events || []).slice().reverse().slice(0, 40);
+      if (!ev.length) { el.innerHTML = '<div>Нет событий</div>'; return; }
+      el.innerHTML = ev.map(e => {
+        const ts = e.ts || e.created_at || e.time || '';
+        const type = e.type || e.kind || 'event';
+        const extra = e.title || e.task_id || e.message || '';
+        return `<div><code>${escapeHtml(String(ts).slice(0,19))}</code> · ${escapeHtml(String(type))} ${escapeHtml(String(extra))}</div>`;
+      }).join('');
+    }
+
+    async function saveNote() {
+      const text = document.getElementById('note').value.trim();
+      if (!text) return;
+      await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      document.getElementById('note').value = '';
+      toast('Заметка сохранена');
+      await loadNotes();
+    }
+
+    async function loadNotes() {
+      const r = await fetch('/api/notes');
+      const d = await r.json();
+      const el = document.getElementById('notes');
+      el.innerHTML = (d.notes || []).slice(0, 15).map(n =>
+        `<div><code>${escapeHtml((n.at||'').slice(0,19))}</code> — ${escapeHtml(n.text)}</div>`
+      ).join('') || '<div>Пусто</div>';
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+
+    async function refreshAll() {
+      await loadStatus();
+      await loadTasks();
+      await loadEvents();
+      await loadNotes();
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 15000);
+  </script>
+</body>
+</html>

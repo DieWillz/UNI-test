@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "关闭"
+   },
+   "copy": {
+      "message": "复制地址"
+   },
+   "copy_success": {
+      "message": "复制成功"
+   },
+   "download": {
+      "message": "下载"
+   },
+   "filter_lead": {
+      "message": "小于此值的视频将不会被捕获"
+   },
+   "hour": {
+      "message": "小时"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "通用的视频下载器，用于下载HLS、m3u8、mp4、webm等在线视频，也可以用于录制网页直播视频。"
+   },
+   "manifest_name": {
+      "message": "视频下载器 - MPMux"
+   },
+   "minute": {
+      "message": "分钟"
+   },
+   "more_than_one_day": {
+      "message": "超过一天"
+   },
+   "no_more_resolution": {
+      "message": "没有更多分辨率"
+   },
+   "no_result": {
+      "message": "找不到资源文件！"
+   },
+   "no_video": {
+      "message": "无法在此页面中找到可录制的视频！"
+   },
+   "not_support": {
+      "message": "不支持此网站"
+   },
+   "play": {
+      "message": "播放"
+   },
+   "popup_modal_body": {
+      "message": "在记录之前请尽量选择固定的清晰度（如果视频提供此选项）。因为自动清晰度可能会产生不同分辨率的帧，导致视频被分割。"
+   },
+   "popup_modal_close": {
+      "message": "关闭"
+   },
+   "popup_modal_confirm": {
+      "message": "确认"
+   },
+   "popup_modal_title": {
+      "message": "提示"
+   },
+   "recording_mode": {
+      "message": "记录模式"
+   },
+   "second": {
+      "message": "秒"
+   },
+   "size_filter": {
+      "message": "过滤器"
+   },
+   "tips": {
+      "message": "提示"
+   },
+   "tips_text_1": {
+      "message": "某些视频在播放之前可能无法捕获。 如果目标视频不在列表中，请尝试播放它，或刷新此页面。"
+   },
+   "tips_text_2": {
+      "message": "如果尝试后依然无法捕获资源，可尝试使用“记录模式”强制下载。"
+   },
+   "video_flush_error": {
+      "message": "视频刷新错误"
+   }
+}

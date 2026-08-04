@@ -1,0 +1,66 @@
+{
+   "author": "Adguard Software Ltd",
+   "background": {
+      "page": "pages/background.html",
+      "persistent": true
+   },
+   "browser_action": {
+      "default_icon": {
+         "19": "assets/icons/on-19.png",
+         "38": "assets/icons/on-38.png"
+      },
+      "default_popup": "pages/popup.html",
+      "default_title": "__MSG_name__"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "pages/content-script-start.js" ],
+      "match_about_blank": true,
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_start"
+   }, {
+      "all_frames": true,
+      "js": [ "pages/content-script-end.js" ],
+      "match_about_blank": true,
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_end"
+   }, {
+      "all_frames": true,
+      "js": [ "pages/subscribe.js" ],
+      "match_about_blank": false,
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_end"
+   }, {
+      "all_frames": false,
+      "js": [ "pages/thankyou.js" ],
+      "matches": [ "*://*.adguard.com/*/thankyou.html*", "*://*.adguard.info/*/thankyou.html*", "*://*.adguard.app/*/thankyou.html*" ],
+      "run_at": "document_start"
+   }, {
+      "all_frames": false,
+      "js": [ "pages/import-configuration.js" ],
+      "matches": [ "*://reports.adguard.com/*", "*://reports.adguard.info/*", "*://reports.adguard.app/*" ],
+      "run_at": "document_end"
+   } ],
+   "content_security_policy": "script-src 'self' 'sha256-GH4MISem+XXlowF3M/QKqtfEOkhzt1IQoYAZCyE46YU='; object-src 'self'",
+   "default_locale": "en",
+   "description": "__MSG_description__",
+   "developer": {
+      "name": "adguard"
+   },
+   "devtools_page": "pages/devtools.html",
+   "icons": {
+      "128": "assets/icons/on-128.png",
+      "16": "assets/icons/on-16.png"
+   },
+   "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDPAPpM7MrDoUqfT3ZurQ4H/bO/m4g7EStNhMOAXCCTRP7Y0v9pRy5GOTnjCRYnyc4L/KEpbVxBmSxSNnRLmDZ8EDB5LS8HDAnGvrSidqt99CHuaCgtmBfzUriNuWABGrg8Q3K3NcgdXScrNKZowOl0agh39UtXirHkPt7EV9+qTwIDAQAB",
+   "manifest_version": 2,
+   "minimum_opera_version": "67",
+   "name": "__MSG_name__",
+   "optional_permissions": [ "privacy" ],
+   "options_page": "pages/options.html",
+   "permissions": [ "tabs", "\u003Call_urls>", "webRequest", "webRequestBlocking", "webNavigation", "storage", "unlimitedStorage", "contextMenus", "cookies" ],
+   "short_name": "__MSG_short_name__",
+   "update_url": "https://extension-updates.opera.com/api/omaha/update/",
+   "version": "5.4.3.1",
+   "web_accessible_resources": [ "/web-accessible-resources/*" ]
+}

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "قريب"
+   },
+   "copy": {
+      "message": "إنسخ الرابط"
+   },
+   "copy_success": {
+      "message": "تم النسخ بنجاح."
+   },
+   "download": {
+      "message": "تحميل"
+   },
+   "filter_lead": {
+      "message": "لن يتم التقاط الفيديو الذي يكون حجمه أصغر من هذه القيمة"
+   },
+   "hour": {
+      "message": "ساعة"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "أداة تنزيل الفيديوهات الاحترافية لحفظ الفيديوهات عبر الإنترنت مثل mp4, m3u8, hls, والبث المباشر."
+   },
+   "manifest_name": {
+      "message": "برنامج تنزيل فيديوهات - MPMux"
+   },
+   "minute": {
+      "message": "اللحظة"
+   },
+   "more_than_one_day": {
+      "message": "أكثر من يوم"
+   },
+   "no_more_resolution": {
+      "message": "لا مزيد من الدقة"
+   },
+   "no_result": {
+      "message": "لم يتم العثور على ملف الموارد!"
+   },
+   "no_video": {
+      "message": "لا يمكن تسجيل الفيديو ، أو الفيديو غير موجود!"
+   },
+   "not_support": {
+      "message": "هذا الموقع غير مدعوم"
+   },
+   "play": {
+      "message": "شغل الفيديو"
+   },
+   "popup_modal_body": {
+      "message": "حاول اختيار دقة ثابتة قبل التسجيل (إذا كان الفيديو يحتوي على هذا الخيار). لأن الدقة التلقائية قد تنتج إطارات ذات أحجام مختلفة ، مما يتسبب في تقسيم الفيديو."
+   },
+   "popup_modal_close": {
+      "message": "قريب"
+   },
+   "popup_modal_confirm": {
+      "message": "يتأكد"
+   },
+   "popup_modal_title": {
+      "message": "نصائح"
+   },
+   "recording_mode": {
+      "message": "وضعية التسجيل"
+   },
+   "second": {
+      "message": "ثواني"
+   },
+   "size_filter": {
+      "message": "منقي"
+   },
+   "tips": {
+      "message": "نصائح"
+   },
+   "tips_text_1": {
+      "message": "قد لا يتم التقاط بعض مقاطع الفيديو حتى يتم تشغيلها. إذا لم يكن الفيديو الهدف مدرجًا في القائمة ، فحاول تشغيله أو قم بتحديث الصفحة."
+   },
+   "tips_text_2": {
+      "message": "إذا كان لا يزال لا يعمل بعد المحاولة ، فقم بتنزيله بالقوة باستخدام \"وضع التسجيل\"."
+   },
+   "video_flush_error": {
+      "message": "خطأ تدفق الفيديو"
+   }
+}

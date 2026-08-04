@@ -1,0 +1,35 @@
+{
+  "topic": "Перекличка",
+  "round_id": "20260803-020059",
+  "participants": [
+    "DeepSeek",
+    "QWEN",
+    "Qwen Coder",
+    "Claude",
+    "Grok",
+    "Gemini",
+    "Groq",
+    "OpenRouter",
+    "HuggingFace"
+  ],
+  "signatures": {},
+  "errors": {
+    "QWEN": "TimeoutError: the message was sent, but no completed answer appeared",
+    "Qwen Coder": "RuntimeError: message was typed but the chat did not confirm sending it",
+    "Grok": "RuntimeError: message was typed but the chat did not confirm sending it",
+    "Gemini": "HTTP 404: [{\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"models/gemini-1.5-flash is not found for API version v1main, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.\",\n    \"status\": \"NOT_FOUND\"\n  }\n}\n]",
+    "OpenRouter": "HTTP 403: {\"error\":{\"message\":\"Key limit exceeded (total limit). Manage it using https://openrouter.ai/workspaces/free/keys/5edfc1b4d67156a134445ca362466a696a2d6fbe60e95b06621d5394617f44b4\",\"code\":403}}"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260803-020059_DeepSeek.md",
+    "QWEN": ".uni-council\\20260803-020059_QWEN.md",
+    "Qwen Coder": ".uni-council\\20260803-020059_Qwen Coder.md",
+    "Claude": ".uni-council\\20260803-020059_Claude.md",
+    "Grok": ".uni-council\\20260803-020059_Grok.md",
+    "Gemini": ".uni-council\\20260803-020059_Gemini.md",
+    "Groq": ".uni-council\\20260803-020059_Groq.md",
+    "OpenRouter": ".uni-council\\20260803-020059_OpenRouter.md",
+    "HuggingFace": ".uni-council\\20260803-020059_HuggingFace.md",
+    "report": ".uni-council\\20260803-020059_report.md"
+  }
+}

@@ -1,0 +1,28 @@
+#splabfspab_frame
+{
+    all: unset !important;
+    position: fixed !important;
+    width: auto !important;
+    min-width: 100px !important;
+    width: 638px !important;
+    top: 0 !important;
+    right: -468px !important;
+    border: 0 !important;
+    outline: 0 !important;
+    height: 60px !important;    
+    display: block !important;
+    z-index: 2147483647 !important;
+    background-color: transparent !important;
+    background: transparent !important;
+    -webkit-transform: translateX(140px) !important;
+        -ms-transform: translateX(140px) !important;
+            transform: translateX(140px) !important;
+    -webkit-transition: -webkit-transform 0.44s ease !important;
+    transition: -webkit-transform 0.44s ease !important;
+    -o-transition: transform 0.44s ease !important;
+    transition: transform 0.44s ease !important;
+    transition: transform 0.44s ease, -webkit-transform 0.44s ease !important;
+    -webkit-box-shadow: 0px 10px 15px -3px rgba(0,0,0,0.4) !important;
+    box-shadow: 0px 10px 15px -3px rgba(0,0,0,0.4) !important;
+    border-radius: 8px 0 0 8px !important;
+}

@@ -1,0 +1,10 @@
+2026/08/02-22:10:13.665 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:10:13.666 8d70 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb since it was missing.
+2026/08/02-22:10:13.675 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/03-22:10:16.151 8d74 Level-0 table #5: started
+2026/08/03-22:10:16.174 8d74 Level-0 table #5: 2387 bytes OK
+2026/08/03-22:10:16.176 8d74 Delete type=0 #3
+2026/08/03-22:10:16.176 8d74 Manual compaction at level-0 from (begin) .. (end); will stop at (end)
+2026/08/03-22:10:16.176 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb, waiting for background work finished
+2026/08/03-22:10:16.176 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb, background work finished
+2026/08/03-22:10:16.176 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_neuro.translate.yandex.ru_0.indexeddb.leveldb unlocked successfully

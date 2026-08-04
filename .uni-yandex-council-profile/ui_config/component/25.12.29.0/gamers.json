@@ -1,0 +1,941 @@
+{
+  "variables" : {
+    "g_blue": "#128DFF",
+    "g_aqua": "#02D1FF",
+    "g_green": "#78b721",
+    "g_yellow": "#FFE815",
+    "g_orange": "#FF8D07",
+    "g_red": "#FF0000",
+    "g_purple": "#EA6AFF",
+  },
+  "style_sheet":
+  [
+    /************************* Покраска темы ****************************/
+    {
+      "selector": [
+        "#toolbar_panel > button",
+        "#bookmarks_panel > :is(button, label)",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground !imp": ["#FFF", "#FFF", "#FFF", "color(#FFF alpha(.3))"],
+      "text_color": ["#FFF", "#FFF", "#FFF", "color(#FFF alpha(.3))"],
+      "background": ["#0000", "color(#FFF alpha(.2))", "color(#FFF alpha(.3))", "#0000"],
+    },
+    {
+      "selector": "#bookmarks_panel > #bookmark_instruction",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color":["#fff"],
+    },
+    {
+      "selector": "#bookmarks_panel > #bookmark_link",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": "color(#FFF alpha(.4))",
+    },
+    {
+      "selector": "#infobar_panel > :is(button, label)",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": ["#fff"],
+      "foreground": ["#fff"],
+    },
+    {
+      "selector": "#infobar_panel > button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background": ["color(#fff alpha(.1))", "color(#fff alpha(.2))", "color(#fff alpha(.4))"],
+    },
+    {
+      "selector": "#toolbar_panel > #ya_logo",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground": ["#fff", "#fffc", "#fffc"],
+    },
+    {
+      "selector": "#toolbar_panel > #portal_menu.highlighted",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background":["color(#dadada alpha(.65))", "#FFFFFF19", "#FFFFFF33"],
+      "text_color": ["#444", "#bbb", "#888"],
+    },
+    {
+      "selector": "#smartbox > button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background !imp": ["color(#FFF alpha(0))", "color(#fff alpha(.2))", "color(#FFF alpha(.4))"],
+      "foreground !imp": ["color(#FFF alpha(.3))", "#fff", "#fff"],
+      "text_color": "#fff"
+    },
+    {
+      "selector": "#protect_container > #protect_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background": ["color(#FFF alpha(0))", "color(#fff alpha(.2))", "color(#fff alpha(.4))"],
+      "foreground": ["color(#FFF alpha(.3))", "#fff", "#fff"],
+    },
+    {
+      "selector": [
+        "#protect_container > animation_button",
+        "#protect_container > animation_button#alissenger_reader_button",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background !imp": ["color(#FFF alpha(0))", "color(#fff alpha(.2))", "color(#FFF alpha(.4))"],
+      "foreground !imp": ["color(#FFF alpha(.3))", "#fff", "#fff"],
+      "text_color": "#fff"
+    },
+    {
+      "selector": "#protect_container > animation_button.active",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background": ["color(#FFF alpha(0))", "color(#fff alpha(.3))", "color(#FFF alpha(.4))"],
+      "foreground": "color(#FFF alpha(.3))",
+      "text_color": "#fff",
+    },
+    {
+      "selector": [
+        "#protect_container > animation_button.active#alissenger_reader_button",
+        "#protect_container > animation_button.active#readability_button",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background !imp": ["color(#FFF alpha(.2))", "color(#fff alpha(.3))", "color(#FFF alpha(.4))"],
+      "foreground !imp": "#fff",
+      "text_color": "#fff",
+    },
+    {
+      "selector": "#protect_container > animation_button.on.badge#ytp_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": ["#fff", "#333", "#333"],
+    },
+    {
+      "selector": "#protect_container > animation_button.on.badge#ytp_button:is([state=zen], :sly_zen)",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": "#fff",
+      "background !imp": ["#0000","color(#000 alpha(.1))","color(#000 alpha(.1))"],
+      "foreground !imp": "color(#000 alpha(.4))",
+    },
+    {
+      "selector": "#protect_button > img#protect_icon_with_badge",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground": ["color(#fff alpha(.3))", "#fff", "#fff"],
+    },
+    {
+      "selector": [
+        "#web_app_panel_launch_button > #menu_button",
+        "#web_app_panel_install_button > #menu_button",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground": ["color(#fff a(.3))", "#fff", "#fff"],
+    },
+    {
+      "selector": [
+        "#web_app_panel_launch_button > #menu_button.active",
+        "#web_app_panel_install_button > #menu_button.active",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground": "#fff",
+    },
+    {
+      "selector": "#web_app_panel > animation_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background": ["#0000", "color(#fff a(.2))", "color(#fff a(.2))"],
+      "text_color": "#fff",
+    },
+    {
+      "selector": "#web_app_panel > animation_button.active",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background": ["color(#fff a(.15))", "color(#fff a(.2))", "color(#fff a(.2))"],
+    },
+    {
+      "selector": "#web_app_panel separator:is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background": ["color(#fff a(.2))"],
+    },
+    {
+      "selector": "#smartbox > #connection_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground !imp": ["color(#fff alpha(.6))"],
+      "background !imp": ["color(#FFF alpha(.15))", "color(#FFF alpha(.3))", "color(#FFF alpha(.3))"],
+    },
+    {
+      "selector": [
+        "#smartbox > button.conn_https#connection_button:is([state=zen])",
+        "#smartbox > button.conn_https#connection_button:is([popup=tablo]):not([state=protected])",
+        "#smartbox > button.conn_internal#connection_button:is([popup=tablo]):not([state=protected])",
+        "#smartbox > button.conn_file#connection_button:is([popup=tablo]):not([state=protected])",
+        "#smartbox > button.conn_http#connection_button:is([popup=tablo]):not([state=protected])",
+        "#smartbox > button.conn_https_warning#connection_button:is([popup=tablo]):not([state=protected])",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground !imp": ["color(#000 alpha(.4))"],
+      "background !imp": ["color(#000 alpha(.1))", "color(#000 alpha(.2))", "color(#000 alpha(.2))"],
+    },
+    {
+      "selector": "#smartbox > button.conn_https_error#connection_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground !imp": "#fff",
+      "background !imp": ["#E3363F", "#C81721", "#C81721"],
+    },
+    {
+      "selector": [
+        "#smartbox > button.conn_https.conn_ev#connection_button",
+        "#smartbox > button.conn_https.conn_ev#connection_button:is([popup=tablo])",
+      ],
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground !imp": "#fff",
+      "background !imp": ["#1FA71E", "#18901B", "#18901B"],
+    },
+    {
+      "selector": "#smartbox > button.conn_http_warning#connection_button",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background !imp": ["#FDA3A8", "#FC858B", "#FC858B"],
+    },
+    {
+      "selector": "#smartbox > button.conn_http_warning#connection_button:is([popup=tablo])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background !imp": ["#FBD3D5", "#F9C1C3", "#F9C1C3"],
+    },
+    {
+      "selector": "#smartbox > #regular_domain",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": "color(#fff a(0.6))",
+    },
+    {
+      "selector": "#smartbox > #clicable_domain",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": ["color(#fff a(.5))", "#81C7FF", "#4cb0ff"],
+      "background": ["color(#FFF alpha(.15))", "color(#FFF alpha(.3))", "color(#FFF alpha(.3))"],
+    },
+    {
+      "selector": "#smartbox > #clicable_domain.conn_https.conn_ev",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": ["#49DB48", "#81C7FF", "#4cb0ff"],
+    },
+    {
+      "selector": "#smartbox > #edit_field:not([state=ntp], :sly_zen):not([popup])",
+      "meta_selector": [
+        ":is([theme=gaming_blue])",
+        ":is([theme=gaming_aqua])",
+        ":is([theme=gaming_green])",
+        ":is([theme=gaming_yellow])",
+        ":is([theme=gaming_orange])",
+        ":is([theme=gaming_red])",
+        ":is([theme=gaming_purple])",
+      ],
+      "text_color": "#fff",
+      "placeholder_text_color": "color(#fff a(.5))",
+      "url_other_color !imp": "color(#fff a(.5))",
+      "url_scheme_color !imp": "color(#fff a(.5))",
+      "url_host_color !imp": "#fff",
+    },
+    {
+      "selector": "#smartbox > #edit_field:where([popup=tablo]):not([state=ntp])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "text_color": "#000",
+      "placeholder_text_color": "color(#000 a(.5))",
+    },
+     {
+      "selector": "#smartbox > #edit_field:where([popup])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "text_color": "#000",
+      "placeholder_text_color": "color(#000 a(.5))",
+    },
+    {
+      "selector": "#smartbox > #edit_field#edit_field.permanent.conn_ev:not([popup=tablo])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "url_scheme_color !imp": "var(conn_green_dark)",
+    },
+    {
+      "selector": "#smartbox > #edit_field#edit_field.permanent.conn_https_error:not([popup=tablo])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "url_scheme_color !imp": "var(conn_red_dark)",
+    },
+    {
+      "selector": "#smartbox > #title",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": ["#fff"],
+    },
+    {
+      "selector": "#smartbox > separator",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground": ["color(#fff a(.2))"],
+    },
+    {
+      "selector" : "#smartbox > :is(#starred_star_button)",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground": "#FFF",
+    },
+    {
+      "selector" : "#smartbox > #star_button:is([popup=tablo], [popup]):not([state=protected])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "foreground !imp": "color(#000 a(.4))",
+      "background !imp": ["color(#000 alpha(0))", "color(#000 alpha(.1))", "color(#000 alpha(.1))"],
+    },
+    {
+      "selector": ".context_panel > button:not([popup=tablo], [popup])",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background !imp": ["color(#fff a(.1))","color(#fff a(.2))","color(#fff a(.2))"],
+      "foreground !imp": ["color(#fff a(.3))","#fff", "#fff"],
+      "text_color !imp": "#fff",
+    },
+    {
+      "selector": "#smartbox > #site_rating",
+      "radius": 6,
+    },
+    {
+      "selector": "#smartbox > #site_rating",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "background !imp": ["#0000", "color(#fff a(.2))", "color(#fff a(.4))"],
+      "default_color": "color(#fff a(.2))",
+    },
+    {
+      "selector": "#smartbox > .unstyled_button#smartbox_cancel:where([state=ntp], [state=zen], :sly_zen):not([popup=suggest])",
+      "foreground": ["color(#000 alpha(.4))", "color(#000 alpha(.6))", "color(#000 alpha(.6))"],
+    },
+    {
+      "selector": "#site_rating#site_rating > :is(label, img)",
+      "meta_selector": ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground": "#fff",
+      "text_color": "#fff",
+    },
+    {
+      "selector":"#toolbar_panel > #extensions_resizer:not(:webapp_window, :active_smartbox, [popup], [state=zen], :sly_zen)",
+      "meta_selector": [
+        "[theme=gaming_blue]",
+        "[theme=gaming_aqua]",
+        "[theme=gaming_green]",
+        "[theme=gaming_yellow]",
+        "[theme=gaming_orange]",
+        "[theme=gaming_red]",
+        "[theme=gaming_purple]",
+      ],
+      "foreground": "color(#fff a(.2))",
+    },
+
+    /************************* Подложки  ****************************/
+    {
+      "selector": [
+        "#top_container",
+        "#bottom_container",
+        "#flute",
+        "#docked_app_background",
+      ],
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "background !imp": "color(#000 a(.8))",
+    },
+    {
+      "selector": [
+        "#toolbar_panel",
+        "#bookmarks_panel",
+        "#infobar_panel",
+      ],
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen, [state=protected]))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen, [state=protected]))",
+      ],
+      "background": "#1e1e1e",
+      "text_color": "color(#fff a(.8))",
+    },
+    {
+      "selector": "#tab_strip > #tab > label#title:is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "text_color": "color(#fff a(.8))",
+    },
+    {
+      "selector" :  "#tab_strip > #tab > #close_button:is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "foreground": ["color(#fff a(.7))", "color(#fff a(.9))", "color(#fff a(.9))", "#000"],
+      "background": ["#0000", "color(#fff a(.3))", "color(#fff a(.5))", "#fff"]
+    },
+    {
+      "selector": "#tab_strip > #tab:is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "separator_foreground": "color(#fff a(.2))",
+    },
+    {
+      "selector": "#tab_strip > #tab",
+      "meta_selector" : [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "background": ["color(#fff a(0))", "color(#fff a(.2))"],
+    },
+    {
+      "selector": "#tab_strip > #tab.active",
+      "meta_selector" : [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "background": "#1e1e1e",
+    },
+    {
+      "selector": "#tab_strip > #tab.active[state=protected]",
+      "background": "#747474",
+    },
+    {
+      "selector": "#tab_strip > #tab.selected",
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "background": ["color(#fff a(.2))", "color(#fff a(.4))"],
+    },
+    {
+      "selector": "#tab_strip > #tab > #icon",
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "foreground": "#fff",
+    },
+    {
+      "selector": "#tab_strip > #tab.active > #icon",
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "foreground": "#fff",
+    },
+    {
+      "selector": [
+        "#tab_strip > #tab > #media_indicator",
+        "#tab_strip > #tab.active > #media_indicator"
+      ],
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "foreground": ["#fff", "#fff", "#fff", "#0000"],
+      "background": ["#0000", "color(#fff a(.2))", "color(#fff a(.2))", "#0000"],
+    },
+    {
+      "selector": [
+        "#tab_strip > #tab > #throbber",
+        "#tab_strip > #tab.active > #throbber",
+        "#tab_strip > #tab > #unread_indicator",
+      ],
+      "meta_selector": [
+        ":where([theme=gaming_blue]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_aqua]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_green]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_yellow]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_orange]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_red]:not([state=ntp], :sly_zen))",
+        ":where([theme=gaming_purple]:not([state=ntp], :sly_zen))",
+      ],
+      "foreground": "#fff",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_blue])",
+      "foreground": "#128DFF",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_aqua])",
+      "foreground": "#02D1FF",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_green])",
+      "foreground": "#78b721",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_yellow])",
+      "foreground": "#FFE815",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_orange])",
+      "foreground": "#FF8D07",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_red])",
+      "foreground": "#FF0000",
+    },
+    {
+      "selector": "#tab_strip > #scroll_button:is([theme=gaming_purple])",
+      "foreground": "#EA6AFF",
+    },
+
+
+    /************************* Обводка темы ****************************/
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_blue]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#128DFF a(.4))",
+    },
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_aqua]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#02D1FF a(.4))",
+    },
+     {
+      "selector": "#game_theme_stroke:is([theme=gaming_green]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#78b721 a(.4))",
+    },
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_yellow]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#FFE815 a(.4))",
+    },
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_orange]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#FF8D07 a(.4))",
+    },
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_red]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#FF0000 a(.4))",
+    },
+    {
+      "selector": "#game_theme_stroke:is([theme=gaming_purple]):not([state=ntp], :sly_zen, [state=protected])",
+      "foreground": "color(#EA6AFF a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_blue]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#128DFF a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_blue]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_aqua]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#02D1FF a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_aqua]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_green]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#78b721 a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_green]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_yellow]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#FFE815 a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_yellow]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_orange]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#FF8D07 a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_orange]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_red]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#FF0000 a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_red]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_purple]):not(.pinned, :incognito[state=ntp])",
+      "border_color": "color(#EA6AFF a(.4))",
+    },
+    {
+      "selector": "#flute:is([theme=gaming_purple]):not(.pinned, :dark_wp_top)",
+      "meta_selector": ":is([state=ntp], [state=zen], :sly_zen)",
+      "border_color": "#0000",
+    },
+
+    /************************* Ньютаб баттон ****************************/
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple])",
+      "radius": 20,
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_blue]):not([state=ntp], [state=protected], :sly_zen)",
+      "background_image_color": ["color(#128DFF a(.4))", "color(#128DFF a(.6))", "color(#128DFF a(.6))"],
+      "foreground": ["#128DFF", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_aqua]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#02D1FF a(.3))", "color(#02D1FF a(.5))", "color(#02D1FF a(.5))"],
+      "foreground": ["#02D1FF", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_green]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#78b721 a(.3))", "color(#78b721 a(.5))", "color(#78b721 a(.5))"],
+      "foreground": ["#78b721", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_yellow]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#FFE815 a(.3))", "color(#FFE815 a(.5))", "color(#FFE815 a(.5))"],
+      "foreground": ["#FFE815", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_orange]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#FF8D07 a(.3))", "color(#FF8D07 a(.5))", "color(#FF8D07 a(.5))"],
+      "foreground": ["#FF8D07", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_red]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#FF0000 a(.3))", "color(#FF0000 a(.5))", "color(#FF0000 a(.5))"],
+      "foreground": ["#FF0000", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+    {
+      "selector": "#custo_dock > #new_tab_button:is([theme=gaming_purple]):not([state=ntp], :sly_zen)",
+      "background_image_color": ["color(#EA6AFF a(.3))", "color(#EA6AFF a(.5))", "color(#EA6AFF a(.5))"],
+      "foreground":  ["#EA6AFF", "color(#fff a(.8))", "color(#fff a(.8))"],
+    },
+
+    /************************* Контролы окна ****************************/
+    {
+      "selector": "#window_controls > button:is([state=ntp], :sly_zen):not(:dark_wp_top, :incognito[state=ntp])",
+      "background !imp": ["var(dark_bg_normal)", "var(dark_bg_hovered)", "var(dark_bg_pressed)", "#0000"],
+      "foreground !imp": ["var(dark_fg_normal)", "var(dark_fg_hovered)", "var(dark_fg_pressed)", "var(dark_fg_disabled)"],
+    },
+    {
+      "selector": "#window_controls > #win_close:is([state=ntp], :sly_zen):not(:dark_wp_top, :incognito[state=ntp])",
+      "foreground !imp": ["#000", "#fff", "#fff"],
+      "background !imp": ["#0000","ff4d4d", "ff0000"],
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_blue]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_blue]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#128DFF alpha(.3))", "color(#128DFF alpha(.4))", "#0000"],
+      "foreground": ["#128DFF", "#128DFF", "#128DFF", "#128DFF"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_blue]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_blue]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#128DFF", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_blue]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#128DFF",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_aqua]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_aqua]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#02D1FF alpha(.3))", "color(#02D1FF alpha(.4))", "#0000"],
+      "foreground": ["#02D1FF", "#02D1FF", "#02D1FF", "#02D1FF"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_aqua]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_aqua]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#02D1FF", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_aqua]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#02D1FF",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_green]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_green]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#78b721 alpha(.3))", "color(#78b721 alpha(.4))", "#0000"],
+      "foreground": ["#78b721", "#78b721", "#78b721", "#78b721"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_green]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_green]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#78b721", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_green]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#78b721",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_yellow]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_yellow]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FFE815 alpha(.3))", "color(#FFE815 alpha(.4))", "#0000"],
+      "foreground": ["#FFE815", "#FFE815", "#FFE815", "#FFE815"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_yellow]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_yellow]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#FFE815", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_yellow]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#FFE815",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_orange]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_orange]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FF8D07 alpha(.3))", "color(#FF8D07 alpha(.4))", "#0000"],
+      "foreground": ["#FF8D07", "#FF8D07", "#FF8D07", "#FF8D07"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_orange]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_orange]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#FF8D07", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_orange]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#FF8D07",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_red]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_red]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FF0000 alpha(.3))", "color(#FF0000 alpha(.4))", "#0000"],
+      "foreground": ["#FF0000", "#FF0000", "#FF0000", "#FF0000"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_red]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_red]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#FF0000", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_red]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#FF0000",
+    },
+    {
+      "selector": "#window_controls > button",
+      "meta_selector":[
+        ":is([theme=gaming_purple]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_purple]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#EA6AFF alpha(.3))", "color(#EA6AFF alpha(.4))", "#0000"],
+      "foreground": ["#EA6AFF", "#EA6AFF", "#EA6AFF", "#EA6AFF"],
+    },
+    {
+      "selector": "#window_controls > #win_close",
+      "meta_selector": [
+        ":is([theme=gaming_purple]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_purple]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background" : ["00000000","ff4d4d", "ff0000"],
+      "foreground": ["#EA6AFF", "#fff", "#fff", "#fff"],
+    },
+    {
+      "selector": "#window_controls > #incognito_profile:is([theme=gaming_purple]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+      "foreground": "#EA6AFF",
+    },
+
+     /************************* Кнопки флейты ****************************/
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_blue]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_blue]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#128DFF alpha(.3))", "color(#128DFF alpha(.4))", "#0000"],
+      "foreground": ["#128DFF", "#128DFF", "#128DFF", "#128DFF"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_aqua]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_aqua]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#02D1FF alpha(.3))", "color(#02D1FF alpha(.4))", "#0000"],
+      "foreground": ["#02D1FF", "#02D1FF", "#02D1FF", "#02D1FF"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_green]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_green]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#78b721 alpha(.3))", "color(#78b721 alpha(.4))", "#0000"],
+      "foreground": ["#78b721", "#78b721", "#78b721", "#78b721"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_yellow]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_yellow]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FFE815 alpha(.3))", "color(#FFE815 alpha(.4))", "#0000"],
+      "foreground": ["#FFE815", "#FFE815", "#FFE815", "#FFE815"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_orange]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_orange]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FF8D07 alpha(.3))", "color(#FF8D07 alpha(.4))", "#0000"],
+      "foreground": ["#FF8D07", "#FF8D07", "#FF8D07", "#FF8D07"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_red]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_red]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#FF0000 alpha(.3))", "color(#FF0000 alpha(.4))", "#0000"],
+      "foreground": ["#FF0000", "#FF0000", "#FF0000", "#FF0000"],
+    },
+    {
+      "selector": "#flute > button",
+      "meta_selector": [
+        ":is([theme=gaming_purple]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_purple]:dark_wp_top):not(:incognito[state=ntp])",
+      ],
+      "background": ["#0000", "color(#EA6AFF alpha(.3))", "color(#EA6AFF alpha(.4))", "#0000"],
+      "foreground": ["#EA6AFF", "#EA6AFF", "#EA6AFF", "#EA6AFF"],
+    },
+    {
+      "selector": "#flute > #flute_login_button:not(.signed_in)",
+      "meta_selector": [
+        ":is([theme=gaming_blue], [theme=gaming_aqua], [theme=gaming_green], [theme=gaming_yellow], [theme=gaming_orange], [theme=gaming_red], [theme=gaming_purple]):not([state=ntp], :sly_zen)",
+        ":is([state=ntp]:dark_wp_top, :sly_zen)",
+      ],
+      "foreground": ["#666666", "#373737", "#373737", "#0000"],
+      "background": "#0000",
+    },
+
+     /************************* Лончер ****************************/
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_blue]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_blue]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#128DFF a(.2))",
+     "border_color": "#128DFF",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_aqua]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_aqua]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#02D1FF a(.2))",
+     "border_color": "#02D1FF",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_green]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_green]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#78b721 a(.2))",
+     "border_color": "#78b721",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_yellow]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_yellow]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#FFE815 a(.2))",
+     "border_color": "#FFE815",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_orange]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_orange]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#FF8D07 a(.2))",
+     "border_color": "#FF8D07",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_red]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_red]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#FF0000 a(.2))",
+     "border_color": "#FF0000",
+    },
+    {
+     "selector": "#flute > #flute_middle_buttons_panel",
+     "meta_selector": [
+        ":is([theme=gaming_purple]):not([state=ntp], :sly_zen, :incognito[state=ntp])",
+        ":is([theme=gaming_purple]:dark_wp_top):not(:incognito[state=ntp])",
+     ],
+     "background": "color(#EA6AFF a(.2))",
+     "border_color": "#EA6AFF",
+    },
+  ],
+  "tab_design": {
+    "configs": {
+      "rect": {
+        "disabled": true,
+      },
+      "trapezodial": {
+        "disabled": true,
+      },
+      "trapezodial_rounded": {
+        "disabled": true,
+      },
+    },
+    "default": "rect_rounded"
+  },
+}

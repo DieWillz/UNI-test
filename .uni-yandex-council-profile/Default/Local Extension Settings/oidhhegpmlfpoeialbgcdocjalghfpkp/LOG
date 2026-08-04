@@ -1,0 +1,24 @@
+2026/08/02-22:10:33.683 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\Local Extension Settings\oidhhegpmlfpoeialbgcdocjalghfpkp is locked for recovering successfully
+2026/08/02-22:10:33.683 8d70 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\Local Extension Settings\oidhhegpmlfpoeialbgcdocjalghfpkp since it was missing.
+2026/08/02-22:10:33.691 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\Local Extension Settings\oidhhegpmlfpoeialbgcdocjalghfpkp/MANIFEST-000001
+2026/08/03-04:44:11.782 8d74 Level-0 table #5: started
+2026/08/03-04:44:11.794 8d74 Level-0 table #5: 1395148 bytes OK
+2026/08/03-04:44:11.796 8d74 Delete type=0 #3
+2026/08/03-15:19:33.169 8d74 Level-0 table #7: started
+2026/08/03-15:19:33.193 8d74 Level-0 table #7: 1547728 bytes OK
+2026/08/03-15:19:33.196 8d74 Delete type=0 #4
+2026/08/03-15:21:31.556 8d74 Compacting 1@1 + 1@2 files
+2026/08/03-15:21:31.568 8d74 Generated table #8@1: 31 keys, 109003 bytes
+2026/08/03-15:21:31.568 8d74 Compacted 1@1 + 1@2 files => 109003 bytes
+2026/08/03-15:21:31.570 8d74 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/03-15:21:31.571 8d74 Delete type=2 #5
+2026/08/03-15:21:31.571 8d74 Delete type=2 #7
+2026/08/03-22:30:53.402 8d74 Level-0 table #10: started
+2026/08/03-22:30:53.417 8d74 Level-0 table #10: 1536699 bytes OK
+2026/08/03-22:30:53.419 8d74 Delete type=0 #6
+2026/08/03-22:33:04.477 8d74 Compacting 1@1 + 1@2 files
+2026/08/03-22:33:04.484 8d74 Generated table #11@1: 33 keys, 108322 bytes
+2026/08/03-22:33:04.484 8d74 Compacted 1@1 + 1@2 files => 108322 bytes
+2026/08/03-22:33:04.486 8d74 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/03-22:33:04.486 8d74 Delete type=2 #8
+2026/08/03-22:33:04.486 8d74 Delete type=2 #10

@@ -1,0 +1,119 @@
+{
+  "variables" : {
+    "fill_9_light": "color(#000 a(.09))",
+    "fill_9_dark": "color(#fff a(.18))",
+    "purple_color_tabstrip": "#794D9A",
+  },
+  "style_sheet":
+  [
+    
+    /*******************************  Фикс т-бара  ********************************/
+   
+    {
+      "selector": "#page_actions_container > button",
+      "foreground": "var(text_and_icons_primary_light)",
+    },
+    {
+      "selector": "#page_actions_container > button.active",
+      "foreground": "var(text_and_icons_primary_light)",
+    },
+    {
+      "selector": "#page_actions_container > button",
+      "meta_selector":[
+        ":is([theme=dark])",
+        ":is([tint=color], [tint=full]):not([theme=yellow])",
+      ],
+      "foreground !imp": "var(text_and_icons_primary_dark)",
+    },
+    {
+      "selector": "#page_actions_container > button.active",
+      "meta_selector":[
+        ":is([theme=dark])",
+        ":is([tint=color], [tint=full]):not([theme=yellow])",
+      ],
+      "foreground !imp": "var(text_and_icons_primary_dark)",
+    },
+
+    /*******************************  Светлая тема  ********************************/
+    {
+      "selector": "#smartbox_arrow",
+      "icon":"smartbox_arrow_gray",
+      "meta_selector": [
+        ":not([state=ntp])",
+      ],
+      "foreground": "var(fill_6_light)",
+    },
+    {
+      "selector": "#smartbox_arrow:is(:active_smartbox)",
+      "meta_selector": [
+        ":not([state=ntp])",
+      ],
+      "foreground": "var(fill_9_light)",
+    },
+
+      /*******************************  Темная тема и протект ********************************/
+    {
+      "selector": "#smartbox_arrow:is([theme=dark])",
+      "meta_selector": [
+        ":not([state=ntp])",
+      ],
+      "foreground": "color(#242630 a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([state=protected])",
+      "foreground !imp": "var(fill_18_light)",
+    },
+    {
+      "selector": "#smartbox_arrow:is(:active_smartbox)",
+      "meta_selector": [
+        ":is([theme=dark]):not([state=ntp])",
+        ":is([state=protected])",
+      ],
+      "foreground !imp": "var(fill_12_dark)",
+    },
+
+      /*******************************  Цветные темы  ********************************/
+    {
+      "selector": "#smartbox_arrow:is([theme=blue][tint=color],[theme=blue][tint=full])",
+      "foreground": "color(#296CB8 a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=aqua][tint=color],[theme=aqua][tint=full])",
+      "foreground": "color(#1F8FAb a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=green][tint=color],[theme=green][tint=full])",
+      "foreground": "color(#658724 a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=yellow][tint=color],[theme=yellow][tint=full])",
+      "foreground": "color(#F4A825 a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=orange][tint=color],[theme=orange][tint=full])",
+      "foreground": "color(#D1661A a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=red][tint=color],[theme=red][tint=full])",
+      "foreground": "color(#BF4848 a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is([theme=purple][tint=color],[theme=purple][tint=full])",
+      "foreground": "color(#794D9A a(.6))",
+    },
+    {
+      "selector": "#smartbox_arrow:is(:active_smartbox):not([state=ntp])",
+      "meta_selector": [
+        ":is([tint=color], [tint=full]):not([theme=yellow])"
+      ],
+      "foreground": "var(fill_12_dark)",
+    },
+    {
+      "selector": "#smartbox_arrow:is(:active_smartbox):not([state=ntp])",
+      "meta_selector": [
+        ":is([theme=yellow][tint=color], [theme=yellow][tint=full])",
+      ],
+      "foreground": "color(#F4A825 a(.8))",
+    },
+  ]
+}

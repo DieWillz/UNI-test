@@ -1,0 +1,10 @@
+{
+   "description": {
+      "description": "Extension's description",
+      "message": "Blockify è un blocco pubblicità per Spotify che blocca e rimuove gli annunci audio usando la tecnologia Spotify-adblock."
+   },
+   "name": {
+      "description": "Extension's name",
+      "message": "Blocco Pubblicità Spotify - Blockify"
+   }
+}

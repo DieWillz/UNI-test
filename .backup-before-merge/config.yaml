@@ -1,0 +1,152 @@
+brain:
+  base_url: http://localhost:1234/v1
+  api_key: lm-studio
+  model: auto
+  vision_model: auto
+  temperature: 0.8
+  max_tokens: 2000
+  timeout_seconds: 20.0
+
+capabilities:
+  browser:
+    headless: false
+    channel: chrome
+    user_data_dir: .uni-browser-profile
+    search_engine: "https://www.bing.com/search?q={query}"
+    image_search_engine: "https://yandex.ru/images/search?text={query}"
+    cdp_url: "http://127.0.0.1:9222"
+    agent_cursor:
+      enabled: true
+      label: "UNI"
+      move_ms: 220
+
+  computer:
+    use_uia: true
+    failsafe: true
+    mouse_move_duration: 0.35
+    action_badge: true
+    action_badge_label: "UNI"
+
+  camera:
+    enabled: true
+    device_index: 1
+    backend: dshow
+    width: 1280
+    height: 720
+    min_brightness: 15.0
+    sample_interval_seconds: 60.0
+    reminder_interval_seconds: 1800.0
+    default_watch_seconds: 600.0
+    max_watch_seconds: 28800.0
+
+  speech:
+    stt_model: small
+    stt_device: cuda
+    stt_compute_type: float16
+    stt_beam_size: 5
+    microphone_gain: 7.0
+    voice_activation_threshold: 0.004
+    voice_silence_seconds: 0.8
+    max_utterance_seconds: 8.0
+    tts_provider: silero
+    tts_voice: ru_RU-irina-medium.onnx
+    silero_model: v5_5_ru
+    silero_speaker: xenia
+    silero_sample_rate: 48000
+    sample_rate: 16000
+    listen_duration: 2.5
+    input_device: 1
+    output_device: 4
+
+  vision:
+    enabled: true
+    provider: gradio
+    model: qwen3.5-9b
+    gradio_url: http://127.0.0.1:7860/
+    gradio_api_name: /answer_question
+    gradio_fallback_api_name: /answer_question_1
+    resize_width: 960
+    resize_height: 540
+    save_screenshots: false
+
+  xtoys:
+    url: https://xtoys.app
+    max_intensity: 90
+    autonomous_physical: true
+
+agent:
+  default_role: assistant
+  cycle_interval: 2.0
+  max_retries: 3
+  verification_enabled: false
+  input_mode: mixed
+  speak_responses: true
+  max_parallel_tasks: 3
+  max_pending_tasks: 6
+  task_timeout_seconds: 120.0
+  exploration_steps: 3
+  visual_ui_max_steps: 20
+  response_max_chars: 700
+  spoken_response_max_chars: 320
+  autonomous:
+    enabled: true
+    auto_start_session: true
+    vision_interval_seconds: 15.0
+    speech_interval_seconds: 7.0
+    device_interval_seconds: 2.0
+    conductor_interval_seconds: 25.0
+    enable_device_motion: false
+    require_connect: false
+
+memory:
+  path: memory/working.json
+  max_context_tokens: 4000
+  max_dialogue_turns: 50
+
+logging:
+  enabled: true
+  directory: .uni-logs
+
+# Если в load_config читается и корневой autonomous — оставь согласованным с agent.autonomous
+autonomous:
+  enabled: false
+  auto_start_session: true
+  vision_interval_seconds: 15.0
+  speech_interval_seconds: 7.0
+  device_interval_seconds: 2.0
+  conductor_interval_seconds: 25.0
+  enable_device_motion: false
+  require_connect: false
+
+council:
+  enabled: true
+  artifacts_dir: .uni-council
+  concurrency: 3
+  timeout_seconds: 90.0
+  collect_signatures: true
+  browser_enabled: true
+  inform_tos: true
+  free_tier_only: true
+  min_interval_seconds: 8.0
+  browser_profile: .uni-council-browser-profile
+  api_endpoints:
+    openrouter:
+      base_url: https://openrouter.ai/api/v1
+      model: deepseek/deepseek-chat-v3.1:free
+      api_key: "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"
+    groq:
+      base_url: https://api.groq.com/openai/v1
+      api_key: "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"
+    gemini:
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: "AQ.Ab8RN6JxjEj5J5MkLK63Yaz9X8FTaxJ_MysG3t-mOAa8IL9BPQ"
+    huggingface:
+      base_url: https://router.huggingface.co/v1
+      api_key: "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"
+    codex:
+      base_url: http://localhost:1240/v1
+      api_key: ""
+    hermes:
+      base_url: http://127.0.0.1:1234/v1
+      api_key: "lm-studio"
+      model: qwen3.5-9b

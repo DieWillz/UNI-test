@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- [v2.7.6 audit Pass12] lang="en" – neutral default; ae-gate.js (line 51) перезаписывает
+     на ru/en через chrome.i18n.getUILanguage(). До patch: hardcode 'ru' для EN-юзеров
+     первые ~50ms показывал RU semantic из screen-reader (a11y issue). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnonVPN</title>
+<link rel="stylesheet" href="ae-gate.css">
+</head>
+<body>
+<div class="card">
+  <div class="spinner" id="spinner" role="progressbar" aria-busy="true" aria-label="Подключение VPN"></div>
+  <h1 id="title">Подключаем VPN…</h1>
+  <p id="msg">Включаем защищённое соединение для этого сайта.</p>
+  <p id="target" class="target"></p>
+  <div id="actions"></div>
+</div>
+<script src="ae-gate.js"></script>
+</body>
+</html>

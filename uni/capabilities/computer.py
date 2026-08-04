@@ -32,6 +32,8 @@ class ComputerCapability(Capability):
         mouse_move_duration: float = 0.35,
         telegram_uni_path: str | Path | None = None,
         telegram_user_path: str | Path | None = None,
+        action_badge_enabled: bool = True,
+        action_badge_label: str = "UNI",
     ):
         self.use_uia = use_uia
         self.mouse_move_duration = max(0.0, min(float(mouse_move_duration), 2.0))
@@ -42,6 +44,21 @@ class ComputerCapability(Capability):
             telegram_user_path or appdata / "Telegram Desktop" / "Telegram.exe"
         )
         pyautogui.FAILSAFE = failsafe
+        self._badge = None
+        if action_badge_enabled:
+            try:
+                from uni.action_badge import UniActionBadge
+
+                self._badge = UniActionBadge(enabled=True, label=action_badge_label)
+            except Exception:
+                self._badge = None
+
+    def _flash_badge(self, x: int, y: int, action: str = "click") -> None:
+        if self._badge is not None:
+            try:
+                self._badge.flash_at(x, y, action)
+            except Exception:
+                pass
 
     @staticmethod
     def _activate_window(hwnd: int) -> None:
@@ -160,6 +177,7 @@ class ComputerCapability(Capability):
 
     async def click(self, x: int, y: int, button: str = "left") -> ToolResult:
         try:
+            self._flash_badge(x, y, f"click:{button}")
             await asyncio.to_thread(
                 pyautogui.moveTo,
                 x,

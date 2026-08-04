@@ -61,5 +61,9 @@ ALIASES
 /.uni-dev/coordination/*.tmp
 /.uni-dev/coordination/browser-profiles/
 
+# Local secret config (contains API keys) — never commit
+/config.yaml
+/.uni-council-browser-profile/
+
 # Broken/legacy integration tests
 /tests/integration/

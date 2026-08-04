@@ -1,0 +1,353 @@
+================================================================
+ ПЛАН ВЫПОЛНЕНИЯ: MVP «UNI + XToys + Browser + Smooth Mouse»
+ Подготовил: Hermes
+ Дата: 2026-08-03
+ Основа: .hermes/desktop-attachments/mvp_xtoys_browser_plan.md (ТЗ пользователя)
+ ВАЖНО: ТЗ описывает ВЫМЫШЛЕННЫЙ репозиторий (Uni/motion/, browser_executor.py,
+         FastAPI webui/app.py). Реальный код ДРУГОЙ — см. раздел «Инвентаризация».
+================================================================
+
+0. КРИТИЧЕСКАЯ ПОПРАВКА К ТЗ (прочитать первым)
+----------------------------------------------------------------
+ ТЗ в исходном файле НЕ соответствует реальному репозиторию:
+  - В репозитории нет пакета `Uni/` (есть `uni/`), нет `Uni.motion`,
+    нет `Uni.py`, нет `browser_executor.py`/`mouse_executor.py`/
+    `xtoys_executor.py`, нет FastAPI `webui/app.py`.
+  - Уже СУЩЕСТВУЮТ и работают (с гейтами безопасности):
+      uni/capabilities/computer.py  → плавный pyautogui.moveTo + бейдж «UNI»
+      uni/capabilities/xtoys.py     → управление xtoys.app UI + max_intensity
+      uni/capabilities/browser.py   → навигация/клик/скриншот
+      uni/capabilities/speech.py     → Silero TTS (озвучка)
+      uni/capabilities/{vision,camera}.py
+      uni/action_badge.py            → tkinter-оверлей «UNI · click» у курсора
+      uni/agent.py                   → собирает все capability + AutonomousController
+
+ ПОЭТОМУ ПЛАН = оркестрация СУЩЕСТВУЮЩИХ capability + НЕСКОЛЬКО
+ НОВЫХ ДОБАВОЧНЫХ МОДУЛЕЙ. Дублировать существующий код ЗАПРЕЩЕНО
+ (правило пользователя «не создавать дублирующие файлы» + AGENTS.md).
+
+1. ИНВЕНТАРИЗАЦИЯ (что уже есть и годится)
+----------------------------------------------------------------
+ ✅ Плавная мышь без телепорта:
+      uni/capabilities/computer.py: click() делает
+      pyautogui.moveTo(x, y, duration=self.mouse_move_duration) — линейно-плавно.
+      НЕТ Безье с разгоном/торможением (это добавим в Фазе 2).
+ ✅ Подпись «UNI» у курсора:
+      - uni/action_badge.py — tkinter-оверлей, вспыхивает при клике
+        («UNI · click»). Это уже реализует «табличка Uni рядом с курсором»
+        (но только на клике, не непрерывно).
+      - uni/config.py → AgentCursorConfig (agent_cursor) — оверлей «UNI»
+        ВНУТРИ страницы браузера (page overlay), не OS-курсор.
+ ✅ XToys:
+      uni/capabilities/xtoys.py — open(), set_intensity(), ramp_intensity(),
+      toggle(), get_status(). Гейт: max_intensity (по умолч. 50),
+      verified_physical=False (устройство не активируется само).
+ ✅ Браузер: uni/browser_session.py (Playwright, channel=chrome,
+      headless=False, persistent profile). XToysCapability._page() открывает
+      xtoys.app через session.page_for_host("xtoys.app", create_url=url).
+ ✅ Голос: SpeechCapability.speak() (Silero), config.agent.speak_responses.
+ ✅ CLI: uni/__main__.py уже имеет --autonomous / --webui / --text / --voice.
+
+2. ЧТО СТРОИМ (НОВЫЕ файлы, не дублируют существующие)
+----------------------------------------------------------------
+ 2.1  uni/motion/trajectory.py
+      — ЧИСТАЯ МАТЕМАТИКА (без GUI/pyautogui), легко тестировать.
+      — Берём КАК ЕСТЬ из ТЗ: build_move_path (кубич. Безье + easing
+        ease_in_out_cubic + микро-шум «живой руки»), build_wander_path
+        (Лиссажу), build_circle_path, MousePath, clamp, _bezier.
+      — Только правка импортов под реальный путь (без изменений, код ТЗ
+        уже self-contained).
+
+ 2.2  uni/motion/driver.py
+      — SmoothMouseDriver (адапт ВЕРСИЮ из ТЗ, НО без дублирования клика):
+        * move_to/wiggle/wander/circle/drag_to играют Безье-точки через
+          pyautogui.moveTo(px, py, _pause=False) + asyncio.sleep(delay).
+        * В КОНЕЧНОЙ точке движения — flash бейджа через
+          uni.action_badge.get_default_badge().flash_at(x, y, "move"),
+          чтобы подпись «UNI» появлялась и при «гулянии», а не только на клике.
+        * failsafe: pyautogui.FAILSAFE = True (как в computer.py).
+        * НЕ реализуем свой click()/type() — для кликов/ввода сценарий
+          использует СУЩЕСТВУЮЩИЙ ComputerCapability (там уже бейдж+блокировки).
+
+ 2.3  uni/motion/label.py
+      — CursorLabelOverlay (адапт из ТЗ): непрерывно следующий за курсором
+        tkinter-оверлей «Uni» (always-on-top, прозрачный). Это ДОПОЛНЯЕТ
+        action_badge (который только на клике) — даёт непрерывную «табличку
+        Uni» из DoD. НЕ дубликат: action_badge = вспышка на клике,
+        CursorLabelOverlay = постоянное сопровождение.
+      — _enable_dpi_awareness() (SetProcessDpiAwareness(1)) оставляем —
+        нужно, чтобы координаты pyautogui/оверлея совпадали при DPI≠100%.
+
+ 2.4  uni/motion/__init__.py — реэкспорт driver/label/trajectory.
+
+ 2.5  uni/scenarios/__init__.py — пустой init пакета.
+
+ 2.6  uni/scenarios/xtoys.py — ДЕМО-СЦЕНАРИЙ (ПЕРЕПИСАН под реальный код):
+      * Запуск: python -m uni --demo xtoys
+      * Строит Agent(config), agent.initialize() (браузер/речь готовы).
+      * Берёт из agent.capabilities: browser, computer, xtoys, speech.
+      * Последовательность:
+          1. overlay = CursorLabelOverlay(label=config.demo.mouse.label_text);
+             overlay.start(); overlay.show()
+          2. speech.speak("Привет! Это мышка Uni. Открываю xtoys...")
+          3. xtoys.open()  (через XToysCapability — реальный xtoys.app)
+          4. mouse = SmoothMouseDriver(); mouse.wiggle()  (приветствие)
+          5. mouse.wander(bounds) — плавно водим «UNI» по вьюпорту/экрану
+          6. «погладить игрушки»: для N точек — computer.click(x,y)
+             (существующий метод: плавный заезд + бейдж + клик)
+          7. xtoys.ramp_intensity(0 → modest → 0) — НО соблюдаем гейт:
+             значение ≤ config.capabilities.xtoys.max_intensity (по умолч. 50),
+             НЕ вызываем set_verified_physical(True), НЕ включаем
+             autonomous_physical. Движение устройства = только UI-слайдер
+             (пользователь сам запустил демо → supervised).
+          8. speech.speak("Готово! Игрушки поглажены.")
+          9. overlay.hide(); overlay.stop()
+      * bounds для wander: screen_size из SmoothMouseDriver (весь экран) —
+        не пытаемся маппить вьюпорт→экран (ненадёжно при DPI); «гуляние»
+        по всему экрану безопаснее и проще.
+      * failsafe: оборачиваем в try/except; при pyautogui.FailSafeException
+        — overlay.stop() и чистый выход (без краша).
+
+ 2.7  tests/test_motion_trajectory.py — ЧИСТЫЕ ЮНИТ-ТЕСТЫ (без GUI):
+      * build_move_path((0,0),(800,600),1.0) → points не пусты, финиш ≈ end
+      * длина points == длина delays; duration ≈ заявленной
+      * build_wander_path/get_circle_path возвращают корректные MousePath
+      * distance<1 → возврат одной точки (без деления на 0)
+      (Копируем «Проверка 1» из ТЗ как pytest-тест.)
+
+3. МИНИМАЛЬНЫЕ ИЗМЕНЕНИЯ СУЩЕСТВУЮЩИХ ФАЙЛОВ
+----------------------------------------------------------------
+ 3.1  uni/config.py — добавить DemoConfig (аддитивно, не ломает старое):
+        class DemoXToysSettings(BaseModel):
+            url: str = "https://xtoys.app"   # берём из capabilities.xtoys.url
+            wander_seconds: float = 12.0
+            pet_points: int = 6
+        class DemoMouseSettings(BaseModel):
+            label_text: str = "Uni"
+            speed: float = 1.0   # >1 быстрее, <1 медленнее
+            fps: int = 90
+            failsafe: bool = True
+        class DemoSettings(BaseModel):
+            xtoys: DemoXToysSettings = Field(default_factory=DemoXToysSettings)
+            mouse: DemoMouseSettings = Field(default_factory=DemoMouseSettings)
+        # в Config добавить:
+        demo: DemoSettings = Field(default_factory=DemoSettings)
+      (Значения по умолчанию берём из уже существующих
+       capabilities.xtoys.url / computer.action_badge_label, чтобы не плодить
+       расхождения. Сценарий читает config.demo, но url может дефолтиться
+       на config.capabilities.xtoys.url.)
+
+ 3.2  uni/__main__.py — добавить флаг --demo:
+        parser.add_argument("--demo", choices=("xtoys",), default=None)
+        if args.demo == "xtoys":
+            from uni.scenarios.xtoys import run_xtoys_demo
+            await run_xtoys_demo(config)
+            return 0
+      (Добавление флага — единственное изменение существующего файла;
+       старые ветки --autonomous/--webui не трогаем.)
+
+ 3.3  config.yaml (пример, опционально) — добавить секцию:
+        demo:
+          xtoys:
+            url: "https://xtoys.app"
+            wander_seconds: 12
+            pet_points: 6
+          mouse:
+            label_text: "Uni"
+            speed: 1.0
+            fps: 90
+            failsafe: true
+      (Если файла нет — load_config вернёт дефолты, демо работает и так.)
+
+4. ГЕЙТЫ БЕЗОПАСНОСТИ (ОБЯЗАТЕЛЬНО СОХРАНИТЬ)
+----------------------------------------------------------------
+ 🔒 XToys max_intensity: сценарий НЕ поднимает интенсивность выше
+    config.capabilities.xtoys.max_intensity (по умолч. 50). Демо-рамп
+    идёт 0 → ~20-30 → 0 (скромно, не «максимум»).
+ 🔒 verified_physical: НЕ вызываем set_verified_physical(True) в демо.
+    Устройство двигается только через UI-слайдер xtoys.app, который
+    пользователь сам запустил (supervised). Никакого автономного
+    физического движения без явного config-флага autonomous_physical.
+ 🔒 Failsafe: pyautogui.FAILSAFE=True (дублируем из computer.py).
+    Увод курсора в левый верхний угол → FailSafeException → overlay.stop()
+    + чистый выход (DoD п.2).
+ 🔒 ESC/стоп мгновенно: не блокируем event loop; tkinter-оверлей в
+    отдельном потоке (как в ТЗ и как в action_badge).
+
+5. ПОЭТАПНОЕ ВЫПОЛНЕНИЕ (как буду делать)
+----------------------------------------------------------------
+ Фаза 1 — каркас motion (без GUI-зависимостей в тестах):
+   a) создать uni/motion/trajectory.py (из ТЗ, как есть)
+   b) создать tests/test_motion_trajectory.py, прогнать → ЗЕЛЁНЫЕ
+      (доказывает, что математика Безье корректна без браузера/мыши)
+   c) py_compile uni/motion/trajectory.py
+
+ Фаза 2 — драйвер и оверлей:
+   a) uni/motion/driver.py (SmoothMouseDriver из ТЗ + flash бейджа)
+   b) uni/motion/label.py (CursorLabelOverlay из ТЗ + DPI awareness)
+   c) uni/motion/__init__.py
+   d) py_compile (импорт только при запуске; в CI headless tkinter
+      может отсутствовать — сделать импорт отложенным/безопасным)
+
+ Фаза 3 — сценарий и CLI:
+   a) uni/scenarios/__init__.py + uni/scenarios/xtoys.py (переписан под
+      реальный Agent/CapabilitiesRegistry)
+   b) uni/config.py — DemoConfig (+ поле demo в Config)
+   c) uni/__main__.py — флаг --demo
+   d) py_compile всех новых + изменённых модулей
+
+ Фаза 4 — проверка (реальные команды):
+   СМ. раздел 6. На headless-CI tkinter/pyautogui/playwright могут
+   отсутствовать → только trajectory-тесты в CI; полный демо-прогон
+   делаю локально на Windows-машине пользователя (там есть браузер/мышь).
+
+ Фаза 5 — документация и worklog:
+   a) краткая запись в AI_WORKLOG.md (подпись, раздел «Проверено»)
+   b) (опционально) README-заметка про `python -m uni --demo xtoys`
+
+6. ВЕРИФИКАЦИЯ (конкретные команды, которые реально выполню)
+----------------------------------------------------------------
+  A) Юнит-тесты (CI-safe, без GUI):
+     PYTHONPATH=C:\LLM\UNI C:\LLM\python312\python.exe -m pytest \
+         tests/test_motion_trajectory.py -q
+     → ожидаю: passed
+
+  B) Архитектурный гейт (не сломать инварианты):
+     C:\LLM\python312\python.exe scripts/check_architecture.py --strict
+     → ожидаю: 0 error(s), 0 warning(s)
+
+  C) Импорт новых модулей (без запуска GUI):
+     C:\LLM\python312\python.exe -c "import uni.motion; import uni.scenarios.xtoys; print('imports OK')"
+     → ожидаю: imports OK
+
+  D) Локальный прогон демо (Windows, с браузером/мышью) — вручную у пользователя:
+     cd C:\LLM\UNI
+     set PYTHONPATH=C:\LLM\UNI
+     C:\LLM\python312\python.exe -m uni --demo xtoys
+     → ожидаю: открыт xtoys в Chrome, табличка «Uni» следует за курсором,
+       плавные Безье-движения, озвучка фраз, ramp интенсивности 0→~25→0,
+       корректный выход по завершении и по failsafe (курсор в угол).
+
+  E) Частичная проверка без устройства (если xtoys не подключён):
+     демо должен корректно открыть страницу и «погладить» через клики по
+     UI; ramp_intensity меняет слайдер, но устройство не реагирует (не
+     подключено) — это нормально и безопасно.
+
+7. РИСКИ И РЕШЕНИЯ
+----------------------------------------------------------------
+ Р1. tkinter/pyautogui/playwright могут отсутствовать в headless-CI.
+     Решение: trajectory-тесты не требуют GUI; демо-прогон только локально.
+     Импорт label.py/driver.py делаю безопасным (try/except при старте
+     оверлея, как в UniActionBadge).
+
+ Р2. Совпадение координат при DPI≠100% (ТЗ упоминает).
+     Решение: CursorLabelOverlay._enable_dpi_awareness() + wander по ВСЕМУ
+     экрану (screen_size), без маппинга вьюпорт→экран (ненадёжно).
+
+ Р3. Конфликт двух «UNI»-бейджей (action_badge на клике + CursorLabelOverlay
+     постоянно). Решение: это ДОПОЛНЯЮЩИЕ индикаторы (вспышка vs сопровождение);
+     визуально не конфликтуют. Если пользователю будет «шумно» — отключаем
+     action_badge в демо через config.computer.action_badge=False.
+
+ Р4. Переписывание ТЗ-кода под реальный API.
+     Решение: trajectory.py берём дословно (он самодостаточен); driver/label
+     — адаптируем импорты (uni.motion / uni.action_badge); scenarios/xtoys.py
+     — ПЕРЕПИСЫВАЕМ, т.к. ТЗ-версия ссылается на несуществующий
+     config.demo.xtoys и BrowserCapability(headless=False) (реальный
+     BrowserCapability требует session, а не headless-флаг).
+
+8. Definition of Done (итоговые критерии приёмки, реальные)
+----------------------------------------------------------------
+ [ ] `python -m uni --demo xtoys` открывает xtoys в браузере и плавно
+     водит мышью с табличкой «Uni» (Безье + easing, без телепортации).
+ [ ] При failsafe (курсор в левый верхний угол) демо не падает — оверлей
+     корректно скрывается, ресурсы освобождаются.
+ [ ] Интенсивность xtoys НЕ превышает max_intensity; verified_physical
+     остаётся False (устройство не активируется автономно).
+ [ ] trajectory-юнит-тесты зелёные; check_architecture --strict = 0/0.
+ [ ] Все новые .py проходят py_compile; импорт uni.motion/uni.scenarios OK.
+
+================================================================
+ ЗАМЕЧАНИЕ: ТЗ также предлагало FastAPI webui/app.py, websockets,
+ browser_executor.py, xtoys_executor.py, vision camera.py — ВСЁ ЭТО УЖЕ
+ ЕСТЬ в реальном репозитории (webui/ на :8787, capabilities/*,
+ camera.py). Создавать их заново = дубликаты → НЕ ДЕЛАЮ. Если пользователь
+ хочет именно отдельный FastAPI-сервер для демо — это отдельная задача
+ (вне scope MVP, требует ADR по правилам AGENTS.md).
+================================================================
+
+----------------------------------------------------------------
+ ДОПОЛНЕНИЕ: РАБОТА ПО ИНТЕРФЕЙСУ (чат-хаб, камера, контекст-фид)
+ (добавлено по второму ТЗ пользователя «Чат-интерфейс, Камера, Context Feed»)
+----------------------------------------------------------------
+ ВАЖНО: второе ТЗ ТОЖЕ описывает ВЫМЫШЛЕННЫЙ репозиторий
+ (Uni/webui/app.py на FastAPI, Uni/vision/camera.py, Uni/brain/).
+ Реальный репозиторий:
+   - uni/webui/server.py — ОДИН stdlib-http.server на :8787 (НЕ FastAPI),
+     сейчас это Council dev-console. Правило пользователя: НЕ плодить
+     фоновые 879x-серверы, держать ровно один на 8787.
+   - uni/capabilities/camera.py — CameraCapability (snapshot(), start()
+     требует notice_ack=True — ГЕЙТ БЕЗОПАСНОСТИ, сохраняем).
+   - uni/capabilities/vision.py, speech.py — уже есть.
+   - uni/roles/ — системные промпты (не Uni/brain/).
+
+ ПЛАН ПО ИНТЕРФЕЙСУ (без нарушения правил):
+  A) Сервер: расширить uni/webui/server.py (ОДИН сервер, :8787) новыми
+     маршрутами, НЕ создавая FastAPI и НЕ второго сервера:
+       GET  /chat                  → отдаёт новый chat.html
+       POST /api/chat              → {text, use_voice} → прогон через Agent
+                                     (event_loop.run_cycle), возврат
+                                     {text, audio_url?}
+       POST /api/camera/notice     → проигрывает ЗВУКОВОЕ уведомление
+                                     (через SpeechCapability) — ОБЯЗАТЕЛЬНО
+                                     перед включением камеры
+       POST /api/camera/start      → camera.start(notice_ack=ack); ack=False → 403
+       POST /api/vision/capture    → camera.capture_base64_frame() → {image_b64}
+       GET/POST /api/context/feed  → список фидов + injection_rate (style hints)
+  B) Новый самодостаточный чат-хаб (МОЙ файл, НЕ трогаю index.html/
+     style.css/js/app.js пользователя):
+       uni/webui/chat.html  (вся структура + инлайн <script>)
+       uni/webui/chat.css
+       uni/webui/chat.js
+     Содержит: чат (text+mic), превью камеры + кнопка «Скриншот»,
+     переключатель стрима, боковую панель Context Feed (URL-фиды +
+     ползунок Spiciness/Injection Rate + Tonal Mode).
+  C) uni/capabilities/camera.py — ДОБАВИТЬ capture_base64_frame()
+     (additive; использует уже открытую камеру; без нарушения notice_ack).
+  D) uni/context/feed_injector.py — НОВЫЙ модуль (additive):
+     - add_feed_url / remove_feed_url / list_feeds
+     - fetch_style_hints(rate) — собирает подсказки из фидов (httpx,
+       с таймаутом, ТОЛЬКО по явному разрешению), возвращает строку-подсказку
+       для системного промпта. ВНЕШНИЙ ТЕКСТ = НЕДОВЕРЕННЫЕ ДАННЫЕ
+       (как в council). NSFW-скрейпинг — только если config разрешает
+       (флаг context.allow_external_scrape); по умолчанию ВЫКЛ.
+  E) uni/config.py — добавить ContextFeedConfig + поле в Config:
+       class ContextFeedConfig(BaseModel):
+           enabled: bool = False
+           allow_external_scrape: bool = False  # безопасность: NSFW по умолч. выкл
+           injection_rate: float = Field(0.6, ge=0.0, le=1.0)
+           feeds: list[str] = []
+           tonal_mode: str = "playful"
+  F) Интеграция стиля: в чат-эндпоинте, если context.enabled и rate>0,
+     к системному промпту (role) добавлять блок {style_hints} из
+     feed_injector (как в ТЗ, но через существующий roles/loader,
+     НЕ переписывая brain).
+  G) Тесты (headless-safe, без сети/камеры):
+       tests/test_feed_injector.py — чистая логика (add/list/rate/inject
+       без реального httpx; мок или пропуск сети).
+       tests/test_camera_base64.py — _frame_to_base64(frame) на синтетич.
+       кадре (без реальной камеры).
+  H) Верификация:
+       check_architecture --strict → 0/0
+       pytest (headless-безопасный набор) → passed
+       py_compile всех новых/изменённых
+       Локально (Windows): открыть http://localhost:8787/chat, проверить
+       чат/камеру/фиды вручную.
+
+ БЕЗОПАСНОСТЬ (сохраняем жёстко):
+   🔒 Камера: notice_ack обязателен (звуковое уведомление ДО старта).
+   🔒 Внешние фиды/NSFW: по умолчанию ВЫКЛ; external scrape только под флаг.
+   🔒 XToys: в чат-хабе не активируем устройство без явного config.
+   🔒 ОДИН сервер на 8787 (расширяем, не плодим).
+   🔒 Не трогаю index.html/style.css/js/app.js пользователя.
+

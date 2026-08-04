@@ -1,0 +1,15 @@
+{
+  "topic": "Проверка связи с DeepSeek",
+  "round_id": "20260802-221845",
+  "participants": [
+    "DeepSeek"
+  ],
+  "signatures": {},
+  "errors": {
+    "DeepSeek": "AttributeError: 'BrowserContext' object has no attribute '_close_was_called'"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260802-221845_DeepSeek.md",
+    "report": ".uni-council\\20260802-221845_report.md"
+  }
+}

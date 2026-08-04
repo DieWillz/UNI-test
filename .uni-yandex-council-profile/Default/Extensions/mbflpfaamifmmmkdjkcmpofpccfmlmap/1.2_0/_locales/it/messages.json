@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Chiudere"
+   },
+   "copy": {
+      "message": "Copia URL"
+   },
+   "copy_success": {
+      "message": "Copiato con successo."
+   },
+   "download": {
+      "message": "Scarica"
+   },
+   "filter_lead": {
+      "message": "I video di dimensioni inferiori a questo valore non verranno acquisiti"
+   },
+   "hour": {
+      "message": "ora"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Un downloader video professionale per salvare video online come mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Download di video online - MPMux"
+   },
+   "minute": {
+      "message": "minuto"
+   },
+   "more_than_one_day": {
+      "message": "Più di un giorno"
+   },
+   "no_more_resolution": {
+      "message": "Niente più risoluzione"
+   },
+   "no_result": {
+      "message": "Nessun file di risorse trovato!"
+   },
+   "no_video": {
+      "message": "Il video non può essere registrato o il video non esiste!"
+   },
+   "not_support": {
+      "message": "Questo sito non è supportato"
+   },
+   "play": {
+      "message": "Riproduci video"
+   },
+   "popup_modal_body": {
+      "message": "Prova a scegliere una risoluzione fissa prima della registrazione (se il video ha questa opzione). Perché la risoluzione automatica può produrre fotogrammi di dimensioni diverse, causando la divisione del video."
+   },
+   "popup_modal_close": {
+      "message": "Chiudere"
+   },
+   "popup_modal_confirm": {
+      "message": "Confermare"
+   },
+   "popup_modal_title": {
+      "message": "Consigli"
+   },
+   "recording_mode": {
+      "message": "Modalità di registrazione"
+   },
+   "second": {
+      "message": "secondi"
+   },
+   "size_filter": {
+      "message": "Filtro"
+   },
+   "tips": {
+      "message": "Consigli"
+   },
+   "tips_text_1": {
+      "message": "Alcuni video potrebbero non essere acquisiti finché non vengono riprodotti. Se il video di destinazione non è nell'elenco, prova a riprodurlo o aggiorna la pagina."
+   },
+   "tips_text_2": {
+      "message": "Se ancora non funziona dopo aver provato, scaricalo forzatamente con \"modalità di registrazione\"."
+   },
+   "video_flush_error": {
+      "message": "Errore di risciacquo del video"
+   }
+}

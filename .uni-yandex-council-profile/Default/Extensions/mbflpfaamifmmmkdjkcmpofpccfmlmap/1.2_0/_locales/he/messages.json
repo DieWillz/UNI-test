@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "סגור"
+   },
+   "copy": {
+      "message": "העתק כתובת URL"
+   },
+   "copy_success": {
+      "message": "הועתק בהצלחה."
+   },
+   "download": {
+      "message": "הורד"
+   },
+   "filter_lead": {
+      "message": "סרטון שגודלו הקטן מערך זה לא יצולם"
+   },
+   "hour": {
+      "message": "שָׁעָה"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "מוריד וידאו מקצועי לשמירת סרטונים מקוונים כמו mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "הורדת וידאו - MPMux"
+   },
+   "minute": {
+      "message": "דַקָה"
+   },
+   "more_than_one_day": {
+      "message": "מעל יום"
+   },
+   "no_more_resolution": {
+      "message": "אין יותר רזולוציה"
+   },
+   "no_result": {
+      "message": "לא נמצא קובץ משאבים!"
+   },
+   "no_video": {
+      "message": "לא ניתן להקליט וידאו, או וידאו לא קיים!"
+   },
+   "not_support": {
+      "message": "אתר זה אינו נתמך"
+   },
+   "play": {
+      "message": "הפעל סרטון"
+   },
+   "popup_modal_body": {
+      "message": "נסה לבחור רזולוציה קבועה לפני ההקלטה (אם לסרטון יש אפשרות זו). מכיוון שרזולוציה אוטומטית עשויה לייצר פריימים בגודל שונה, ולגרום לפיצול הסרטון."
+   },
+   "popup_modal_close": {
+      "message": "סגור"
+   },
+   "popup_modal_confirm": {
+      "message": "לְאַשֵׁר"
+   },
+   "popup_modal_title": {
+      "message": "טיפים"
+   },
+   "recording_mode": {
+      "message": "מצב הקלטה"
+   },
+   "second": {
+      "message": "שניות"
+   },
+   "size_filter": {
+      "message": "לְסַנֵן"
+   },
+   "tips": {
+      "message": "טיפים"
+   },
+   "tips_text_1": {
+      "message": "ייתכן שחלק מהסרטונים לא יצולמו עד שיופעלו. אם סרטון היעד אינו ברשימה, נסה להפעיל אותו, או לרענן את הדף."
+   },
+   "tips_text_2": {
+      "message": "אם זה עדיין לא עובד לאחר ניסיון, הורד אותו בכוח עם \"מצב הקלטה\"."
+   },
+   "video_flush_error": {
+      "message": "שגיאת שטיפת וידאו"
+   }
+}

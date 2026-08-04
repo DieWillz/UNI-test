@@ -1,0 +1,2043 @@
+/* AnonVPN v2.5.4 — Themed UI with Modals */
+
+/* ══ COLOR THEMES ══ */
+:root,
+body.theme-default {
+  --accent: #4caf50;
+  --accent-dk: #388e3c;
+  --accent-lt: #e8f5e9;
+  --accent-100: #c8e6c9;
+  --grad1: #2e7d32;
+  --grad2: #43a047;
+  --grad3: #66bb6a;
+  --bg: #f0f2f5;
+  --card: #fff;
+  --txt: #1d1d1f;
+  --txt2: #555;
+  --txt3: #8e8e93;
+  --brd: #e5e5ea;
+  --red: #ef5350;
+  --gold: #ffc107;
+  --r: 14px;
+  --rs: 10px;
+  --rx: 8px;
+  --tr: .2s ease;
+  /* [v2.8.1 audit] Vars для inline-style badges (popup.js account-free, blacklist-mode) — light theme defaults */
+  --badge-free-bg:#e8eaed;--badge-free-fg:#555;
+  --badge-block-bg:#ffebee;--badge-block-fg:#c62828;--badge-block-brd:#ef9a9a;
+}
+body.theme-blue {
+  --accent: #2196f3; --accent-dk: #1565c0; --accent-lt: #e3f2fd; --accent-100: #bbdefb;
+  --grad1: #1565c0; --grad2: #1e88e5; --grad3: #42a5f5;
+}
+body.theme-purple {
+  --accent: #9c27b0; --accent-dk: #6a1b9a; --accent-lt: #f3e5f5; --accent-100: #ce93d8;
+  --grad1: #6a1b9a; --grad2: #8e24aa; --grad3: #ab47bc;
+}
+body.theme-orange {
+  --accent: #ff9800; --accent-dk: #e65100; --accent-lt: #fff3e0; --accent-100: #ffe0b2;
+  --grad1: #e65100; --grad2: #f57c00; --grad3: #ffa726;
+}
+body.theme-red {
+  --accent: #f44336; --accent-dk: #c62828; --accent-lt: #ffebee; --accent-100: #ef9a9a;
+  --grad1: #c62828; --grad2: #e53935; --grad3: #ef5350;
+}
+body.theme-teal {
+  --accent: #009688; --accent-dk: #00695c; --accent-lt: #e0f2f1; --accent-100: #80cbc4;
+  --grad1: #00695c; --grad2: #00897b; --grad3: #26a69a;
+}
+body.theme-pink {
+  --accent: #e91e63; --accent-dk: #ad1457; --accent-lt: #fce4ec; --accent-100: #f48fb1;
+  --grad1: #ad1457; --grad2: #d81b60; --grad3: #ec407a;
+}
+body.theme-indigo {
+  --accent: #3f51b5; --accent-dk: #283593; --accent-lt: #e8eaf6; --accent-100: #9fa8da;
+  --grad1: #283593; --grad2: #3949ab; --grad3: #5c6bc0;
+}
+body.theme-amber {
+  --accent: #ffb300; --accent-dk: #ff8f00; --accent-lt: #fff8e1; --accent-100: #ffe082;
+  --grad1: #ff8f00; --grad2: #ffa000; --grad3: #ffca28;
+}
+body.theme-cyan {
+  --accent: #00bcd4; --accent-dk: #0097a7; --accent-lt: #e0f7fa; --accent-100: #80deea;
+  --grad1: #00838f; --grad2: #0097a7; --grad3: #00bcd4;
+}
+body.theme-lime {
+  --accent: #7cb342; --accent-dk: #558b2f; --accent-lt: #f1f8e9; --accent-100: #aed581;
+  --grad1: #558b2f; --grad2: #689f38; --grad3: #8bc34a;
+}
+body.theme-brown {
+  --accent: #795548; --accent-dk: #4e342e; --accent-lt: #efebe9; --accent-100: #bcaaa4;
+  --grad1: #4e342e; --grad2: #6d4c41; --grad3: #8d6e63;
+}
+body.theme-steel {
+  --accent: #78909c; --accent-dk: #37474f; --accent-lt: #eceff1; --accent-100: #b0bec5;
+  --grad1: #37474f; --grad2: #546e7a; --grad3: #78909c;
+}
+body.theme-wine {
+  --accent: #c2185b; --accent-dk: #880e4f; --accent-lt: #fce4ec; --accent-100: #f48fb1;
+  --grad1: #880e4f; --grad2: #ad1457; --grad3: #c2185b;
+}
+body.theme-forest {
+  --accent: #388e3c; --accent-dk: #1b5e20; --accent-lt: #e8f5e9; --accent-100: #a5d6a7;
+  --grad1: #1b5e20; --grad2: #2e7d32; --grad3: #43a047;
+}
+body.theme-ocean {
+  --accent: #0277bd; --accent-dk: #01579b; --accent-lt: #e1f5fe; --accent-100: #81d4fa;
+  --grad1: #01579b; --grad2: #0277bd; --grad3: #039be5;
+}
+body.theme-dark {
+  --accent: #78909c; --accent-dk: #455a64; --accent-lt: #37474f; --accent-100: #546e7a;
+  --grad1: #263238; --grad2: #37474f; --grad3: #455a64;
+  --bg: #1a1a1a; --card: #2a2a2a; --txt: #e0e0e0; --txt2: #bbb; --txt3: #888; --brd: #444;
+  /* [v2.8.1 audit] Theme-dark overrides для inline-style badges (popup.js) */
+  --badge-free-bg:#3a3a5a;--badge-free-fg:#bbb;
+  --badge-block-bg:#5a2630;--badge-block-fg:#ff9090;--badge-block-brd:#7a3040;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ══ THEMED SCROLLBAR (all scrollable areas) ══ */
+*{scrollbar-width:thin;scrollbar-color:var(--accent-100) transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--accent-100);border-radius:10px;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+::-webkit-scrollbar-thumb:active{background:var(--accent-dk)}
+body.theme-dark ::-webkit-scrollbar-thumb{background:var(--brd)}
+body.theme-dark ::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
+
+html{width:407px;height:600px}
+/* [v2.8.6] Рамка popup — position:fixed (прибита к вьюпорту), НЕ скроллится с контентом/документом.
+   Раньше border висел на скролл-body и «ехал» при скролле. pointer-events:none — не мешает кликам. */
+body::after{content:'';position:fixed;top:0;left:0;right:0;bottom:0;border:1px solid var(--accent);pointer-events:none;z-index:99999}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  width:407px; height:600px;
+  background:var(--bg); color:var(--txt);
+  cursor:default; overflow-y:auto;
+  -webkit-user-select:none;user-select:none;
+  /* [v2.8.6] Рамка popup вынесена в body::after (position:fixed, см. ниже html) —
+     фиксирована к вьюпорту, не скроллится. Раньше border был тут и «ехал» при скролле. */
+}
+
+/* [v2.5.9] Оставляем выделение только там, где пользователю реально может понадобиться копировать */
+input,textarea,
+.news-item-date,.news-item-title,.news-item-body,.news-item-link,
+.exclusion-item>span,
+#premiumDate,
+#statTotalTime,#statSessions,#statTopServer,
+.vpn-conflict-banner-list{
+  -webkit-user-select:text;user-select:text;
+}
+
+/* ══ HEADER ══ */
+.header-bar{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 14px;
+  background:linear-gradient(135deg,var(--grad1) 0%,var(--grad2) 60%,var(--grad3) 100%);
+}
+.header-icon{width:28px;height:28px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.header-bar h1,.header-bar h3{flex:0 0 auto;font-size:17px;font-weight:800;letter-spacing:1px;color:#fff;margin:0}
+/* [v3.1.7] Распорка после «Обратной связи» — толкает версию и шестерёнку вправо (заменяет flex:1 у h1) */
+.header-flex-spacer{flex:1 1 auto}
+.header-ver{font-size:11px;font-weight:600;color:rgba(255,255,255,.7)}
+.header-settings-btn{
+  background:none;border:none;cursor:pointer;padding:4px;
+  display:flex;align-items:center;justify-content:center;
+  opacity:.75;transition:var(--tr);border-radius:6px;flex-shrink:0;
+}
+.header-settings-btn:hover{opacity:1;background:rgba(255,255,255,.15)}
+
+/* ══ TABS ══ */
+.tabs{
+  display:flex; background:var(--card);
+  border-bottom:1px solid var(--brd); position:sticky; top:0; z-index:10;
+}
+.tab-btn{
+  flex:1; padding:9px 0; border:none; background:transparent;
+  font-size:13px; font-weight:600; color:var(--txt3);
+  cursor:pointer; border-bottom:2.5px solid transparent; transition:var(--tr);
+  position:relative;
+}
+.tab-btn:hover{color:var(--accent)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* [v2.6.3] Золотой shimmer на табе Премиум — для free-юзеров с активным trial-CTA */
+.trial-main-cta[hidden]{display:none}
+.tab-btn.tab-btn-goldshine{
+  color:#7a5c00;
+  background:linear-gradient(90deg,#fff4c9 0%,#ffeaa1 25%,#ffd966 50%,#ffeaa1 75%,#fff4c9 100%);
+  background-size:220% 100%;
+  animation:goldShine 6s linear infinite;
+}
+.tab-btn.tab-btn-goldshine:hover{color:#5a4400}
+.tab-btn.tab-btn-goldshine.active{
+  color:#7a5c00;
+  border-bottom-color:#d4a017;
+}
+@keyframes goldShine{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.tab-content{display:none;padding:4px 8px 6px}
+.tab-content.active{display:block}
+
+/* ══ CARDS ══ */
+.module{
+  margin:4px 0; padding:10px 12px;
+  background:var(--card); border-radius:var(--r);
+  box-shadow:0 1px 4px rgba(0,0,0,.05);
+}
+.module-title{
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--txt3); margin-bottom:6px;
+}
+
+/* ══ ACCOUNT ══ */
+.card-account{padding:10px 12px 8px}
+.account-actions{display:flex;align-items:center;gap:6px}
+.status-badge{
+  display:inline-block; padding:2px 10px; border-radius:14px;
+  font-size:11px; font-weight:700; background:#eee; color:var(--txt2);
+}
+#premiumMessage,#premiumKeyMessage,#vpnMessage{font-size:11px;min-height:0;margin-bottom:2px;text-align:center}
+.date-row{
+  display:none; align-items:center; gap:8px;
+  padding:8px 10px; background:var(--accent-lt); border-radius:var(--rx);
+  margin-bottom:6px; font-size:13px; color:var(--txt);
+}
+.date-row-compact{margin:0 0 4px}
+.date-icon{font-size:18px;flex-shrink:0}
+.date-row b{color:var(--accent-dk)}
+#resetPremiumBtn{
+  display:none;
+  background:rgba(239,83,80,.08); color:var(--red);
+  border:1px solid rgba(239,83,80,.2); border-radius:6px;
+  padding:2px 8px; font-size:10px; font-weight:600; cursor:pointer;
+  transition:var(--tr);
+}
+#resetPremiumBtn:hover{background:rgba(239,83,80,.15)}
+.account-buy-btn{
+  display:none;
+  background:linear-gradient(135deg,var(--grad2),var(--grad1)); color:#fff;
+  border:none; border-radius:14px;
+  padding:5px 14px; font-size:11px; font-weight:700; cursor:pointer;
+  transition:var(--tr); box-shadow:0 1px 4px rgba(0,0,0,.1);
+}
+.account-buy-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,.18);transform:translateY(-1px)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* Key input */
+.key-row{display:flex;gap:6px;margin-bottom:6px}
+#premiumKey{
+  flex:1; padding:8px 14px;
+  border:1.5px solid var(--brd); border-radius:22px;
+  font-size:13px; color:var(--txt); background:var(--bg); transition:var(--tr);
+}
+#premiumKey:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+#premiumKey::placeholder{color:#bbb}
+#activateKey{
+  padding:8px 20px; background:var(--accent); color:#fff;
+  border:none; border-radius:22px; cursor:pointer;
+  font-weight:700; font-size:13px; transition:var(--tr);
+}
+#activateKey:hover{background:var(--accent-dk)}
+
+/* Buy button inside card */
+#buyPremiumBtn{
+  display:block; width:100%;
+  padding:10px; margin-top:2px;
+  font-size:14px; font-weight:700; color:#fff;
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));
+  border:none; border-radius:22px; cursor:pointer;
+  text-align:center; text-decoration:none; transition:var(--tr);
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+#buyPremiumBtn:hover{box-shadow:0 3px 12px rgba(0,0,0,.2);transform:translateY(-1px)}
+
+/* ══ VPN CARD ══ */
+.card-vpn{padding:12px 14px 10px}
+.vpn-status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.vpn-status-row #proxyToggleLabel{font-size:13px;font-weight:600;color:var(--txt2)}
+.vpn-status-off{font-size:14px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.5px}
+.vpn-status-on{font-size:14px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.vpn-toggle-btn{
+  display:block;width:100%;padding:14px;
+  font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+  border:none;border-radius:var(--rx);cursor:pointer;
+  transition:var(--tr);text-align:center;
+}
+.vpn-btn-off{
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.vpn-btn-off:hover{box-shadow:0 3px 12px rgba(0,0,0,.2);transform:translateY(-1px)}
+.vpn-btn-on{
+  background:linear-gradient(135deg,var(--red),#c62828);color:#fff;
+  box-shadow:0 2px 8px rgba(239,83,80,.2);
+}
+.vpn-btn-on:hover{box-shadow:0 3px 12px rgba(239,83,80,.3);transform:translateY(-1px)}
+.vpn-toggle-btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+.vpn-toggle-btn.loading{animation:pulseGlow 1s ease-in-out infinite}
+
+.switch{position:relative;display:inline-block;width:48px;height:26px}
+.switch input{appearance:none;width:0;height:0}
+.slider{
+  position:absolute;cursor:pointer;inset:0;
+  background:#d1d1d6;border-radius:26px;transition:.3s ease;
+}
+.slider:before{
+  position:absolute;content:"";
+  width:20px;height:20px;left:3px;bottom:3px;
+  background:#fff;border-radius:50%;transition:.3s ease;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+input:checked+.slider{
+  background:linear-gradient(135deg,var(--accent),var(--grad3));
+  box-shadow:0 2px 10px rgba(0,0,0,.15);
+}
+input:checked+.slider:before{transform:translateX(22px)}
+input:disabled+.slider{opacity:.4;cursor:not-allowed}
+
+#timer{
+  margin-top:8px; font-weight:700; font-size:13px; color:var(--accent); text-align:center;
+  display:none;
+}
+#timer.timer-active{display:block}
+
+/* ══ [v2.6.2] CURRENT IP / FLAG ══ */
+.vpn-ip-info{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin-top:8px; padding:6px 10px;
+  background:var(--bg); border:1px solid var(--brd); border-radius:var(--rx);
+  font-size:12px; color:var(--txt2);
+}
+.vpn-ip-info[hidden]{display:none}
+.vpn-ip-info .flag-img{width:18px;height:13px;flex-shrink:0}
+.vpn-ip-info .inline-spinner{margin-right:0;flex-shrink:0} /* [v3.0.3] flex gap уже даёт отступ */
+.vpn-ip-label{font-weight:700;color:var(--txt3)}
+/* [v3.0.3] overflow-wrap вместо word-break:break-all — длинные статус-сообщения («Сервер не
+   отвечает…») переносятся ПО СЛОВАМ, а не посреди слова («не»/«т»); длинный IPv6 всё равно
+   разобьётся при переполнении. Текст по центру читается ровно в несколько строк. */
+#vpnIpText{font-family:'SF Mono',Consolas,monospace;font-weight:600;color:var(--txt);overflow-wrap:break-word;text-align:center}
+
+/* ══ COMPACT ROW ══ */
+.compact-row{
+  display:flex; align-items:center; gap:8px; padding:8px 12px;
+}
+.compact-row .module-title{margin-bottom:0;white-space:nowrap;font-size:11px;flex-shrink:0}
+
+/* Hidden native select */
+.hidden-select{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+
+/* ══ MODAL SELECT BUTTON ══ */
+.modal-select-btn{
+  flex:1; display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border:1.5px solid var(--brd); border-radius:var(--rx);
+  background:var(--card); color:var(--txt); font-size:13px;
+  cursor:pointer; transition:var(--tr); text-align:left; gap:6px;
+  font-family:inherit;
+}
+.modal-select-btn:hover{border-color:var(--accent);background:var(--accent-lt)}
+.modal-select-arrow{font-size:16px;color:var(--txt3);font-weight:700;flex-shrink:0;transition:var(--tr)}
+.modal-select-btn:hover .modal-select-arrow{color:var(--accent)}
+.btn-label-with-flag{display:flex;align-items:center;gap:6px}
+
+/* ══ FLAG IMAGE ══ */
+.flag-img{
+  width:20px; height:14px; border-radius:2px;
+  object-fit:cover; vertical-align:middle;
+  box-shadow:0 0 1px rgba(0,0,0,.2);
+  flex-shrink:0;
+}
+.flag-img-lg{width:28px;height:20px;border-radius:3px}
+
+/* ══ SUPPORT ══ */
+/* [v2.9.1] Выделена — primary CTA для обратной связи, ранее терялась как outline. */
+/* [v3.1.7] Нижняя полноширинная кнопка — теперь «Чат пользователей» (бывший стиль #supportBtn) */
+#communityChatBtn{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  width:calc(100% - 16px); margin:8px;
+  padding:11px 14px; font-size:13px; font-weight:700;
+  color:#fff; background:var(--accent);
+  border:none; border-radius:24px;
+  cursor:pointer; text-decoration:none; transition:var(--tr);
+  box-shadow:0 2px 8px rgba(76,175,80,.28);
+  letter-spacing:.2px;
+}
+#communityChatBtn:hover{
+  filter:brightness(1.06);
+  box-shadow:0 4px 14px rgba(76,175,80,.42);
+  transform:translateY(-1px);
+}
+#communityChatBtn:active{transform:translateY(0)}
+/* [v3.1.7] «Обратная связь» — яркая компактная кнопка в шапке: белый фон + тематический
+   акцент-текст (совпадает с цветом шапки в любой из 17 тем), лёгкая тень для объёма. */
+.header-support-btn{
+  display:flex; align-items:center; gap:5px; flex-shrink:0;
+  padding:5px 12px; font-size:12px; font-weight:800;
+  color:var(--accent-dk); background:#fff;
+  border:none; border-radius:16px;
+  cursor:pointer; text-decoration:none; transition:var(--tr);
+  box-shadow:0 1px 6px rgba(0,0,0,.22);
+}
+.header-support-btn:hover{background:#fff; box-shadow:0 2px 11px rgba(0,0,0,.32); transform:translateY(-1px)}
+.header-support-btn:active{transform:translateY(0); box-shadow:0 1px 5px rgba(0,0,0,.24)}
+.header-support-btn .support-btn-icon{font-size:13px}
+.support-btn-icon{font-size:15px;line-height:1;flex-shrink:0}
+.support-btn-text{flex-shrink:0}
+
+/* ══ RATING ══ */
+.card-rating{text-align:center;padding:8px 12px 10px}
+.card-rating .module-title{color:var(--txt2);font-size:11px;margin-bottom:4px}
+.stars-row{
+  display:inline-flex; gap:2px;
+  padding:4px 16px;
+  background:var(--accent-lt);
+  border-radius:22px; border:1px solid var(--accent-100);
+}
+.star{
+  font-size:24px; color:#e0e0e0; cursor:pointer;
+  transition:transform .15s,color .15s; line-height:1;
+}
+.star:hover{transform:scale(1.15)}
+.star.hover{transform:scale(1.2);color:#ffab00 !important}
+.star.selected{color:var(--gold)}
+
+/* ══ FEEDBACK ══ */
+#feedback-form{display:none;padding:10px 12px}
+#feedback{
+  width:100%;padding:8px 10px;
+  border:1.5px solid var(--brd);border-radius:var(--rx);
+  font-size:12px;font-family:inherit;resize:none;color:var(--txt);background:var(--card);
+  transition:var(--tr);margin-bottom:4px;
+}
+#feedback:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+#feedback::placeholder{color:var(--txt3)}
+#email{
+  width:100%;padding:8px 10px;
+  border:1.5px solid var(--brd);border-radius:var(--rx);
+  font-size:12px;font-family:inherit;color:var(--txt);background:var(--card);
+  transition:var(--tr);margin-bottom:4px;
+}
+#email:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+#email::placeholder{color:var(--txt3)}
+.feedback-actions{display:flex;gap:6px}
+#submit-feedback{
+  padding:7px 16px;background:var(--accent);color:#fff;
+  border:none;border-radius:var(--rx);cursor:pointer;font-size:12px;font-weight:600;transition:var(--tr);
+}
+#submit-feedback:hover{background:var(--accent-dk)}
+#edit-feedback{
+  display:none;padding:7px 12px;background:var(--bg);color:var(--txt2);
+  border:1px solid var(--brd);border-radius:var(--rx);cursor:pointer;font-size:12px;
+}
+textarea:disabled,input:disabled{background-color:var(--bg)!important;color:var(--txt3)!important}
+
+/* ══ NEWS ══ */
+.news-loading{padding:30px 0;text-align:center}
+.news-spinner{
+  width:26px;height:26px;border:3px solid var(--brd);border-top:3px solid var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* [v3.0.3] Переиспользуемый inline-спиннер (резолв IP / подбор рабочего сервера / Connecting…).
+   Тема-зависимый (var(--accent)), вектор-чёткий, 0 КБ ассетов — единый язык с .news-spinner. */
+.inline-spinner{
+  display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px;
+  border:2px solid var(--brd);border-top:2px solid var(--accent);border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+.inline-spinner[hidden]{display:none}
+.news-empty{display:none;padding:20px;color:var(--txt3);font-size:13px;text-align:center}
+.news-item{
+  background:var(--card);border-radius:var(--r);
+  padding:10px 12px;margin:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.05);text-align:left;
+}
+.news-item-date{font-size:10px;color:var(--txt3);margin-bottom:3px}
+.news-item-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:3px}
+.news-item-body{font-size:12px;color:var(--txt2);line-height:1.4}
+.news-item-link{display:inline-block;margin-top:3px;font-size:11px;color:var(--accent);text-decoration:none;font-weight:600}
+.news-item-link:hover{text-decoration:underline}
+/* [v2.8.5] Системные сообщения — отдельный блок вверху «Новостей». keyexp = янтарь
+   (предупреждение об окончании ключа), admin = акцент (сообщение администратора). */
+.news-item-system{border-left:3px solid var(--accent)}
+.news-item-system.sys-keyexp{border-left-color:var(--gold);background:#fff8e1}
+.news-item-system.sys-admin{border-left-color:var(--accent);background:var(--accent-lt)}
+body.theme-dark .news-item-system.sys-keyexp{background:#2b2415}
+body.theme-dark .news-item-system.sys-admin{background:#15241a}
+/* Кнопка «Прочитано» на админ-сообщении. .done/:disabled — после нажатия. */
+.sys-read-btn{margin-top:7px;padding:5px 12px;font-size:11px;font-weight:600;
+  background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;
+  font-family:inherit;transition:var(--tr)}
+.sys-read-btn:hover{background:var(--accent-dk)}
+.sys-read-btn.done,.sys-read-btn:disabled{background:#e0e0e0;color:#8a8a8a;cursor:default}
+body.theme-dark .sys-read-btn.done,body.theme-dark .sys-read-btn:disabled{background:#333;color:#888}
+.news-badge{
+  background:var(--red);color:#fff;font-size:9px;padding:1px 5px;
+  border-radius:8px;margin-left:4px;vertical-align:middle;font-weight:700;
+}
+
+/* ══ PREMIUM TAB ══ */
+/* [v2.8.1 audit] .premium-promo / .premium-features-list / .premium-feature-item — dead rules,
+   удалены (0 references в HTML/JS). RTL mirror тоже убран. */
+
+.premium-module{position:relative}
+.premium-lock{
+  position:absolute;inset:0;background:rgba(255,255,255,.88);z-index:5;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 16px;
+  border-radius:var(--r);font-size:12px;color:#3a3a3a;text-align:center;
+  cursor:pointer; transition:background .15s ease, color .15s ease;
+}
+/* [v2.8.0] feat-desc внутри lock-overlay — описание под lock-badge, своя строка.
+   color:inherit чтобы reuseить premium-lock palette (light=#3a3a3a, dark=#e0e0e0).
+   WCAG AA fix: ранее var(--txt3) #8e8e93 на белом давало 3.8:1 contrast — fail. */
+.premium-lock .module-feat-desc{margin:0;font-size:11px;line-height:1.4;opacity:.95;color:inherit}
+/* [v2.8.0] checker rate-limit hint — amber-notice card для free-verified юзеров */
+#checkerFreeVerifiedHint{
+  background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(217,119,6,.12));
+  border:1px solid rgba(245,158,11,.32);
+  border-radius:8px;padding:9px 12px;margin:8px 14px 0;
+  font-size:12px;line-height:1.4;color:#f59e0b;font-weight:500;
+}
+#checkerFreeVerifiedHint::before{content:'⏱️ ';font-size:13px;margin-right:2px}
+body.theme-dark #checkerFreeVerifiedHint{color:#fbbf24}
+/* [v2.8.0] cooldown — pointer-events:none предотвращает hover/click через JS handlers
+   (на случай если кто-то задизаблит через .disabled класс вместо attribute). */
+.checker-item-btn:disabled,#checkAllBtn:disabled{pointer-events:none}
+.premium-lock:hover{background:rgba(255,255,255,.95);color:var(--accent-dk)}
+body.theme-dark .premium-lock{background:rgba(42,42,42,.88);color:#e0e0e0}
+body.theme-dark .premium-lock:hover{background:rgba(42,42,42,.95);color:var(--accent)}
+.checker-mode-toggle{
+  display:flex;gap:3px;margin-bottom:8px;
+  background:var(--bg);border-radius:var(--rx);padding:3px;border:1px solid var(--brd);
+}
+.checker-mode-btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:5px;border:none;border-radius:6px;
+  background:transparent;color:var(--txt3);font-size:11px;cursor:pointer;transition:var(--tr);
+  font-family:inherit;
+}
+.checker-mode-btn.active{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600}
+.checker-mode-btn:hover:not(.active){background:rgba(255,255,255,.05)}
+.checker-mode-icon{font-size:12px}
+.checker-mode-label{font-size:11px}
+.checker-btn{
+  display:block;width:100%;margin-top:8px;padding:10px;
+  background:var(--accent);color:#fff;border:none;border-radius:var(--rx);
+  font-size:13px;font-weight:700;cursor:pointer;transition:var(--tr);
+}
+.checker-btn:hover{background:var(--accent-dk)}
+.checker-btn:disabled{background:var(--accent-100);color:var(--txt3);cursor:not-allowed}
+/* [v2.6.4 audit] Removed dead rules from pre-v2.6.2 single-server checker UI:
+   .checker-result, .check-status/breakdown/row/label/val, .check-route, .route-*.
+   v2.6.2 full-popup checker uses .checker-item-result (see below). */
+
+/* ══ EXCLUSIONS SUMMARY ══ */
+.excl-summary{display:flex;gap:12px;margin-bottom:6px}
+.excl-summary-row{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--txt)}
+.excl-summary-row.active-mode{font-weight:700;color:var(--accent-dk)}
+.excl-summary-icon{font-size:14px}
+.excl-active-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;margin-bottom:8px;
+  font-size:11px;font-weight:700;
+  border-radius:12px;
+  background:var(--accent-lt);color:var(--accent-dk);
+  border:1px solid var(--accent-100);
+}
+.excl-open-btn{
+  display:block;width:100%;padding:10px;
+  background:var(--accent);color:#fff;border:none;border-radius:var(--rx);
+  font-size:13px;font-weight:700;cursor:pointer;transition:var(--tr);
+}
+.excl-open-btn:hover{background:var(--accent-dk)}
+
+/* ══ [v2.6.2] AD-BLOCKER MODULE ══ */
+.adblock-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.adblock-label{flex:1;font-size:13px;color:var(--txt);line-height:1.35}
+
+/* ══ [v2.8.8] BYPASS .ru/.рф TOGGLE — компактный switch под server-row ══ */
+.bypass-ru-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;margin-bottom:6px;cursor:help}
+.bypass-ru-label{flex:1;font-size:12px;color:var(--txt);line-height:1.3}
+.bypass-ru-help{flex-shrink:0;font-size:13px;color:var(--txt2);user-select:none}
+.bypass-ru-row:hover .bypass-ru-help{color:var(--accent)}
+
+/* ══ [v3.1.1] NOTIFY SETTINGS — уведомления о конце free-сессии (settings drawer) ══ */
+.notify-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0}
+.notify-label{flex:1;font-size:12px;color:var(--txt);line-height:1.3}
+
+/* ══ THEME PREVIEW ══ */
+.theme-preview{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.theme-preview-swatch{width:36px;height:36px;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.theme-preview-name{font-size:14px;font-weight:700;color:var(--txt)}
+
+/* ══ THEME GRID (modal) ══ */
+.theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:4px 0;max-height:65vh;overflow-y:auto}
+.theme-swatch{
+  display:flex;align-items:center;justify-content:center;
+  padding:0;height:44px;
+  border:2px solid var(--brd);border-radius:8px;
+  cursor:pointer;transition:var(--tr);
+  position:relative;overflow:hidden;
+  background:var(--card);
+}
+.theme-swatch:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.theme-swatch.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.swatch-fill{
+  position:absolute;inset:0;
+  display:block;
+}
+.swatch-label{
+  position:relative;z-index:1;
+  font-size:10px;font-weight:700;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);
+  letter-spacing:.3px;
+}
+/* Swatch gradients */
+.swatch-default{background:linear-gradient(135deg,#66bb6a,#2e7d32)}
+.swatch-blue{background:linear-gradient(135deg,#42a5f5,#1565c0)}
+.swatch-purple{background:linear-gradient(135deg,#ab47bc,#6a1b9a)}
+.swatch-orange{background:linear-gradient(135deg,#ffa726,#e65100)}
+.swatch-red{background:linear-gradient(135deg,#ef5350,#c62828)}
+.swatch-teal{background:linear-gradient(135deg,#26a69a,#00695c)} /* [v3.1.1] #26c6da был из cyan-палитры — свотчи cyan/teal выглядели одинаково */
+.swatch-pink{background:linear-gradient(135deg,#ec407a,#ad1457)}
+.swatch-indigo{background:linear-gradient(135deg,#5c6bc0,#283593)}
+.swatch-amber{background:linear-gradient(135deg,#ffca28,#ff8f00)}
+.swatch-cyan{background:linear-gradient(135deg,#00e5ff,#0097a7)}
+.swatch-lime{background:linear-gradient(135deg,#8bc34a,#558b2f)}
+.swatch-brown{background:linear-gradient(135deg,#8d6e63,#4e342e)}
+.swatch-steel{background:linear-gradient(135deg,#90a4ae,#37474f)}
+.swatch-wine{background:linear-gradient(135deg,#c2185b,#880e4f)}
+.swatch-forest{background:linear-gradient(135deg,#43a047,#1b5e20)} /* [v3.1.1] #66bb6a совпадал с default-свотчем — «Зелёная» и «Лесная» выглядели близнецами */
+.swatch-ocean{background:linear-gradient(135deg,#0288d1,#01579b)}
+.swatch-dark{background:linear-gradient(135deg,#546e7a,#263238)}
+
+/* ══ MODALS (shared) ══ */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(4px);
+  z-index:9999;justify-content:center;align-items:center;
+}
+.modal-overlay.active{display:flex}
+.modal-box{
+  background:var(--card);padding:20px 16px;border-radius:16px;
+  text-align:center;max-width:92%;width:374px;position:relative;
+  box-shadow:0 8px 32px rgba(0,0,0,.18);
+  max-height:90vh;display:flex;flex-direction:column;
+}
+.modal-close{
+  position:absolute;top:10px;right:14px;font-size:22px;cursor:pointer;
+  color:var(--txt3);line-height:1;z-index:2;transition:var(--tr);
+  /* [v2.8.1 audit] был <span> — стал <button> для keyboard a11y; reset дефолтных button-стилей */
+  background:transparent;border:0;padding:0;font-family:inherit;
+}
+.modal-close:hover{color:var(--txt)}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;padding:0 4px;
+}
+.modal-header h2{font-size:17px;font-weight:800;color:var(--accent-dk);margin:0;text-align:left}
+.modal-header .modal-close{position:static}
+/* [v3.1.3] Статус фоновой проверки скорости в шапке «Выбор сервера» */
+.ghost-ping-status{margin-left:auto;padding:0 8px 0 6px;font-size:11px;font-weight:600;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.modal-box h2{margin:0 0 10px;font-size:17px;color:var(--accent-dk);font-weight:800}
+.modal-box p{margin:0 0 14px;font-size:13px;color:var(--txt2);line-height:1.5}
+.modal-action-btn{
+  display:block;margin:0 auto;padding:11px 18px;
+  font-size:14px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));
+  border-radius:22px;text-decoration:none;transition:var(--tr);
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.modal-action-btn:hover{box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.modal-action-btn-web{
+  margin-top:8px;
+  background:transparent;color:var(--accent-dk);
+  border:1.5px solid var(--accent);box-shadow:none;
+  font-size:12px;padding:8px 14px;
+}
+.modal-action-btn-web:hover{background:var(--accent-lt);box-shadow:none}
+.modal-action-btn-site{
+  margin-top:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-dk));
+  font-size:13px;padding:9px 16px;
+}
+
+/* ══ [v2.6.2] CHECKER MODAL — full popup with per-server check + check-all ══ */
+.modal-checker-box{
+  width:100%; height:100%;
+  max-width:none; max-height:none;
+  padding:0; border-radius:0;
+  display:flex; flex-direction:column;
+}
+.modal-checker-box .modal-header{
+  padding:10px 14px; margin:0;
+  border-bottom:1px solid var(--brd);
+  background:var(--card); border-radius:0;
+  flex-shrink:0;
+}
+.modal-checker-box .modal-header h2{font-size:15px;margin:0}
+.checker-controls{
+  padding:7px 12px; flex-shrink:0;
+  border-bottom:1px solid var(--brd);
+  display:flex; flex-direction:column; gap:6px;
+}
+.checker-controls .checker-mode-toggle{margin:0}
+.checker-site-row{display:flex; flex-direction:column; gap:6px}
+.checker-site-row.hidden{display:none}
+.checker-site-row .modal-select-btn{width:100%}
+.checker-list{flex:1; overflow-y:auto; padding:5px 12px}
+.checker-item{
+  display:flex; align-items:center; gap:8px;
+  padding:5px 10px; margin-bottom:3px;
+  background:var(--bg); border:1px solid var(--brd); border-radius:var(--rx);
+}
+.checker-item-main{
+  flex:1; display:flex; align-items:center; gap:6px;
+  font-size:12px; color:var(--txt); min-width:0;
+}
+.checker-item-main > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.checker-item-result{
+  font-size:11px; font-weight:600; padding:2px 8px;
+  border-radius:10px; background:var(--card); border:1px solid var(--brd);
+  min-width:58px; text-align:center; flex-shrink:0;
+  font-family:'SF Mono',Consolas,monospace;
+}
+.checker-item-result.ping-0{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7}
+.checker-item-result.ping-1{background:#f1f8e9;color:#558b2f;border-color:#c5e1a5}
+.checker-item-result.ping-2{background:#fffde7;color:#9e9d24;border-color:#fff59d}
+.checker-item-result.ping-3{background:#fff8e1;color:#f9a825;border-color:#ffe082}
+.checker-item-result.ping-4{background:#fff3e0;color:#ef6c00;border-color:#ffb74d}
+.checker-item-result.ping-5{background:#ffebee;color:#c62828;border-color:#ef9a9a}
+.checker-item-result.fail{background:#ffebee;color:#c62828;border-color:#ef9a9a}
+.checker-item-result.loading{color:var(--txt3);animation:pulseOpacity 1.2s ease-in-out infinite}
+@keyframes pulseOpacity{0%,100%{opacity:.4}50%{opacity:1}}
+.checker-item-btn{
+  font-size:11px; padding:5px 12px;
+  border:1px solid var(--accent);
+  background:var(--accent); color:#fff;
+  border-radius:14px; cursor:pointer;
+  transition:var(--tr); font-family:inherit; flex-shrink:0;
+  font-weight:600;
+}
+.checker-item-btn:hover{background:var(--accent-dk); border-color:var(--accent-dk)}
+/* [v2.8.0] disabled — not-allowed (rate-limit/cooldown), не wait (которое означает «идёт операция») */
+.checker-item-btn:disabled{opacity:.4; cursor:not-allowed}
+/* [v2.6.2] «Остановить» состояние кнопки «Проверить все» */
+.checker-btn.checker-btn-stop{
+  background:linear-gradient(135deg,var(--red),#c62828);
+  color:#fff;
+}
+.checker-btn.checker-btn-stop:hover{background:linear-gradient(135deg,#e53935,#b71c1c)}
+/* [v2.8.5] Предупреждение, видимое во время массовой проверки серверов. */
+.checker-run-warn{
+  margin:8px 0 2px;padding:7px 10px;font-size:11px;line-height:1.4;
+  background:#fff8e1;color:#8a6d00;border:1px solid #ffe082;border-radius:8px;
+}
+.checker-run-warn::before{content:"⚠ ";font-weight:700}
+body.theme-dark .checker-run-warn{background:#2b2415;color:#ffcc80;border-color:#443a1d}
+/* [v2.8.5] Онбординг-модалка — инструкция по выбору сервера при первом открытии popup.
+   Дизайн: градиентная шапка-герой + нумерованные карточки-шаги + карточки вариантов доступа. */
+.onboarding-overlay{z-index:10050}
+.onboarding-box{
+  width:100%;height:100%;max-width:none;max-height:none;
+  border-radius:0;box-sizing:border-box;position:relative;
+  display:flex;flex-direction:column;
+  padding:0;overflow-y:auto;
+}
+/* Тонкий скроллбар — иначе стандартный (~17px) съедает правый край шапки/карточек. */
+.onboarding-box::-webkit-scrollbar{width:6px}
+.onboarding-box::-webkit-scrollbar-thumb{background:rgba(0,0,0,.22);border-radius:3px}
+/* .onb-content БЕЗ display — иначе перебивает [hidden] переключатель языков (_maybeShowOnboarding) */
+/* Шапка-герой с тематическим градиентом */
+.onb-hero{
+  /* Тёмная вуаль поверх акцентного градиента + только тёмные стопы grad1→grad2 —
+     белый текст читаем на всех 17 темах (включая светлые amber/lime). */
+  background:
+    linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42)),
+    linear-gradient(135deg,var(--grad1),var(--grad2));
+  padding:26px 20px 22px;text-align:center;
+  border-bottom-left-radius:22px;border-bottom-right-radius:22px;
+}
+.onb-hero-badge{display:flex;justify-content:center;margin-bottom:11px}
+.onb-hero-logo{height:60px;width:60px;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,.3))}
+.onb-h{font-size:17px;font-weight:800;margin:0 0 6px;color:#fff;line-height:1.3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+/* .onb-hero .onb-lead (0,2,0 — два класса) перебивает .modal-box p (0,1,1 — класс+тег) по специфичности;
+   иначе подзаголовок-<p> красится в тёмный var(--txt2) и сливается с градиентом. */
+.onb-hero .onb-lead{font-size:11.5px;line-height:1.55;color:#fff;margin:0;text-shadow:0 1px 3px rgba(0,0,0,.55)}
+/* Тело */
+.onb-body{padding:15px 14px 18px;display:flex;flex-direction:column}
+/* Шаги — нумерованные карточки (счётчик CSS, без правки HTML) */
+.onb-steps{
+  list-style:none;margin:0;padding:0;
+  display:flex;flex-direction:column;gap:9px;counter-reset:onb;
+}
+.onb-steps li{
+  position:relative;counter-increment:onb;
+  background:var(--bg);border:1px solid var(--brd);border-radius:var(--rs);
+  padding:11px 12px 11px 47px;
+  font-size:12px;line-height:1.5;color:var(--txt2);
+}
+.onb-steps li::before{
+  content:counter(onb);
+  position:absolute;left:11px;top:11px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:13px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
+}
+.onb-steps li b{color:var(--txt);font-weight:700}
+/* Карточки вариантов доступа */
+.onb-var{
+  margin-top:9px;padding:10px 12px;
+  background:var(--bg);border:1px solid var(--brd);border-radius:var(--rs);
+  border-left:3px solid var(--accent);
+}
+.onb-var-prem{border-left-color:var(--gold)}
+.onb-var-h{font-size:12px;font-weight:800;color:var(--txt);margin-bottom:3px}
+.onb-var p{font-size:11px;line-height:1.5;color:var(--txt2);margin:0}
+/* CTA */
+.onb-btn{
+  margin-top:17px;padding:12px;font-size:13.5px;font-weight:800;
+  background:var(--accent);color:#fff;border:none;border-radius:12px;
+  cursor:pointer;font-family:inherit;transition:var(--tr);
+}
+.onb-btn:hover{background:var(--accent-dk)}
+.onb-btn:active{transform:scale(.985)}
+.onboarding-close{position:absolute;top:9px;right:11px;z-index:2;color:#fff;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.45)}
+.onboarding-close:hover{color:#fff;opacity:1}
+/* [v2.8.5] RTL онбординг (ar/he/fa) — крестик слева, нумерация и акцент-полоса зеркалятся */
+[dir="rtl"] .onboarding-close{right:auto;left:11px}
+[dir="rtl"] .onb-steps li{padding:11px 47px 11px 12px}
+[dir="rtl"] .onb-steps li::before{left:auto;right:11px}
+[dir="rtl"] .onb-var{border-left:1px solid var(--brd);border-right:3px solid var(--accent)}
+[dir="rtl"] .onb-var-prem{border-right-color:var(--gold)}
+body.theme-dark .checker-item-result{background:#1a1a1e; border-color:var(--brd)}
+body.theme-dark .checker-item-result.ping-0{background:#1b2e1b; color:#81c784}
+body.theme-dark .checker-item-result.ping-1{background:#1f2818; color:#aed581}
+body.theme-dark .checker-item-result.ping-2{background:#2a2712; color:#fff176}
+body.theme-dark .checker-item-result.ping-3{background:#2b2415; color:#ffcc80}
+body.theme-dark .checker-item-result.ping-4{background:#2e2316; color:#ffab91}
+body.theme-dark .checker-item-result.ping-5,body.theme-dark .checker-item-result.fail{background:#2e1818; color:#ef9a9a}
+
+/* ══ [v2.6.2] SUPPORT HUB MODAL — full popup ══ */
+.modal-support-box{
+  width:100%; height:100%;
+  max-width:none; max-height:none;
+  padding:0; border-radius:0;
+  display:flex; flex-direction:column;
+}
+.modal-support-box .modal-header{
+  padding:10px 14px; margin:0;
+  border-bottom:1px solid var(--brd);
+  background:var(--card); border-radius:0;
+  flex-shrink:0;
+}
+.modal-support-box .modal-header h2{font-size:15px;margin:0}
+.support-actions{
+  display:flex; flex-direction:column; gap:6px;
+  padding:10px 12px; flex-shrink:0;
+  border-bottom:1px solid var(--brd);
+}
+.support-btn{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; width:100%;
+  border:1.5px solid var(--brd); border-radius:var(--rx);
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:600; font-family:inherit;
+  cursor:pointer; transition:var(--tr); text-align:left;
+}
+.support-btn:hover{border-color:var(--accent);background:var(--accent-lt);color:var(--accent-dk)}
+.support-btn-icon{font-size:16px;flex-shrink:0}
+.support-btn-primary{background:linear-gradient(135deg,var(--grad2),var(--grad1));color:#fff;border-color:transparent}
+.support-btn-primary:hover{background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+/* [v2.8.2 audit-2] secondary variant — был использован в HTML (openSupportChatBtn) но без своего rule:
+   падал на `.support-btn` базу без accent-color. Теперь — outlined accent style для контраста с primary. */
+.support-btn-secondary{background:var(--accent-lt);color:var(--accent-dk);border-color:var(--accent)}
+.support-btn-secondary:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.support-faq-wrap{
+  flex:1; display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.support-faq-title{
+  padding:8px 14px; flex-shrink:0;
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.7px; color:var(--txt3);
+  border-bottom:1px solid var(--brd);
+}
+#supportFaqFrame{
+  flex:1; width:100%; border:0;
+  background:var(--card); border-radius:0;
+}
+
+/* ══ [v2.6.2] SUPPORT CHAT MODAL ══ */
+.modal-chat-box{
+  width:374px; padding:0;
+  display:flex; flex-direction:column;
+  height:540px; max-height:90vh;
+}
+.modal-chat-box .modal-header{
+  padding:10px 14px; margin:0;
+  border-bottom:1px solid var(--brd);
+  background:var(--card); border-radius:16px 16px 0 0;
+  flex-shrink:0;
+}
+.modal-chat-box .modal-header h2{font-size:15px;margin:0}
+#supportChatFrame{
+  flex:1; width:100%; border:0;
+  border-radius:0 0 16px 16px;
+  background:var(--card);
+}
+
+/* ══ MODAL LIST ══ */
+.modal-list-box{padding:16px 12px;text-align:left}
+.modal-list{
+  overflow-y:auto;max-height:70vh;
+}
+/* [v3.0.2] Ссылка «Статус всех серверов» внизу модалки выбора сервера → balancing.apiget.ru/lk/status */
+.server-status-link{display:block;text-align:center;padding:11px 12px;font-size:12.5px;font-weight:600;color:#8b93a1;text-decoration:none;border-top:1px solid rgba(255,255,255,.07);transition:color .2s}
+.server-status-link:hover{color:#66bb6a}
+/* [v2.8.5] Модалка «Выбор сервера» — во весь popup: больше ширины под строку сервера
+   (флаг + №/звезда + счётчик 👤 + пинг + кнопки умещаются в одну строку). */
+#serverModal .modal-box{
+  width:100%;height:100%;max-width:none;max-height:none;
+  border-radius:0;box-sizing:border-box;
+}
+#serverModal .modal-list{flex:1;max-height:none;min-height:0}
+
+.modal-list-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;margin:3px 0;
+  border-radius:var(--rx);cursor:pointer;
+  transition:var(--tr);border:1.5px solid transparent;
+  font-size:14px;color:var(--txt);
+}
+.modal-list-item:hover{background:var(--accent-lt);border-color:var(--accent-100)}
+.modal-list-item.selected{background:var(--accent-lt);border-color:var(--accent);font-weight:700}
+.modal-list-item.disabled{opacity:.45;cursor:not-allowed}
+.modal-list-item.premium-item{color:#b8860b;font-weight:600;background:rgba(255,215,0,.08)}
+.modal-list-item.premium-item:hover{background:rgba(255,215,0,.15)}
+.modal-list-item.premium-item.disabled{color:var(--txt3);font-style:italic;font-weight:400;background:transparent}
+/* [v2.7.3] Free-юзер на перегруженном сервере — визуальная блокировка, клик ведёт на upsell */
+.modal-list-item.free-blocked{opacity:.55;cursor:pointer;background:rgba(255,140,0,.06)}
+.modal-list-item.free-blocked:hover{opacity:.8;background:rgba(255,140,0,.12)}
+.modal-list-item.free-blocked .modal-item-main::after{content:" 🔒";font-size:11px;opacity:.7;margin-left:4px}
+/* [v2.7.3] freeBlockedModal открывается ПОВЕРХ serverModal (клик на заблокированный
+   сервер в списке). Все остальные .modal-overlay имеют z-index:9999 — повышаем на 1,
+   чтобы stack-порядок не зависел от позиции в HTML.
+   [v3.0.3] geoBlockModal — та же ситуация (клик по метке ⚠ в списке серверов). */
+#freeBlockedModal,#geoBlockModal,#trafficModal,#noServerModal,#serverLegendModal,#serverNoPingModal,#serverBrokenModal{z-index:10001}
+
+.modal-item-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+/* [v2.8.5] Лейбл сервера (№/⭐) — всегда одна строка; при тесноте — многоточие, не перенос. */
+.modal-item-main>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modal-item-badge{
+  font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;
+  background:var(--accent-lt);color:var(--accent-dk);white-space:nowrap;
+}
+/* [v2.8.5] Пинг сервера из последней проверки (вкладка Premium → «Проверка серверов»). */
+.modal-item-ping{
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;
+  white-space:nowrap;border:1px solid transparent;flex-shrink:0;
+  font-family:'SF Mono',Consolas,monospace;
+}
+.modal-item-ping.ping-0{background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7}
+.modal-item-ping.ping-1{background:#f1f8e9;color:#558b2f;border-color:#c5e1a5}
+.modal-item-ping.ping-2{background:#fffde7;color:#9e9d24;border-color:#fff59d}
+.modal-item-ping.ping-3{background:#fff8e1;color:#f9a825;border-color:#ffe082}
+.modal-item-ping.ping-4{background:#fff3e0;color:#ef6c00;border-color:#ffb74d}
+.modal-item-ping.ping-5,.modal-item-ping.fail{background:#ffebee;color:#c62828;border-color:#ef9a9a}
+body.theme-dark .modal-item-ping.ping-0{background:#1b2e1b;color:#81c784;border-color:#2e4e2e}
+body.theme-dark .modal-item-ping.ping-1{background:#1f2818;color:#aed581;border-color:#33421f}
+body.theme-dark .modal-item-ping.ping-2{background:#2a2712;color:#fff176;border-color:#42401d}
+body.theme-dark .modal-item-ping.ping-3{background:#2b2415;color:#ffcc80;border-color:#443a1d}
+body.theme-dark .modal-item-ping.ping-4{background:#2e2316;color:#ffab91;border-color:#46371f}
+body.theme-dark .modal-item-ping.ping-5,body.theme-dark .modal-item-ping.fail{background:#2e1818;color:#ef9a9a;border-color:#4a2424}
+.modal-item-check{font-size:16px;color:var(--accent);flex-shrink:0;opacity:0;transition:var(--tr)}
+.modal-list-item.selected .modal-item-check{opacity:1}
+
+/* Section separator in modal */
+.modal-section-label{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--txt3);padding:8px 14px 2px;
+}
+
+/* ══ AUTO-SELECT BAR (server modal) ══ */
+.auto-sel-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 12px;margin-bottom:8px;
+  background:var(--bg);border:1px solid var(--brd);border-radius:var(--rx);
+}
+.auto-sel-label{
+  flex:1;font-size:13px;font-weight:600;color:var(--txt);
+  display:flex;align-items:center;gap:6px;
+}
+.auto-sel-label::before{content:"⚡";font-size:14px}
+.auto-sel-scope-btn{
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:600;color:var(--accent-dk);
+  background:var(--accent-lt);border:1px solid var(--accent-100);
+  border-radius:12px;padding:4px 10px;cursor:pointer;
+  transition:var(--tr);font-family:inherit;white-space:nowrap;
+}
+.auto-sel-scope-btn:hover{background:var(--accent-100);border-color:var(--accent)}
+.auto-sel-scope-btn[disabled]{opacity:.4;cursor:not-allowed;pointer-events:none}
+.auto-sel-scope-btn[hidden]{display:none}
+.auto-sel-scope-icon{font-size:12px;line-height:1}
+.auto-sel-switch{flex-shrink:0}
+.auto-sel-bar.disabled .auto-sel-label{color:var(--txt3)}
+.auto-sel-bar.disabled .auto-sel-scope-btn{opacity:.4;pointer-events:none}
+
+.auto-sel-scope-wrap{position:relative;display:inline-flex}
+.auto-sel-scope-dropdown{
+  display:none;flex-direction:column;gap:2px;
+  position:absolute;top:calc(100% + 6px);right:0;z-index:20;
+  background:var(--card);border:1px solid var(--accent);border-radius:var(--rx);
+  padding:4px;width:140px;
+  box-shadow:0 6px 16px rgba(0,0,0,.18);
+}
+.auto-sel-scope-dropdown.open{display:flex}
+.auto-sel-scope-item{
+  padding:8px 12px;font-size:12px;border-radius:6px;cursor:pointer;
+  color:var(--txt);transition:var(--tr);
+}
+.auto-sel-scope-item:hover{background:var(--accent-lt)}
+.auto-sel-scope-item.selected{background:var(--accent-lt);color:var(--accent-dk);font-weight:700}
+.auto-sel-scope-item.selected::before{content:"✓ "}
+
+/* ══ [v2.9.1] METHOD DROPDOWN — критерий авто-выбора (load/ping/both). Зеркало scope-dropdown ══ */
+.auto-sel-method-wrap{position:relative;display:inline-flex}
+.auto-sel-method-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 8px;font-size:11px;font-weight:600;
+  color:var(--txt);background:transparent;
+  border:1px solid var(--brd);border-radius:12px;
+  cursor:pointer;font-family:inherit;transition:var(--tr);
+}
+.auto-sel-method-btn:hover{background:var(--accent-lt)}
+.auto-sel-method-icon{font-size:10px;color:var(--accent)}
+.auto-sel-method-dropdown{
+  display:none;flex-direction:column;gap:2px;
+  position:absolute;top:calc(100% + 6px);left:0;z-index:20;
+  background:var(--card);border:1px solid var(--accent);border-radius:var(--rx);
+  padding:4px;min-width:140px;
+  box-shadow:0 6px 16px rgba(0,0,0,.18);
+}
+.auto-sel-method-dropdown.open{display:flex}
+.auto-sel-method-item{
+  padding:8px 12px;font-size:12px;border-radius:6px;cursor:pointer;
+  color:var(--txt);transition:var(--tr);
+}
+.auto-sel-method-item:hover{background:var(--accent-lt)}
+.auto-sel-method-item.selected{background:var(--accent-lt);color:var(--accent-dk);font-weight:700}
+.auto-sel-method-item.selected::before{content:"✓ "}
+/* [v2.9.1] disabled item — без свежих пингов нельзя выбрать */
+.auto-sel-method-item.disabled{opacity:.40;cursor:not-allowed;pointer-events:none}
+[dir="rtl"] .auto-sel-method-dropdown{left:auto;right:0}
+
+/* ══ [v2.9.1] SETUP METRIC MODAL — first-open wizard, FULL-SCREEN на popup ══ */
+.setup-overlay{
+  align-items:stretch;justify-content:stretch;
+  padding:0;
+  /* [v3.0.5] Скролл перенесён ВНУТРЬ .setup-box (height:100%+overflow-y). Overlay фиксирован и НЕ
+     скроллится — раньше overflow-y:auto на overlay + min-height:100% карточки давали "уезжающий" фон. */
+  overflow:hidden;
+}
+.setup-box{
+  /* [v2.9.1] Полностью занимает popup (no margin/padding на overlay) */
+  width:100%;max-width:none;
+  /* [v3.0.5] height:100% + внутренний overflow-y: карточка-фон фиксирована на весь popup, скроллится
+     ТОЛЬКО содержимое (раньше min-height:100% + скролл overlay → фон смещался). max-height:none
+     перебивает унаследованный от .modal-box max-height:90vh. Отступы уменьшены → меньше высота. */
+  height:100%;max-height:none;overflow-y:auto;
+  padding:16px 18px 14px;
+  background:var(--card);border-radius:0;
+  box-shadow:none;
+  position:relative;
+  display:flex;flex-direction:column;gap:9px;
+}
+/* Sticky кнопка "Готово" внизу — всегда видна без скролла к концу */
+.setup-box .setup-btn{
+  position:sticky;bottom:0;
+  margin-top:auto;
+  z-index:2;
+}
+.setup-close{
+  position:absolute;top:8px;right:10px;
+  background:transparent;border:none;
+  font-size:22px;line-height:1;cursor:pointer;
+  color:var(--txt3);padding:4px 8px;
+}
+.setup-close:hover{color:var(--txt)}
+.setup-hero{text-align:center;margin-bottom:0}
+.setup-hero-badge{display:inline-flex;align-items:center;justify-content:center;margin-bottom:4px}
+.setup-hero-logo{width:38px;height:38px}
+.setup-h{font-size:16px;font-weight:700;margin:0 0 3px;color:var(--txt)}
+.setup-lead{font-size:13px;color:var(--txt2);margin:0 0 2px;line-height:1.35}
+#setupMetricSub{margin-bottom:0}
+/* [v3.1.1 audit] Удалён мёртвый CSS радио-визарда (классы setup-radios, setup-radio, setup-runnow —
+   0 ссылок в popup.html/js: визард первичной настройки переписан на шаги setup-step). */
+.setup-btn{
+  display:block;width:100%;
+  padding:10px 16px;font-size:14px;font-weight:600;
+  background:var(--accent);color:#fff;
+  border:none;border-radius:10px;cursor:pointer;
+  transition:var(--tr);font-family:inherit;
+}
+.setup-btn:hover{filter:brightness(1.08)}
+
+/* [v2.9.1] Setup warning — без проверки серверов риск */
+.setup-warning{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:10px 12px;background:rgba(245,158,11,.10);
+  border:1px solid rgba(245,158,11,.30);border-radius:8px;
+  font-size:12px;color:#a85b06;line-height:1.4;
+}
+.setup-warning-icon{font-size:14px;flex-shrink:0;line-height:1.2}
+/* [v3.1.1 audit] было [data-theme*="dark"] .setup-warning — не срабатывало: реальная тёмная тема
+   это body.theme-dark, а .setup-warning не потомок swatch с data-theme; тем midnight/onyx нет. */
+body.theme-dark .setup-warning{color:#f59e0b}
+/* [v3.1.2] красное состояние при попытке пропустить проверку серверов (риск плохого пинга для региона) */
+.setup-warning.danger{
+  background:rgba(220,38,38,.10);
+  border-color:rgba(220,38,38,.40);
+  color:#dc2626;font-weight:600;
+  animation:setupWarnPulse .4s ease;
+}
+body.theme-dark .setup-warning.danger{color:#f87171}
+@keyframes setupWarnPulse{0%{transform:scale(.97)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+.setup-conflict-warn{
+  margin:10px 0 0;padding:10px 12px;text-align:left;
+  background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);border-radius:8px;
+  font-size:12px;color:#a85b06;line-height:1.45;
+}
+.setup-conflict-warn[hidden]{display:none}
+body.theme-dark .setup-conflict-warn{color:#f59e0b}
+
+/* [v3.0.5] Мастер первичной настройки — шаги (ключ → проверка → готово) */
+.setup-step{display:flex;flex-direction:column;gap:9px}
+.setup-step[hidden]{display:none}
+.setup-step-text{font-size:13px;color:var(--txt2);line-height:1.45;margin:0}
+.setup-step-text[hidden]{display:none}
+.setup-step .setup-btn{position:static;margin-top:2px} /* внутри шага — не sticky */
+.setup-key-row{display:flex;gap:8px}
+.setup-key-input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--bg);color:var(--txt);font-size:13px;font-family:inherit}
+.setup-key-input:focus{outline:none;border-color:var(--accent)}
+.setup-key-ok{flex-shrink:0;padding:0 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;transition:var(--tr)}
+.setup-key-ok:hover{filter:brightness(1.08)}
+.setup-btn-link{align-self:center;background:none;border:none;color:var(--txt3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px;font-family:inherit}
+.setup-btn-link:hover{color:var(--txt)}
+.setup-check-progress{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--txt2);padding:10px 12px;background:var(--bg);border-radius:8px;text-align:center;line-height:1.4}
+.setup-check-progress[hidden]{display:none}
+.setup-done-check{width:52px;height:52px;margin:2px auto 0;border-radius:50%;background:var(--accent);color:#fff;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.setup-done-check.setup-done-warn{background:#f59e0b} /* [v3.0.5] проверка не нашла рабочих серверов */
+.setup-done-text{text-align:center;font-size:14px;color:var(--txt)}
+
+/* ══ [v2.9.1] BULK-PING PROGRESS — индикатор сверху popup'а во время bulk-ping ══ */
+.bulk-ping-indicator{
+  position:fixed;top:0;left:0;right:0;z-index:30;
+  background:linear-gradient(135deg, rgba(76,175,80,.95), rgba(56,142,60,.95));
+  color:#fff;padding:6px 12px;
+  font-size:12px;font-weight:500;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.bulk-ping-text{display:block;margin-bottom:4px;text-align:center}
+.bulk-ping-bar{
+  width:100%;height:3px;
+  background:rgba(255,255,255,.25);
+  border-radius:2px;overflow:hidden;
+}
+.bulk-ping-bar-fill{
+  height:100%;width:0;
+  background:#fff;
+  transition:width .35s ease;
+}
+
+/* ══ [v2.6.2] SORT MODE BAR (server modal) ══ */
+.sort-mode-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 12px;margin-bottom:8px;
+  font-size:12px;
+}
+.sort-mode-label{color:var(--txt3);font-weight:600}
+.sort-mode-wrap{position:relative;display:inline-flex;flex:1}
+.sort-mode-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;font-size:12px;font-weight:600;
+  color:var(--txt);background:var(--bg);
+  border:1px solid var(--brd);border-radius:12px;
+  cursor:pointer;font-family:inherit;transition:var(--tr);
+}
+.sort-mode-btn:hover{border-color:var(--accent);color:var(--accent-dk)}
+.sort-mode-caret{font-size:10px;color:var(--txt3);line-height:1}
+.sort-mode-dropdown{
+  display:none;flex-direction:column;gap:2px;
+  position:absolute;top:calc(100% + 6px);left:0;z-index:20;
+  background:var(--card);border:1px solid var(--accent);border-radius:var(--rx);
+  padding:4px;min-width:150px;
+  box-shadow:0 6px 16px rgba(0,0,0,.18);
+}
+.sort-mode-dropdown.open{display:flex}
+.sort-mode-item{
+  padding:8px 12px;font-size:12px;border-radius:6px;cursor:pointer;
+  color:var(--txt);transition:var(--tr);
+}
+.sort-mode-item:hover{background:var(--accent-lt)}
+.sort-mode-item.selected{background:var(--accent-lt);color:var(--accent-dk);font-weight:700}
+.sort-mode-item.selected::before{content:"✓ "}
+/* [v2.8.5] «По пингу» приглушён, пока нет данных проверки серверов (клик ведёт к проверке). */
+.sort-mode-item.needs-ping{color:var(--txt3);opacity:.65}
+
+/* ══ EXCLUSIONS MODAL — [v2.6.2] full popup ══ */
+.modal-excl-box,
+#autoEnableModal .modal-box{
+  width:100%; height:100%;
+  max-width:none; max-height:none;
+  padding:0; border-radius:0;
+  display:flex; flex-direction:column;
+  text-align:left;
+}
+.modal-excl-box .modal-header{
+  padding:10px 14px; margin:0;
+  border-bottom:1px solid var(--brd);
+  background:var(--card); border-radius:0;
+  flex-shrink:0;
+}
+.modal-excl-box .modal-header h2{font-size:15px;margin:0}
+.excl-modal-body{flex:1; overflow-y:auto; padding:12px}
+.excl-mode-toggle{
+  display:flex;gap:3px;margin-bottom:8px;
+  background:var(--bg);border-radius:var(--rx);padding:3px;border:1px solid var(--brd);
+}
+.excl-mode-btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:4px;
+  padding:8px;border:none;border-radius:6px;
+  background:transparent;color:var(--txt3);font-size:12px;cursor:pointer;transition:var(--tr);
+  font-family:inherit;
+}
+.excl-mode-btn.active{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600}
+.excl-mode-btn:hover:not(.active){background:rgba(255,255,255,.5)}
+.excl-mode-icon{font-size:13px}
+.excl-mode-label{font-size:12px}
+.excl-hint{transition:all .2s;margin-bottom:10px;font-size:12px;color:var(--txt3)}
+.excl-section{margin-bottom:10px;border:1px solid var(--brd);border-radius:var(--rx);padding:8px;background:var(--bg)}
+/* [v2.6.5] AutoEnable модалка имеет одну секцию — растягиваем её и список на всю высоту */
+#autoEnableModal .excl-modal-body{display:flex;flex-direction:column}
+#autoEnableModal .excl-section{flex:1;display:flex;flex-direction:column;margin-bottom:0;min-height:0}
+#autoEnableModal .exclusions-list{flex:1;max-height:none;min-height:0}
+.excl-section-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:6px;font-size:13px;font-weight:700;color:var(--txt);
+}
+.excl-copy-btn{
+  padding:3px 8px;border:1px solid var(--brd);border-radius:6px;
+  background:var(--card);cursor:pointer;font-size:11px;transition:var(--tr);color:var(--txt2);
+}
+.excl-copy-btn:hover{border-color:var(--accent);background:var(--accent-lt);color:var(--accent-dk)}
+.exclusion-add-row{display:flex;gap:6px;margin-bottom:6px}
+.exclusion-add-row input{
+  flex:1;padding:7px 10px;border:1.5px solid var(--brd);border-radius:var(--rx);
+  font-size:12px;color:var(--txt);background:var(--card);transition:var(--tr);
+}
+.exclusion-add-row input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+.exclusion-add-row input::placeholder{color:var(--txt3)}
+.excl-add-btn{
+  width:36px;padding:0;font-size:18px;font-weight:700;
+  background:var(--accent);color:#fff;border:none;border-radius:var(--rx);cursor:pointer;line-height:1;transition:var(--tr);
+}
+.excl-add-btn:hover{background:var(--accent-dk)}
+.exclusions-list{max-height:120px;overflow-y:auto}
+.exclusion-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 10px;margin:3px 0;background:var(--card);
+  border:1px solid var(--brd);border-radius:6px;font-size:12px;
+}
+.exclusion-item .remove-excl{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 4px;line-height:1}
+.exclusion-item .remove-excl:hover{color:#c62828}
+.no-exclusions{color:var(--txt3);font-size:12px;text-align:center;padding:8px}
+.module-hint{font-size:11px;color:var(--txt3);margin:4px 0 8px}
+.trial-link{display:block;text-decoration:none;color:var(--accent-dk);text-align:center;padding:6px 10px;background:var(--accent-lt);border-radius:var(--rx);border:1px solid var(--accent-100);transition:var(--tr);cursor:pointer}
+.trial-link:hover{background:var(--accent-100)}
+
+/* ══ [v2.6.2] ONE-CLICK TRIAL CTA ══ */
+.trial-cta-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:12px 14px;margin-bottom:8px;
+  font-size:13px;font-weight:700;font-family:inherit;
+  color:#4e342e;
+  background:linear-gradient(135deg,#fff8e1 0%,#ffecb3 50%,#ffe082 100%);
+  border:1.5px solid #ffc107;border-radius:22px;
+  cursor:pointer;transition:var(--tr);
+  box-shadow:0 2px 8px rgba(255,193,7,.25);
+  position:relative;overflow:hidden;
+}
+.trial-cta-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 0%,rgba(255,255,255,.35) 50%,transparent 100%);
+  transform:translateX(-100%);transition:transform .6s ease;
+}
+.trial-cta-btn:hover::before{transform:translateX(100%)}
+.trial-cta-btn:hover{
+  background:linear-gradient(135deg,#ffecb3 0%,#ffe082 50%,#ffd54f 100%);
+  box-shadow:0 3px 12px rgba(255,193,7,.4);
+  transform:translateY(-1px);
+  border-color:#ffa000;
+}
+.trial-cta-btn:disabled{opacity:.6;cursor:wait;transform:none;box-shadow:none}
+.trial-cta-icon{font-size:16px;line-height:1;flex-shrink:0;position:relative;z-index:1}
+.trial-cta-label{position:relative;z-index:1}
+body.theme-dark .trial-cta-btn{
+  background:linear-gradient(135deg,#3e2c1a 0%,#4a3520 50%,#5a3f24 100%);
+  color:#ffe082;border-color:#ff8f00;
+}
+body.theme-dark .trial-cta-btn:hover{
+  background:linear-gradient(135deg,#4a3520 0%,#5a3f24 50%,#6b4a28 100%);
+}
+
+/* ══ [v2.6.2] RECOVERY CTA ══ */
+.recover-cta-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:8px 12px;margin-bottom:6px;
+  font-size:12px;font-weight:600;font-family:inherit;
+  color:var(--accent-dk);
+  background:transparent;
+  border:1.5px dashed var(--accent-100);border-radius:18px;
+  cursor:pointer;transition:var(--tr);
+}
+.recover-cta-btn:hover{
+  background:var(--accent-lt);
+  border-color:var(--accent);
+  border-style:solid;
+}
+.recover-cta-btn:disabled{opacity:.5;cursor:wait}
+.recover-cta-icon{font-size:13px;line-height:1;flex-shrink:0}
+body.theme-dark .recover-cta-btn{color:var(--accent-100);border-color:rgba(200,230,201,.3)}
+body.theme-dark .recover-cta-btn:hover{background:rgba(76,175,80,.15);border-color:var(--accent)}
+#checker-custom{
+  margin-top:6px;width:100%;padding:8px 14px;
+  border:1.5px solid var(--brd);border-radius:22px;
+  font-size:13px;color:var(--txt);background:var(--bg);
+  transition:var(--tr);font-family:inherit;
+}
+#checker-custom:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,175,80,.1)}
+#checker-custom::placeholder{color:#bbb}
+
+/* ══ PRIVACY LINK ══ */
+.privacy-link{
+  display:block;width:calc(100% - 16px);margin:2px 8px 4px;
+  padding:6px;font-size:11px;font-weight:500;
+  color:var(--txt3);text-align:center;text-decoration:none;
+  transition:var(--tr);
+}
+.privacy-link:hover{color:var(--accent);text-decoration:underline}
+
+.hidden{display:none!important}
+.vpn-locked{opacity:.45!important;cursor:not-allowed!important}
+
+/* ══ SETTINGS DRAWER ══ */
+.settings-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0);backdrop-filter:blur(0px);
+  z-index:10000;
+  pointer-events:none;
+  transition:background .3s ease,backdrop-filter .3s ease;
+}
+.settings-overlay.active{
+  background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+  pointer-events:auto;
+}
+.settings-drawer{
+  position:absolute;top:0;right:0;bottom:0;left:0;
+  background:var(--card);
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.settings-overlay.active .settings-drawer{transform:translateX(0)}
+.settings-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--grad1) 0%,var(--grad2) 60%,var(--grad3) 100%);
+}
+.settings-header h2{font-size:16px;font-weight:800;color:#fff;margin:0}
+.settings-header .modal-close{position:static;color:rgba(255,255,255,.7);font-size:22px}
+.settings-header .modal-close:hover{color:#fff}
+.settings-body{padding:12px;overflow-y:auto;flex:1}
+.settings-section{margin-bottom:16px}
+.settings-section-title{
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.7px;color:var(--txt3);margin-bottom:6px;
+}
+.settings-hint{font-size:12px;color:var(--txt2);line-height:1.4;margin-bottom:10px}
+.settings-btn{
+  display:flex;align-items:center;gap:8px;width:100%;
+  padding:10px 14px;border:1.5px solid var(--brd);border-radius:var(--rx);
+  background:var(--bg);color:var(--txt);font-size:13px;font-weight:600;
+  cursor:pointer;transition:var(--tr);
+}
+.settings-btn:hover{border-color:var(--accent);color:var(--accent)}
+.settings-btn:active{transform:scale(.98)}
+.settings-btn:disabled{opacity:.5;cursor:not-allowed}
+.settings-btn-danger:hover{border-color:var(--red);color:var(--red)}
+.settings-btn-icon{font-size:16px;flex-shrink:0}
+.settings-result{
+  font-size:12px;margin-top:8px;padding:6px 10px;
+  border-radius:var(--rx);display:none;
+}
+.settings-result.show{display:block}
+.settings-result.ok{background:var(--accent-lt);color:var(--accent-dk)}
+.settings-result.err{background:#ffebee;color:#c62828}
+/* [v3.0.1] Волна-индикатор копирования (заменяет статичную плашку «Скопировано») */
+.settings-btn.btn-copied,.settings-btn.btn-copyerr{position:relative;overflow:hidden}
+.settings-btn.btn-copied{border-color:var(--accent);color:var(--accent)}
+.settings-btn.btn-copied::after{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:55%;pointer-events:none;
+  opacity:.7;transform:translateX(-160%);
+  background:linear-gradient(90deg,transparent 0%,var(--accent-lt) 40%,var(--accent) 50%,var(--accent-lt) 60%,transparent 100%);
+  animation:btnCopyWave .7s ease-out 1;
+}
+@keyframes btnCopyWave{from{transform:translateX(-160%)}to{transform:translateX(285%)}}
+.settings-btn.btn-copyerr{border-color:var(--red);color:var(--red);animation:btnCopyShake .42s ease}
+@keyframes btnCopyShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-3px)}40%,80%{transform:translateX(3px)}}
+.settings-btn-confirming{
+  border-color:var(--red)!important;background:#ffebee!important;color:var(--red)!important;
+  font-size:12px!important;pointer-events:none;transition:none!important;
+}
+.settings-btn-confirming .settings-btn-icon{font-size:14px}
+.settings-lang-btn{width:100%;margin-top:6px}
+.settings-confirm-row{
+  display:flex;gap:8px;margin-top:8px;animation:fadeIn .2s ease;
+}
+.settings-confirm-yes{
+  flex:1;padding:8px;border:none;border-radius:var(--rx);
+  background:var(--red);color:#fff;font-size:13px;font-weight:700;cursor:pointer;
+  transition:var(--tr);
+}
+.settings-confirm-yes:hover{opacity:.85}
+.settings-confirm-no{
+  flex:1;padding:8px;border:1.5px solid var(--brd);border-radius:var(--rx);
+  background:var(--bg);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;
+  transition:var(--tr);
+}
+.settings-confirm-no:hover{border-color:var(--accent);color:var(--accent)}
+
+/* [v2.7.6] Backup section — две кнопки в ряд (Экспорт + Импорт) */
+.backup-actions{display:flex;gap:8px}
+.backup-actions .settings-btn{flex:1}
+[dir="rtl"] .backup-actions{flex-direction:row-reverse}
+
+/* [v2.8.0] Account section — code input + link button + register link */
+/* [v2.8.0] Account-link UX: explicit numbered steps + prominent "Get code" button */
+.account-link-steps{
+  margin:6px 0 10px;padding-left:22px;
+  font-size:12px;line-height:1.5;color:var(--txt2);
+}
+.account-link-steps li{margin-bottom:3px}
+.account-link-steps li:last-child{margin-bottom:0}
+.account-get-code-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;margin-bottom:8px;
+  text-decoration:none;
+}
+.account-get-code-btn:hover{text-decoration:none}
+
+.account-link-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.account-code-input{
+  flex:1;min-width:0;padding:8px 10px;
+  border:1.5px solid var(--brd);border-radius:var(--rx);
+  background:var(--bg);color:var(--txt);
+  font-size:12px;font-family:'JetBrains Mono','Courier New',monospace;
+  letter-spacing:.05em;
+}
+.account-code-input:focus{outline:none;border-color:var(--accent)}
+.account-link-row .settings-btn{width:auto;flex:0 0 auto;padding:8px 14px}
+.settings-btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.settings-btn-primary:hover{opacity:.88;color:#fff;border-color:var(--accent)}
+/* [v3.1.7] Специфичность поднята до .account-verify-banner.load-warning-banner (0,2,0): раньше
+   одноклассовый .account-verify-banner (0,1,0) перебивался более поздним .load-warning-banner
+   (тоже 0,1,0) → баннер рендерился фиолетовым вместо задуманного янтарного. */
+/* [v3.1.7] Цвет баннера — базовый фиолетовый .load-warning-banner (пользователи привыкли,
+   решение Кости). Фон/рамку/тень НЕ переопределяем. Здесь только структура под крестик:
+   position (якорь) + padding-right (чтобы заголовок не заходил под крестик, когда он показан). */
+.account-verify-banner.load-warning-banner{
+  position:relative;
+  padding-right:24px;
+}
+.account-verify-close{
+  position:absolute;top:6px;right:8px;
+  background:none;border:none;color:rgba(255,255,255,.8);
+  font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;
+  transition:color .15s ease;
+}
+.account-verify-close:hover{color:#fff}
+.account-verify-close[hidden]{display:none}
+[dir="rtl"] .account-verify-close{right:auto;left:8px}
+.account-verify-banner .load-warning-banner-title,
+.account-verify-banner .load-warning-banner-text{color:#fff}
+.account-verify-banner .load-warning-btn-primary{background:#fff;color:#92400e}
+.account-verify-banner .load-warning-btn-primary:hover{background:#fff8e1;color:#7c2d12}
+[dir="rtl"] .account-link-row{flex-direction:row-reverse}
+
+/* ══ ANIMATIONS ══ */
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-overlay.active .modal-box{animation:modalIn .2s ease}
+
+/* ══ RTL SUPPORT ══ */
+[dir="rtl"] .header-bar{flex-direction:row-reverse}
+[dir="rtl"] .tab-btn{direction:ltr}
+[dir="rtl"] .module{text-align:right}
+[dir="rtl"] .module-title{text-align:right}
+[dir="rtl"] .compact-row{flex-direction:row-reverse}
+[dir="rtl"] .modal-select-btn{flex-direction:row-reverse;text-align:right}
+[dir="rtl"] .key-row{flex-direction:row-reverse}
+[dir="rtl"] #premiumKey{text-align:right}
+[dir="rtl"] .date-row{flex-direction:row-reverse}
+[dir="rtl"] .modal-header{flex-direction:row-reverse}
+[dir="rtl"] .modal-list-item{flex-direction:row-reverse}
+[dir="rtl"] .modal-item-main{flex-direction:row-reverse}
+[dir="rtl"] .feedback-actions{flex-direction:row-reverse}
+[dir="rtl"] .excl-summary{flex-direction:row-reverse}
+[dir="rtl"] .settings-drawer{transform:translateX(-100%)}
+[dir="rtl"] .settings-overlay.active .settings-drawer{transform:translateX(0)}
+[dir="rtl"] .settings-header{flex-direction:row-reverse}
+[dir="rtl"] .settings-btn{flex-direction:row-reverse}
+/* [v2.7.3] Пропущенные RTL-зеркала: slider-ручка (lt-to-rt вместо справа-влево),
+   крестик закрытия модалок (слева вместо справа), иконка избранного в модалке */
+[dir="rtl"] .slider:before{left:auto;right:3px}
+[dir="rtl"] input:checked+.slider:before{transform:translateX(-22px)}
+[dir="rtl"] .modal-close{right:auto;left:14px}
+[dir="rtl"] .modal-item-fav{margin-left:0;margin-right:auto}
+/* [v2.7.3 audit] Дополнительные RTL-зеркала для dropdowns и отступов */
+[dir="rtl"] .auto-sel-scope-dropdown{right:auto;left:0}
+[dir="rtl"] .sort-mode-dropdown{left:auto;right:0}
+[dir="rtl"] #vpnConflictResult ul{padding-left:0;padding-right:18px}
+[dir="rtl"] .session-expired-body{padding-right:0;padding-left:16px}
+[dir="rtl"] .trial-main-cta-body{padding-right:0;padding-left:22px}
+/* [round 10] RTL gaps выявленные audit'ом — emoji/icon/banner mirroring */
+[dir="rtl"] .modal-list-item.free-blocked .modal-item-main::after{margin-left:0;margin-right:4px}
+[dir="rtl"] .server-btn-warn{margin-left:0;margin-right:4px}
+[dir="rtl"] .trial-main-cta-dismiss{right:auto;left:6px}
+[dir="rtl"] .session-expired-close{right:auto;left:8px}
+[dir="rtl"] .update-banner,[dir="rtl"] .rate-limit-banner{flex-direction:row-reverse}
+[dir="rtl"] .load-warning-banner{flex-direction:row-reverse}
+
+/* ══ v2.5.1: AUTO DARK THEME (system preference) ══ */
+/* [v2.7.3 audit] prefers-reduced-motion: отключает анимации для юзеров с vestibular disorder */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+@media(prefers-color-scheme:dark){
+  body.theme-default{
+    --bg:#1a1a1a;--card:#2a2a2a;--txt:#e0e0e0;--txt2:#bbb;--txt3:#888;--brd:#444;
+  }
+  body.theme-default .premium-lock{background:rgba(42,42,42,.88)}
+}
+
+/* ══ TOGGLE LOADING ══ */
+.switch.loading .slider{animation:pulseGlow 1s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(76,175,80,.3)}50%{box-shadow:0 0 12px 4px rgba(76,175,80,.5)}}
+
+/* ══ STATS ══ */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.stat-item{background:var(--bg);border-radius:var(--rx);padding:12px 6px;text-align:center}
+.stat-value{display:block;font-size:17px;font-weight:800;color:var(--accent-dk);margin-bottom:2px}
+.stat-label{display:block;font-size:10px;color:var(--txt3);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.stat-server-row{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--rx);padding:10px 14px;margin-top:8px}
+.stat-server-row .stat-label{flex-shrink:0;text-transform:uppercase}
+.stat-server-value{flex:1;text-align:right;font-size:13px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ══ FAVORITE STAR ══ */
+.modal-item-fav{cursor:pointer;font-size:15px;opacity:.25;transition:opacity .2s,transform .2s;padding:2px 4px;margin-left:auto;order:2}
+.modal-item-fav:hover{opacity:.6;transform:scale(1.15)}
+.modal-item-fav.active{opacity:1;color:var(--gold)}
+.fav-animate{animation:favSlideIn .25s ease}
+@keyframes favSlideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ [v2.5.9] EXCLUDE-FROM-AUTO-SELECT BUTTON ══ */
+.modal-item-exclude{
+  cursor:pointer;font-size:20px;line-height:1;
+  opacity:.22;color:var(--txt3);
+  padding:0 6px;user-select:none;
+  transition:opacity .15s,color .15s,transform .15s;
+  order:1;
+}
+.modal-item-exclude:hover{opacity:.9;color:var(--red);transform:scale(1.15)}
+.modal-item-exclude.excluded{opacity:.85;color:var(--accent)}
+.modal-item-exclude.excluded:hover{color:var(--accent-dk)}
+.modal-list-item.auto-sel-excluded{opacity:.55}
+/* [v3.0.3] Метка возможных гео-ограничений (YouTube/Instagram) у серверов стран с цензурой */
+.modal-item-geowarn{flex:0 0 auto;margin-left:6px;font-size:13px;line-height:1;color:#ffb74d;cursor:pointer;user-select:none;transition:transform .15s,color .15s}
+.modal-item-geowarn:hover{color:#ffa726;transform:scale(1.2)}
+[dir="rtl"] .modal-item-geowarn{margin-left:0;margin-right:6px}
+/* [v3.0.3] Метка «сервер не отвечает» (туннель недавно ломался) — красный значок, как неуд. проверка */
+.modal-item-broken{flex:0 0 auto;margin-left:6px;font-size:13px;line-height:1;font-weight:700;color:#ef5350;cursor:help;user-select:none}
+[dir="rtl"] .modal-item-broken{margin-left:0;margin-right:6px}
+/* [v3.0.3] Метка «общий лимит трафика — сервер может временно пропасть» (EE/JP/FI) — синяя, инфо */
+.modal-item-trafficwarn{flex:0 0 auto;margin-left:6px;font-size:13px;line-height:1;color:#4fc3f7;cursor:pointer;user-select:none;transition:transform .15s,color .15s}
+.modal-item-trafficwarn:hover{color:#29b6f6;transform:scale(1.2)}
+[dir="rtl"] .modal-item-trafficwarn{margin-left:0;margin-right:6px}
+/* [v3.0.3] Кнопки в no-server модалке — вертикально (3 действия) */
+.noserver-actions{flex-direction:column;gap:8px}
+.noserver-actions .overload-btn{width:100%}
+.modal-list-item.auto-sel-excluded .modal-item-main{text-decoration:line-through;text-decoration-thickness:1px}
+
+/* ══ [v2.5.9] SERVER LOAD WARNINGS — 2 levels ══ */
+/* Medium (75–99): orange, static — "elevated load" */
+/* High  (100+):  red, blinking — "critical load"  */
+.server-btn-warn{font-size:14px;margin-left:4px}
+.server-btn-warn-medium{color:#f57c00}
+.server-btn-warn-high{color:var(--red);animation:warnBlink 1s ease-in-out infinite}
+.badge-warn::before{content:'⚠ '}
+.badge-warn-medium{color:#f57c00}
+.badge-warn-high{color:var(--red)}
+.badge-warn-high::before{animation:warnBlink 1s ease-in-out infinite}
+@keyframes warnBlink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ══ [v2.6.2] UPDATE AVAILABLE (soft info) BANNER ══ */
+.update-available-banner{
+  display:block;
+  background:linear-gradient(90deg,#1e88e5,#42a5f5);
+  color:#fff;padding:8px 10px;margin:8px;border-radius:8px;
+  box-shadow:0 2px 6px rgba(33,150,243,.25);
+  font-size:12px;line-height:1.3
+}
+.update-available-banner[hidden]{display:none}
+/* [v3.0.3] баннер — два ряда: текст+× сверху, кнопки снизу справа */
+.update-available-top{display:flex;align-items:center;gap:8px}
+.update-available-actions{display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+.update-available-icon{font-size:14px;flex-shrink:0}
+.update-available-text{flex:1}
+.update-available-btn{
+  background:#fff;color:#1565c0;border:none;border-radius:6px;
+  padding:5px 10px;font-weight:600;font-size:11px;cursor:pointer;
+  transition:transform .12s ease,background .12s ease;flex-shrink:0
+}
+.update-available-btn:hover{background:#e3f2fd;transform:translateY(-1px)}
+.update-available-close{
+  background:none;border:none;color:rgba(255,255,255,.7);
+  font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;
+  transition:color .15s ease;flex-shrink:0
+}
+.update-available-close:hover{color:#fff}
+/* [v3.0.3] Кнопка «Как обновить вручную» в баннере обновления → модалка-инструкция (вторичная, призрак) */
+.update-available-help-btn{
+  background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6);
+  border-radius:6px;padding:5px 10px;font-weight:600;font-size:11px;cursor:pointer;
+  transition:background .12s ease
+}
+.update-available-help-btn:hover{background:rgba(255,255,255,.15)}
+/* [v3.0.3] Update-help модалка */
+.update-help-steps{margin:6px 0;padding-left:20px;text-align:left;font-size:12px;line-height:1.5}
+.update-help-steps li{margin-bottom:4px}
+.update-help-path-row{display:flex;align-items:center;gap:8px;margin:8px 0}
+.update-help-path{
+  flex:1;background:var(--bg);border:1px dashed var(--brd);border-radius:6px;
+  padding:7px 10px;font-family:monospace;font-size:12px;color:var(--accent);
+  cursor:pointer;user-select:all;word-break:break-all;text-align:left
+}
+.update-help-path:hover{border-color:var(--accent)}
+.update-help-note{font-size:11px;color:var(--txt3);margin-top:6px}
+#updateHelpModal{z-index:10001}
+/* [v3.0.3] overload-confirm-body — flex-ряд (иконка+абзац); тут нужен вертикальный поток */
+#updateHelpModal .overload-confirm-body{display:block;text-align:left}
+#updateHelpModal .overload-confirm-body p{margin:0 0 6px}
+
+/* ══ [v2.5.8] UPDATE REQUIRED BANNER ══ */
+.update-banner{
+  display:flex;align-items:center;gap:8px;
+  background:linear-gradient(90deg,#c0392b,#e74c3c);
+  color:#fff;padding:10px 12px;margin:8px;border-radius:8px;
+  box-shadow:0 2px 6px rgba(192,57,43,.35);
+  font-size:13px;line-height:1.3
+}
+.update-banner[hidden]{display:none}
+/* [v3.0.3] Модификатор: вертикальная раскладка (ряд текст+кнопка, ниже «Как обновить вручную»).
+   Класс, а не #id — чтобы .update-banner[hidden] (выше специфичности) продолжал скрывать. */
+.update-banner-stacked{display:block}
+.update-banner-stacked .update-banner-top{display:flex;align-items:center;gap:8px}
+.update-banner-stacked .update-available-actions{margin-top:8px}
+.update-banner-icon{font-size:18px;flex-shrink:0}
+.update-banner-text{flex:1}
+.update-banner-btn{
+  background:#fff;color:#c0392b;border:none;border-radius:6px;
+  padding:6px 12px;font-weight:600;font-size:12px;cursor:pointer;
+  transition:transform .12s ease,background .12s ease;flex-shrink:0
+}
+.update-banner-btn:hover{background:#fce4e1;transform:translateY(-1px)}
+.update-banner-btn:active{transform:translateY(0)}
+
+/* ══ [v2.8.0] RATE-LIMIT BANNER (bot-detection ban) — оранжевый, отличается от красного update ══ */
+/* [v2.8.0 audit r6] z-index:10 для всех banner'ов — без этого banner отображался под
+   modal-overlay (z-index 9999) когда модалка открыта. Banner должен быть над content,
+   но под модалкой. update-banner / session-expired / vpn-locked / vpn-conflict / load-warning
+   делят z-index:10 для consistent stacking. */
+.rate-limit-banner{
+  position:relative;
+  z-index:10;
+  background:linear-gradient(90deg,#d97706,#f59e0b);
+  box-shadow:0 2px 6px rgba(217,119,6,.35)
+}
+.rate-limit-banner .update-banner-btn{color:#92400e}
+.rate-limit-banner .update-banner-btn:hover{background:#fef3c7}
+.rate-limit-banner-body{display:flex;flex-direction:column;gap:2px}
+.rate-limit-banner-title{font-weight:700;line-height:1.2}
+.rate-limit-banner-msg{font-size:11px;opacity:.85;line-height:1.3}
+
+/* ══ [v2.5.9] VPN LOCKED BANNER ══ */
+.vpn-locked-banner{
+  display:flex;align-items:flex-start;gap:8px;
+  background:linear-gradient(90deg,rgba(255,193,7,.18),rgba(255,152,0,.15));
+  color:#5d4037;padding:9px 12px;margin:8px;border-radius:8px;
+  border:1px solid rgba(255,152,0,.35);
+  font-size:12px;line-height:1.35
+}
+.vpn-locked-banner[hidden]{display:none}
+.vpn-locked-banner-icon{font-size:14px;flex-shrink:0;line-height:1.3}
+.vpn-locked-banner-text{flex:1}
+
+/* ══ [v2.5.9] VPN CONFLICT BANNER ══ */
+.vpn-conflict-banner{
+  display:flex;align-items:flex-start;gap:10px;
+  background:linear-gradient(90deg,#ff8f00,#f57c00);
+  color:#fff;padding:10px 12px;margin:8px;border-radius:8px;
+  box-shadow:0 2px 6px rgba(230,125,0,.35);
+  font-size:12px;line-height:1.35
+}
+.vpn-conflict-banner[hidden]{display:none}
+.vpn-conflict-banner-icon{font-size:16px;flex-shrink:0;line-height:1.2}
+.vpn-conflict-banner-body{flex:1}
+.vpn-conflict-banner-title{font-weight:700;margin-bottom:4px}
+.vpn-conflict-banner-list{font-size:11px;opacity:.95;margin-bottom:3px;word-break:break-word}
+.vpn-conflict-banner-hint{font-size:11px;opacity:.85}
+
+/* [v2.8.2 vpn-conflict-block] Visual disabled state для кнопок заблокированных при
+   обнаружении другого VPN-расширения. Применяется через applyVpnConflictBlock в popup.js. */
+.vpn-conflict-blocked{opacity:.45;cursor:not-allowed!important;filter:grayscale(.6)}
+.vpn-conflict-blocked:hover{opacity:.45}
+
+/* Conflict result in settings drawer */
+#vpnConflictResult{margin-top:6px;font-size:12px;line-height:1.35}
+#vpnConflictResult.ok{color:#2e7d32}
+#vpnConflictResult.warn{color:#e65100}
+#vpnConflictResult.err{color:#c62828}
+#vpnConflictResult ul{margin:4px 0 0 0;padding-left:18px}
+#vpnConflictResult li{margin:2px 0}
+
+/* ══ [v2.5.9] SESSION EXPIRED STICKY BANNER ══ */
+.session-expired-banner{
+  position:relative;
+  display:flex;align-items:flex-start;gap:10px;
+  background:linear-gradient(135deg,#c2185b 0%,#880e4f 100%);
+  color:#fff;padding:12px 14px 12px 12px;margin:8px;border-radius:10px;
+  box-shadow:0 4px 14px rgba(194,24,91,.35);
+  font-size:12px;line-height:1.35;
+  animation:sessionExpiredIn .3s ease;
+}
+.session-expired-banner[hidden]{display:none}
+@keyframes sessionExpiredIn{
+  from{opacity:0;transform:translateY(-6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.session-expired-close{
+  position:absolute;top:6px;right:8px;
+  background:none;border:none;color:rgba(255,255,255,.7);
+  font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;
+  transition:color .15s ease;
+}
+.session-expired-close:hover{color:#fff}
+.session-expired-icon{
+  font-size:24px;flex-shrink:0;line-height:1;
+  animation:upsellPulse 2s ease-in-out infinite;
+}
+@keyframes upsellPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.session-expired-body{flex:1;padding-right:16px}
+.session-expired-title{font-weight:800;font-size:13px;margin-bottom:2px}
+.session-expired-text{font-size:11px;opacity:.92;margin-bottom:8px;line-height:1.4}
+.session-expired-actions{display:flex;gap:6px;flex-wrap:wrap}
+.session-expired-btn{
+  border:none;border-radius:6px;padding:6px 12px;
+  font-size:11px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:transform .12s ease,background .12s ease;
+}
+.session-expired-btn-primary{background:#ffd54f;color:#4a0e2a}
+.session-expired-btn-primary:hover{background:#ffe082;transform:translateY(-1px)}
+.session-expired-btn-secondary{background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.38)}
+.session-expired-btn-secondary:hover{background:rgba(255,255,255,.32);transform:translateY(-1px)}
+.session-expired-btn-ghost{background:transparent;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.25)}
+.session-expired-btn-ghost:hover{background:rgba(255,255,255,.12);color:#fff}
+.session-expired-btn:active{transform:translateY(0)}
+
+/* ══ [v2.5.9] HIGH LOAD WARNING BANNER ══ */
+.load-warning-banner{
+  display:flex;align-items:flex-start;gap:10px;
+  background:linear-gradient(135deg,#6a1b9a 0%,#8e24aa 100%);
+  color:#fff;padding:11px 12px;margin:8px;border-radius:8px;
+  box-shadow:0 3px 8px rgba(106,27,154,.3);
+  font-size:12px;line-height:1.35
+}
+.load-warning-banner[hidden]{display:none}
+.load-warning-banner-icon{font-size:18px;flex-shrink:0;line-height:1.1}
+.load-warning-banner-body{flex:1;display:flex;flex-direction:column;gap:4px}
+.load-warning-banner-title{font-weight:700;font-size:12px}
+.load-warning-banner-text{opacity:.92}
+.load-warning-banner-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.load-warning-btn{
+  border:none;border-radius:6px;padding:6px 12px;
+  font-size:11px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:transform .12s ease,opacity .12s ease
+}
+.load-warning-btn-primary{background:#ffd54f;color:#4a148c}
+.load-warning-btn-primary:hover{background:#ffe082;transform:translateY(-1px)}
+.load-warning-btn-secondary{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35)}
+.load-warning-btn-secondary:hover{background:rgba(255,255,255,.28);transform:translateY(-1px)}
+.load-warning-btn:active{transform:translateY(0)}
+
+/* ══ [v2.5.9] TRIAL INFO MODAL ══ */
+.trial-info-box{padding:16px 18px;text-align:left;max-width:374px}
+.trial-info-body{display:flex;align-items:flex-start;gap:12px;padding:10px 0 8px}
+.trial-info-icon{font-size:32px;flex-shrink:0;line-height:1}
+.trial-info-body p{margin:0;font-size:13px;line-height:1.5;color:var(--txt)}
+.trial-info-body b{color:var(--accent-dk);font-weight:700}
+.trial-info-vpn-note{
+  display:flex;align-items:flex-start;gap:8px;
+  background:rgba(255,193,7,.15);color:#5d4037;
+  border:1px solid rgba(255,152,0,.35);border-radius:8px;
+  padding:8px 10px;margin:6px 0 12px;font-size:11px;line-height:1.4;
+}
+.trial-info-vpn-note[hidden]{display:none}
+.trial-info-vpn-note-icon{font-size:14px;flex-shrink:0;line-height:1.3}
+.trial-info-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.trial-info-web-btn{
+  background:var(--accent-lt);color:var(--accent-dk);
+  border:1px solid var(--accent-100);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.trial-info-web-btn:hover{background:var(--accent-100);border-color:var(--accent);transform:translateY(-1px)}
+.trial-info-web-btn:disabled{opacity:.6;cursor:wait}
+.trial-info-open-btn{
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));
+  color:#fff;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.trial-info-open-btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(46,125,50,.35);color:#fff}
+.trial-info-open-btn:disabled{opacity:.7;cursor:wait}
+.trial-info-open-btn[hidden]{display:none}
+
+/* ══ [v2.5.9] OVERLOAD CONFIRM MODAL — 2 levels ══ */
+.overload-confirm-box{padding:16px 18px;text-align:left;max-width:374px}
+.overload-confirm-body{display:flex;align-items:flex-start;gap:10px;padding:10px 0 14px}
+.overload-confirm-icon{font-size:24px;flex-shrink:0;line-height:1}
+.overload-confirm-body p{margin:0;font-size:13px;line-height:1.4;color:var(--txt)}
+.overload-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.overload-btn{
+  border:none;border-radius:6px;padding:9px 14px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:transform .12s ease,background .12s ease
+}
+.overload-btn-no{background:var(--bg);color:var(--txt);border:1px solid var(--brd)}
+.overload-btn-no:hover{background:var(--card);border-color:var(--accent-100)}
+.overload-btn:active{transform:translateY(0)}
+
+/* Medium level: orange — "elevated load" */
+.overload-confirm-medium .modal-header h2{color:#e65100}
+.overload-confirm-medium .overload-confirm-icon{color:#f57c00}
+.overload-confirm-medium .overload-confirm-body b{color:#e65100}
+.overload-confirm-medium .overload-btn-yes{background:linear-gradient(135deg,#f57c00,#e65100);color:#fff}
+.overload-confirm-medium .overload-btn-yes:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(245,124,0,.35)}
+
+/* High level: red — "critical load" */
+.overload-confirm-high .modal-header h2{color:#c62828}
+.overload-confirm-high .overload-confirm-icon{color:#e53935;animation:warnBlink 1s ease-in-out infinite}
+.overload-confirm-high .overload-confirm-body b{color:#c62828}
+.overload-confirm-high .overload-btn-yes{background:linear-gradient(135deg,#e53935,#c62828);color:#fff}
+.overload-confirm-high .overload-btn-yes:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(229,57,53,.4)}
+
+/* [v2.6.3] Main-tab Trial CTA — заметный но не навязчивый блок между "Аккаунт" и VPN-кнопкой */
+.trial-main-cta{
+  position:relative;
+  margin:6px 0 8px;
+  padding:10px 12px 11px;
+  background:linear-gradient(135deg,var(--grad1) 0%,var(--grad2) 50%,var(--grad3) 100%);
+  border-radius:10px;
+  color:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.12);
+  animation:trialCtaIn .35s ease-out;
+}
+@keyframes trialCtaIn{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.trial-main-cta-dismiss{
+  position:absolute; top:4px; right:6px;
+  width:22px; height:22px; padding:0;
+  background:rgba(255,255,255,.15); border:none; border-radius:50%;
+  color:#fff; font-size:16px; line-height:1;
+  cursor:pointer; transition:background .15s ease;
+}
+.trial-main-cta-dismiss:hover{background:rgba(255,255,255,.3)}
+.trial-main-cta-body{
+  display:flex; align-items:center; gap:10px; margin-bottom:8px; padding-right:22px;
+}
+.trial-main-cta-icon{font-size:24px; line-height:1; flex-shrink:0}
+.trial-main-cta-text{flex:1; min-width:0}
+.trial-main-cta-title{font-size:13.5px; font-weight:700; margin-bottom:1px}
+.trial-main-cta-sub{font-size:11.5px; opacity:.88; line-height:1.3}
+.trial-main-cta-btn{
+  display:block; width:100%; padding:8px 12px;
+  background:#fff; color:var(--accent-dk);
+  border:none; border-radius:6px;
+  font-size:13px; font-weight:700; cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease;
+  font-family:inherit;
+}
+.trial-main-cta-btn:hover{transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.trial-main-cta-btn:active{transform:translateY(0)}
+.trial-main-cta-btn:disabled{opacity:.6; cursor:default; transform:none; box-shadow:none}
+
+/* [v2.6.3] Timer urgency CTA — появляется под таймером при <=10 мин до отключения */
+.timer-urgency[hidden]{display:none}
+.timer-urgency{
+  display:flex; align-items:center; gap:8px;
+  margin:8px 0 0; padding:7px 10px;
+  background:linear-gradient(90deg,rgba(245,124,0,.12),rgba(229,57,53,.10));
+  border:1px solid rgba(245,124,0,.35);
+  border-radius:8px;
+  animation:urgencyIn .3s ease-out;
+}
+@keyframes urgencyIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+.timer-urgency-text{flex:1; font-size:12px; color:#e65100; font-weight:600; line-height:1.25}
+body.theme-dark .timer-urgency-text{color:#ffb74d}
+.timer-urgency-btn{
+  flex-shrink:0; padding:5px 10px;
+  background:linear-gradient(135deg,#f57c00,#e65100);
+  color:#fff; border:none; border-radius:6px;
+  font-size:11.5px; font-weight:700; cursor:pointer;
+  font-family:inherit;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.timer-urgency-btn:hover{transform:translateY(-1px); box-shadow:0 2px 5px rgba(229,57,53,.35)}
+.timer-urgency-btn:active{transform:translateY(0)}
+.timer-urgency-btn:disabled{opacity:.6; cursor:default; transform:none}
+
+/* [v2.6.3] Usage stats hint — показывает активному free-юзеру сколько он уже "страдает" от лимита */
+.usage-stats-hint[hidden]{display:none}
+.usage-stats-hint{
+  display:flex; align-items:center; gap:8px;
+  width:100%; margin:6px 0;
+  padding:9px 12px;
+  background:var(--card);
+  border:1px solid var(--accent-100);
+  border-radius:8px;
+  color:var(--txt);
+  font-size:12px; text-align:left;
+  cursor:pointer;
+  font-family:inherit;
+  transition:border-color .15s ease, background .15s ease;
+}
+.usage-stats-hint:hover{border-color:var(--accent); background:var(--accent-lt)}
+.usage-stats-icon{font-size:16px; flex-shrink:0}
+.usage-stats-text{flex:1; line-height:1.3}
+.usage-stats-text b{color:var(--accent-dk); font-weight:700}
+body.theme-dark .usage-stats-text b{color:var(--accent)}
+.usage-stats-arrow{color:var(--txt3); font-size:18px; line-height:1; flex-shrink:0}
+
+/* ═══ Полная диагностика (v3.0.1) ═══ */
+/* Утилиты вместо инлайн-style (CSP style-src 'self' блокирует style=""). JS .style.display= разрешён. */
+.diag-hidden{display:none}
+.diag-mt{margin-top:8px}
+.diag-progress{margin-top:8px;padding:12px 14px;background:rgba(128,128,128,.08);border:1px solid var(--brd);border-radius:var(--rs);display:flex;flex-direction:column;gap:9px}
+.diag-step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--txt3);transition:color var(--tr)}
+.diag-step.active,.diag-step.done{color:var(--txt)}
+.diag-step.active .diag-step-lbl{font-weight:600}
+.diag-step-ico{width:18px;height:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.diag-step.done .diag-step-ico{color:var(--accent);font-weight:700}
+.diag-step.pending .diag-step-ico::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--txt3);opacity:.4}
+.diag-spinner{width:14px;height:14px;border:2px solid var(--accent-100);border-top-color:var(--accent);border-radius:50%;animation:diagSpin .7s linear infinite}
+@keyframes diagSpin{to{transform:rotate(360deg)}}
+.diag-srv-live{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent-dk)}
+body.theme-dark .diag-srv-live{color:var(--accent)}
+.diag-bar-wrap{height:6px;background:var(--brd);border-radius:4px;overflow:hidden;margin:1px 0 0 28px}
+.diag-bar-fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .3s ease}
+.diag-result-card{margin-top:8px;border-radius:var(--rs);padding:14px;border:1px solid var(--brd);border-left-width:4px;animation:diagFade .35s ease}
+@keyframes diagFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.diag-result-card.lvl-green{background:rgba(76,175,80,.10);border-left-color:#4caf50}
+.diag-result-card.lvl-yellow{background:rgba(255,179,0,.12);border-left-color:#ffb300}
+.diag-result-card.lvl-red{background:rgba(239,83,80,.10);border-left-color:#ef5350}
+.diag-result-head{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+.diag-result-badge{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:21px}
+.diag-result-card.lvl-green .diag-result-badge{background:rgba(76,175,80,.18)}
+.diag-result-card.lvl-yellow .diag-result-badge{background:rgba(255,179,0,.2)}
+.diag-result-card.lvl-red .diag-result-badge{background:rgba(239,83,80,.18)}
+.diag-result-title{font-size:15px;font-weight:700;color:var(--txt);line-height:1.2}
+.diag-result-msg{font-size:13px;line-height:1.5;color:var(--txt)}
+.diag-stats{margin-top:12px;padding-top:11px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:9px}
+.diag-stat{font-size:12px;color:var(--txt2)}
+.diag-stat b{color:var(--txt);font-weight:600}
+.diag-srvbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--brd);margin-top:6px}
+.diag-srvbar>span{display:block;height:100%;transition:width .4s ease}
+.diag-srvbar .ok{background:#4caf50}
+.diag-srvbar .noip{background:#ffb300}
+.diag-srvbar .fail{background:#ef5350}
+.diag-srv-legend{display:flex;gap:13px;margin-top:6px;font-size:10.5px;color:var(--txt3);flex-wrap:wrap}
+.diag-srv-legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+.diag-srv-legend i::before{content:"";width:8px;height:8px;border-radius:2px;display:inline-block}
+.diag-srv-legend .ok::before{background:#4caf50}
+.diag-srv-legend .noip::before{background:#ffb300}
+.diag-srv-legend .fail::before{background:#ef5350}
+.diag-site-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;margin:2px 5px 2px 0;color:var(--txt)}
+.diag-site-chip.ok{background:rgba(76,175,80,.16)}
+.diag-site-chip.no{background:rgba(239,83,80,.16)}
+
+/* [v3.1.6] Кнопка «?» легенды в шапке выбора сервера */
+.server-legend-btn{width:26px;height:26px;flex:0 0 auto;border:none;border-radius:50%;background:rgba(255,255,255,.14);color:var(--txt);font-size:15px;font-weight:700;cursor:default;line-height:26px;text-align:center;padding:0;margin-left:auto;margin-right:6px;opacity:.75;transition:opacity .15s,background .15s}
+.server-legend-btn:hover{opacity:1;background:rgba(255,255,255,.24)}
+body.theme-dark .server-legend-btn{background:rgba(255,255,255,.1)}
+body.theme-dark .server-legend-btn:hover{background:rgba(255,255,255,.2)}
+/* [v3.1.6] Легенда обозначений */
+.server-legend-box{max-width:400px;width:374px;height:92vh;max-height:92vh}
+.server-legend-body{padding:10px 18px 16px;display:flex;flex-direction:column;gap:16px;flex:1 1 auto;min-height:0;overflow-y:auto}
+.legend-row{display:flex;align-items:flex-start;gap:13px}
+.legend-ico{flex:0 0 auto;min-width:44px;height:26px;display:inline-flex;align-items:center;justify-content:center;padding:0 7px;border-radius:8px;font-size:12.5px;font-weight:700;background:rgba(120,130,150,.18);color:var(--txt);white-space:nowrap}
+.legend-ico-ping{background:#e8f5e9;color:#1b5e20}
+.legend-ico-fail{background:#ffebee;color:#c62828}
+.legend-ico-fav{background:transparent;color:#f5b301;font-size:16px}
+.legend-ico-pending{letter-spacing:2px}
+.legend-txt{flex:1;font-size:13.5px;line-height:1.5;color:var(--txt);opacity:.9;padding-top:2px}
+body.theme-dark .legend-ico-ping{background:#1b2e1b;color:#81c784}
+body.theme-dark .legend-ico-fail{background:#2e1818;color:#ef9a9a}
+
+/* [v3.1.7] Подсказка при наведении на сервер: проверенные сайты + состояние + время (цвет = свежесть) */
+.site-hover-tip{position:fixed;z-index:10002;width:50vw;box-sizing:border-box;padding:8px 10px;border-radius:10px;
+    background:#fff;border:1px solid rgba(0,0,0,.12);box-shadow:0 6px 22px rgba(0,0,0,.18);pointer-events:none;font-size:12px;color:var(--txt)}
+.site-hover-tip-head{font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.02em}
+.site-hover-tip-row{display:flex;align-items:center;gap:6px;padding:2px 0}
+.site-hover-tip-host{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.site-hover-tip-state{flex:none;font-weight:700;font-variant-numeric:tabular-nums}
+/* [v3.1.7] Окраска состояния (мс/✓) по классу пинга — как плашки в списке серверов (green→red) */
+.site-hover-tip-state.ping-0{color:#1b5e20}
+.site-hover-tip-state.ping-1{color:#558b2f}
+.site-hover-tip-state.ping-2{color:#9e9d24}
+.site-hover-tip-state.ping-3{color:#f9a825}
+.site-hover-tip-state.ping-4{color:#ef6c00}
+.site-hover-tip-state.ping-5,.site-hover-tip-state.fail{color:#c62828}
+.site-hover-tip-time{flex:none;font-size:10.5px;font-variant-numeric:tabular-nums}
+.site-hover-tip-time.fresh{color:#2e7d32}
+.site-hover-tip-time.recent{color:#c98a00}
+.site-hover-tip-time.stale{color:var(--txt3)}
+.modal-list-item.has-site-hits{cursor:default}
+body.theme-dark .site-hover-tip{background:#232733;border-color:rgba(255,255,255,.14);box-shadow:0 6px 22px rgba(0,0,0,.5)}
+body.theme-dark .site-hover-tip-state.ping-0{color:#81c784}
+body.theme-dark .site-hover-tip-state.ping-1{color:#aed581}
+body.theme-dark .site-hover-tip-state.ping-2{color:#fff176}
+body.theme-dark .site-hover-tip-state.ping-3{color:#ffcc80}
+body.theme-dark .site-hover-tip-state.ping-4{color:#ffab91}
+body.theme-dark .site-hover-tip-state.ping-5,body.theme-dark .site-hover-tip-state.fail{color:#ef9a9a}
+body.theme-dark .site-hover-tip-time.fresh{color:#81c784}
+body.theme-dark .site-hover-tip-time.recent{color:#e0b64d}

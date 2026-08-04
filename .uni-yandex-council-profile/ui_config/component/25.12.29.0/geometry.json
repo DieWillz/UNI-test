@@ -1,0 +1,84 @@
+{
+  "style_sheet":
+  [
+    {
+      "selector": "#smartbox > #connection_button",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#star_button",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#smartbox > button",
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#smartbox > #clicable_domain",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#smartbox > #regular_domain",
+      "radius": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#protect_container > animation_button",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#protect_container > #protect_button",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#protect_container > #protect_button > #main_icon",
+      "radius !imp": 0,
+    },
+    {
+      "selector": "#smartbox > #site_rating",
+      "radius !imp": 6,
+      "border_width !imp": [0],
+    },
+    {
+      "selector": "#toolbar_panel > button",
+      "radius !imp": 10,
+      "border_width !imp": [4],
+    },
+    {
+      "selector": "#toolbar_panel > button:is(#back_button, #eback_button)",
+      "border_width !imp": [4, 4, 4, 8],
+    },
+    {
+      "selector": "#toolbar_panel > button#download_button",
+      "border_width !imp": [4, 8, 4, 4],
+    },
+
+	  /*************************** YTP button inside protect_container ***********/
+    {
+      "selector": "#protect_container > animation_button.on.badge#ytp_button",
+      "icon": "ya_protect_ytp_with_badge",
+    },
+    {
+      "selector": "#protect_container > animation_button.on#ytp_button",
+      "icon": "ya_protect_ytp",
+    },
+    {
+      "selector": "#protect_container > animation_button:not(.on)#ytp_button",
+      "icon": "ya_protect_ytp_off",
+    },
+    {
+      "selector": "#ytp_button.on.badge:geometry_fix",
+      "control_insets": [2, 2],
+    },
+    {
+      "selector": [":webapp_window#protect_container#protect_container > animation_button#ytp_button"],
+      "text_color": "#fff",
+    },
+
+  ]
+}

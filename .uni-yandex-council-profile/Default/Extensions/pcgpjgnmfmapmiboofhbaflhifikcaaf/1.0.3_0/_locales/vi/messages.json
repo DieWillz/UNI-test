@@ -1,0 +1,53 @@
+{
+   "appDesc": {
+      "message": "Cho phép sao chép và gỡ bỏ bảo vệ sao chép. Cho phép chọn văn bản, menu chuột phải và menu ngữ cảnh."
+   },
+   "appName": {
+      "message": "Cho phép nhấp chuột phải ─ Cho phép sao chép"
+   },
+   "cannotTips": {
+      "message": "Can't Crack Disable Copy"
+   },
+   "crackTips": {
+      "message": "Crack Disable Copy"
+   },
+   "delete": {
+      "message": "Delete Domain"
+   },
+   "disableTips": {
+      "message": "Click to Cancel Crack"
+   },
+   "domainLists": {
+      "message": "Domain Lists"
+   },
+   "domainListsTips": {
+      "message": " Enable SuperCopy when the domain is in this lists."
+   },
+   "enableTips": {
+      "message": "Click to Crack Disable Copy"
+   },
+   "rate": {
+      "message": "Rate"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips1": {
+      "message": "Cancel CSS Anti Copy"
+   },
+   "tips2": {
+      "message": "Cancel Js Anti Copy"
+   },
+   "tips3": {
+      "message": "Clear HTML Anti Copy"
+   },
+   "tips4": {
+      "message": "Clear Jquery Anti Copy"
+   },
+   "tips5": {
+      "message": "Enable the Right Click"
+   },
+   "tips6": {
+      "message": "Enable Copy"
+   }
+}

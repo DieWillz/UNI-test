@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- [v2.7.0 fix F67] Сообщаем браузеру что UI адаптируется к light/dark: скроллбары и
+дефолтные form-controls подбираются под системную тему. Без meta Chrome рендерит их
+белым, при системной dark темой они ломают тёмный фон расширения. -->
+<meta name="color-scheme" content="light dark"/>
+<title>AnonVPN</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+<div class="header-bar">
+  <img src="icons/AnonVPN128.png" class="header-icon" alt="">
+  <h1 id="popupTitle">AnonVPN</h1>
+  <!-- [v3.1.7] «Обратная связь» перенесена в шапку (компактная кнопка). Обработчик — по id #supportBtn. -->
+  <a href="#" target="_blank" rel="noopener noreferrer" id="supportBtn" class="header-support-btn"><span class="support-btn-icon" aria-hidden="true">💬</span><span class="support-btn-text" id="supportBtnText">Обратная связь</span></a>
+  <span class="header-flex-spacer"></span>
+  <span id="version" class="header-ver"></span>
+  <button type="button" id="openSettingsBtn" class="header-settings-btn" title="Settings" aria-label="Open settings">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
+
+<!-- [v3.0.3] Вкладки (меню) подняты под шапку, НАД баннерами – чтобы появление баннеров
+     не сдвигало меню вниз. Баннеры теперь толкают только контент, меню стоит на месте. -->
+<div class="tabs" role="tablist">
+  <button type="button" class="tab-btn active" data-tab="main" id="tabMain" role="tab" aria-selected="true" aria-controls="tab-main">Главная</button>
+  <button type="button" class="tab-btn" data-tab="premium" id="tabPremium" role="tab" aria-selected="false" aria-controls="tab-premium">Премиум</button>
+  <button type="button" class="tab-btn" data-tab="news" id="tabNews" role="tab" aria-selected="false" aria-controls="tab-news">Новости</button>
+</div>
+
+<!-- [v3.0.3] Открытие вкладки «Главная» поднято НАД баннерами: все баннеры-предупреждения –
+     её дети, показываются только на «Главной» (не на «Премиум»/«Новости»). Закрытие – после контента. -->
+<div class="tab-content active" id="tab-main" role="tabpanel" aria-labelledby="tabMain">
+
+<!-- [v2.6.2] Мягкий баннер «Доступна новая версия» (информационный, не блокирующий) -->
+<!-- [v2.7.0 fix F54] role=status + aria-live=polite – не перебивать юзера, просто анонс -->
+<div id="updateAvailableBanner" class="update-available-banner" role="status" aria-live="polite" hidden>
+  <div class="update-available-top">
+    <span class="update-available-icon">✨</span>
+    <span class="update-available-text" id="updateAvailableText">Доступна новая версия</span>
+    <button type="button" class="update-available-btn" id="updateAvailableBtn">Обновить</button>
+    <button type="button" class="update-available-close" id="updateAvailableClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="update-available-actions">
+    <button type="button" class="update-available-help-btn" id="updateHelpBtn">Как обновить вручную</button>
+  </div>
+</div>
+
+<!-- [v2.5.8] Баннер «требуется обновление». Скрыт по умолчанию, показывается через JS -->
+<!-- [v2.7.0 fix F54] role=alert + aria-live=assertive – критичный блокер, должен перебить -->
+<div id="updateBanner" class="update-banner update-banner-stacked" role="alert" aria-live="assertive" hidden>
+  <div class="update-banner-top">
+    <span class="update-banner-icon">⚠</span>
+    <span class="update-banner-text" id="updateBannerText">Требуется обновление</span>
+    <button type="button" class="update-banner-btn" id="updateBannerBtn">Обновить</button>
+  </div>
+  <div class="update-available-actions" id="updateBannerManualRow">
+    <button type="button" class="update-available-help-btn" id="updateHelpBtn2">Как обновить вручную</button>
+  </div>
+</div>
+
+<!-- [v2.8.0] Баннер «превышен лимит активности» – bot-detection ban (24h). -->
+<div id="rateLimitBanner" class="update-banner rate-limit-banner" role="alert" aria-live="assertive" hidden>
+  <span class="update-banner-icon">⏱</span>
+  <div class="update-banner-text rate-limit-banner-body">
+    <div id="rateLimitTitle" class="rate-limit-banner-title">Превышен лимит активности</div>
+    <div id="rateLimitText" class="rate-limit-banner-msg">Доступ временно ограничен. Premium снимает все лимиты.</div>
+  </div>
+  <button type="button" class="update-banner-btn" id="rateLimitBtn">Premium</button>
+</div>
+
+<!-- [v2.5.9] Предупреждение, что некоторые функции заблокированы пока ВПН включён -->
+<!-- [v2.7.0 fix F54] role=status + aria-live=polite – информационное состояние -->
+<div id="vpnLockedBanner" class="vpn-locked-banner" role="status" aria-live="polite" hidden>
+  <span class="vpn-locked-banner-icon">🔒</span>
+  <span class="vpn-locked-banner-text" id="vpnLockedBannerText">Смена сервера и настройки премиума недоступны. Отключите ВПН для изменений.</span>
+</div>
+
+<!-- [v2.5.9] Баннер «обнаружены конфликтующие VPN расширения» -->
+<!-- [v2.7.0 fix F54] role=alert + aria-live=polite – важно, но не блокер -->
+<div id="vpnConflictBanner" class="vpn-conflict-banner" role="alert" aria-live="polite" hidden>
+  <span class="vpn-conflict-banner-icon">⚠</span>
+  <div class="vpn-conflict-banner-body">
+    <div class="vpn-conflict-banner-title" id="vpnConflictBannerTitle">Обнаружены другие активные ВПН-расширения</div>
+    <div class="vpn-conflict-banner-list" id="vpnConflictBannerList"></div>
+    <div class="vpn-conflict-banner-hint" id="vpnConflictBannerHint">Отключите их в chrome://extensions – функции AnonVPN заблокированы пока другой ВПН активен.</div>
+  </div>
+</div>
+
+<!-- [v2.8.6] Баннер «прокси перехвачен»: Chrome сообщает, что управление прокси не у AnonVPN
+     (другое расширение / программа / политика), хотя ВПН включён – трафик идёт мимо. -->
+<div id="proxyControlBanner" class="vpn-conflict-banner" role="alert" aria-live="polite" hidden>
+  <span class="vpn-conflict-banner-icon">⚠</span>
+  <div class="vpn-conflict-banner-body">
+    <div class="vpn-conflict-banner-title" id="proxyControlBannerTitle">Настройку прокси перехватила другая программа</div>
+    <div class="vpn-conflict-banner-hint" id="proxyControlBannerHint">ВПН включён, но трафик идёт мимо AnonVPN. Откройте chrome://extensions, отключите другие VPN- и прокси-расширения и включите ВПН заново.</div>
+  </div>
+</div>
+
+<!-- [v2.5.9] Sticky-баннер «бесплатная сессия истекла» (после timer-disconnect, до ручного действия) -->
+<div id="sessionExpiredBanner" class="session-expired-banner" role="alert" aria-live="assertive" hidden>
+  <button type="button" class="session-expired-close" id="sessionExpiredClose" aria-label="Close">&times;</button>
+  <div class="session-expired-icon">⏱</div>
+  <div class="session-expired-body">
+    <div class="session-expired-title" id="sessionExpiredTitle">Сессия закончилась</div>
+    <div class="session-expired-text" id="sessionExpiredText">Час ВПН закончился. Premium снимает лимит времени.</div>
+    <div class="session-expired-actions">
+      <button type="button" class="session-expired-btn session-expired-btn-primary" id="sessionExpiredPremiumBtn">Premium</button>
+      <button type="button" class="session-expired-btn session-expired-btn-secondary" id="sessionExpiredTrialBtn">Пробный</button>
+      <button type="button" class="session-expired-btn session-expired-btn-ghost" id="sessionExpiredDetailsBtn">Подробнее</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.5.9] Баннер «возможно повышенная нагрузка на бесплатные серверы» (только для free пользователей) -->
+<!-- [v2.7.0 fix F54] role=status + aria-live=polite – информация о нагрузке, не критично -->
+<div id="loadWarningBanner" class="load-warning-banner" role="status" aria-live="polite" hidden>
+  <span class="load-warning-banner-icon">🚦</span>
+  <div class="load-warning-banner-body">
+    <div class="load-warning-banner-title" id="loadWarningBannerTitle">Возможно повышенная нагрузка на серверы</div>
+    <div class="load-warning-banner-text" id="loadWarningBannerText">Скорость и стабильность подключения могут быть ниже обычного. Premium даёт доступ к менее загруженным серверам.</div>
+    <div class="load-warning-banner-actions">
+      <button type="button" class="load-warning-btn load-warning-btn-primary" id="loadWarningBuyBtn">Купить Premium</button>
+      <button type="button" class="load-warning-btn load-warning-btn-secondary" id="loadWarningTrialBtn">Пробный в Telegram</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.0.3] accountVerifyBanner + все баннеры-предупреждения – внутри вкладки «Главная»
+     (контекстные, про сессии VPN); показываются только здесь, не глобально над всеми вкладками. -->
+<div id="accountVerifyBanner" class="load-warning-banner account-verify-banner" role="status" aria-live="polite" hidden>
+  <!-- [v3.1.7] Крестик появляется только после ≥3ч суммарного ВПН (иначе баннер закрыть нельзя) -->
+  <button type="button" class="account-verify-close" id="accountVerifyBannerClose" aria-label="Закрыть" hidden>&times;</button>
+  <span class="load-warning-banner-icon">✉️</span>
+  <div class="load-warning-banner-body">
+    <div class="load-warning-banner-title" id="accountVerifyBanner_title">Привяжите почту к расширению</div>
+    <!-- [v3.1.1] Текст переписан: старый («Без подтверждённой почты сессии длятся 30 минут»)
+         путал – читался как «30 минут и всё», а привязка почты воспринималась как безлимит.
+         Теперь: честная выгода (60 vs 30) + «переподключения без ограничений». И переводится
+         (раньше – hardcoded ru для всех 48 языков, ключа не было). -->
+    <div class="load-warning-banner-text" id="accountVerifyBanner_text">С подтверждённой почтой сессия – 60 минут вместо 30, переподключаться можно без ограничений.</div>
+    <div class="load-warning-banner-actions">
+      <button type="button" class="load-warning-btn load-warning-btn-primary" id="accountVerifyBanner_btn">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
+<div class="module card-account compact-row">
+  <span class="module-title" id="accountModuleTitle">Аккаунт</span>
+  <div class="account-actions">
+    <span id="accountStatus" class="status-badge">Standard</span>
+    <button type="button" id="accountBuyBtn" class="account-buy-btn">Купить премиум</button>
+    <button type="button" id="resetPremiumBtn">Выйти</button>
+  </div>
+</div>
+
+<!-- [v2.6.3] Trial CTA на Main tab – главная точка конверсии free→premium -->
+<div class="trial-main-cta" id="trialMainCta" hidden>
+  <button type="button" class="trial-main-cta-dismiss" id="trialMainCtaDismiss" aria-label="Скрыть">×</button>
+  <div class="trial-main-cta-body">
+    <div class="trial-main-cta-icon" aria-hidden="true">🎁</div>
+    <div class="trial-main-cta-text">
+      <div class="trial-main-cta-title" id="trialMainCtaTitle">3 дня Premium</div>
+      <div class="trial-main-cta-sub" id="trialMainCtaSub">Один клик, без регистрации</div>
+    </div>
+  </div>
+  <button type="button" class="trial-main-cta-btn" id="trialMainCtaBtn">
+    <span id="trialMainCtaBtnLabel">Активировать</span>
+  </button>
+</div>
+
+<div id="premiumMessage"></div>
+<div id="premiumDateBlock" class="date-row date-row-compact">
+  <span class="date-icon">📅</span>
+  <span><span id="expireLabel">Premium активен до</span> <b id="premiumDate"></b></span>
+</div>
+<span id="statusLabel" class="sr-only">Статус</span>
+<span id="tgText" class="sr-only"></span>
+
+<div class="module card-vpn">
+  <div class="vpn-status-row">
+    <span id="proxyToggleLabel">Статус ВПН:</span>
+    <span id="vpnStatusText" class="vpn-status-off">Выключен</span>
+  </div>
+  <div id="vpnMessage" role="status" aria-live="polite" aria-atomic="true"></div>
+  <input id="proxyToggle" type="checkbox" class="hidden-select" aria-label="VPN toggle"/>
+  <button type="button" id="vpnToggleBtn" class="vpn-toggle-btn vpn-btn-off">Включить ВПН</button>
+  <div id="timer"></div>
+  <!-- [v2.6.3] Urgency CTA – показывается когда до конца free-сессии <=10 мин (только free, если trial ещё доступен) -->
+  <div id="timerUrgency" class="timer-urgency" hidden>
+    <span class="timer-urgency-text" id="timerUrgencyText">Не хотите попробовать?</span>
+    <button type="button" class="timer-urgency-btn" id="timerUrgencyBtn">
+      <span id="timerUrgencyBtnLabel">3 дня Premium</span>
+    </button>
+  </div>
+  <div id="vpnIpInfo" class="vpn-ip-info" hidden>
+    <span class="vpn-ip-label" id="vpnIpLabel">IP:</span>
+    <img class="flag-img" id="vpnIpFlag" alt="">
+    <span id="vpnIpSpinner" class="inline-spinner" hidden></span>
+    <span id="vpnIpText">–</span>
+  </div>
+</div>
+
+<!-- Server – modal trigger -->
+<div class="module compact-row">
+  <div class="module-title" id="serverSelectTitle">Сервер:</div>
+  <button type="button" class="modal-select-btn" id="openServerModal">
+    <span id="serverBtnLabel" class="btn-label-with-flag">–</span>
+    <span class="modal-select-arrow">›</span>
+  </button>
+  <select id="proxy-select" class="hidden-select" aria-label="Server selection"></select>
+</div>
+
+<!-- [v3.1.7] Подбор сервера для сайта активной вкладки (кнопка B гибрид-триггера) -->
+<button type="button" class="usage-stats-hint autopick-tab-hint" id="autoPickTabBtn">
+  <span class="usage-stats-icon" aria-hidden="true">🔍</span>
+  <span class="usage-stats-text" id="autoPickTabText">Сайт не открывается? Подобрать сервер</span>
+  <span class="usage-stats-arrow" aria-hidden="true">›</span>
+</button>
+
+<!-- [v2.8.8] Bypass .ru/.рф – российские сайты идут DIRECT без VPN (анти-РКН-stuk). Default ON. -->
+<div class="module bypass-ru-row" id="bypassRuRow" title="">
+  <span class="bypass-ru-label" id="bypassRuLabel">Не подключать VPN на сайтах .ru / .рф</span>
+  <span class="bypass-ru-help" aria-hidden="true">ⓘ</span>
+  <label class="switch">
+    <input type="checkbox" id="bypassRuToggle" aria-labelledby="bypassRuLabel" checked>
+    <span class="slider"></span>
+  </label>
+</div>
+
+<!-- [v2.6.3] Usage stats – показывается активным free-юзерам (>=1ч VPN за 30 дней), основан на vpnStats.dailySeconds -->
+<button type="button" class="usage-stats-hint" id="usageStatsHint" hidden>
+  <span class="usage-stats-icon" aria-hidden="true">💡</span>
+  <span class="usage-stats-text" id="usageStatsText"></span>
+  <span class="usage-stats-arrow" aria-hidden="true">›</span>
+</button>
+
+<!-- [v3.1.7] Кнопка-ссылка на общий чат пользователей (открывается в новой вкладке, RKN-safe редиректор). -->
+<a href="#" target="_blank" rel="noopener noreferrer" id="communityChatBtn" style="display:none"><span class="support-btn-icon" aria-hidden="true">💬</span><span class="support-btn-text" id="communityChatText">Чат пользователей</span></a>
+<a href="#" target="_blank" rel="noopener noreferrer" id="privacyBtn" class="privacy-link">Privacy Policy</a>
+
+<div class="module card-rating" id="rating">
+  <div class="module-title" id="feedbackTitle">Оцените расширение</div>
+  <div class="stars-row" role="radiogroup" aria-labelledby="feedbackTitle">
+    <span class="star" data-value="1" role="radio" aria-checked="false" tabindex="0" aria-label="1">★</span>
+    <span class="star" data-value="2" role="radio" aria-checked="false" tabindex="-1" aria-label="2">★</span>
+    <span class="star" data-value="3" role="radio" aria-checked="false" tabindex="-1" aria-label="3">★</span>
+    <span class="star" data-value="4" role="radio" aria-checked="false" tabindex="-1" aria-label="4">★</span>
+    <span class="star" data-value="5" role="radio" aria-checked="false" tabindex="-1" aria-label="5">★</span>
+  </div>
+</div>
+
+<form class="module" id="feedback-form">
+  <input id="rating-value" type="hidden" value="0"/>
+  <textarea id="feedback" placeholder="Ваш отзыв" rows="2" aria-label="Feedback" maxlength="2000" autocomplete="off"></textarea>
+  <input id="email" placeholder="Email (опционально)" type="email" aria-label="Email" maxlength="254" autocomplete="off"/>
+  <div class="feedback-actions">
+    <button id="submit-feedback" type="submit">Отправить</button>
+    <button id="edit-feedback" type="button" aria-label="Edit feedback">✏️</button>
+  </div>
+</form>
+
+</div>
+
+<!-- ═══ PREMIUM TAB ═══ -->
+<div class="tab-content" id="tab-premium" role="tabpanel" aria-labelledby="tabPremium">
+<div class="module" id="premiumActivateBlock">
+  <div id="premiumKeyMessage" role="status" aria-live="polite" aria-atomic="true"></div>
+  <!-- [v2.6.2] One-click trial – активирует 3 дня Premium через server-side abuse-protection -->
+  <button type="button" id="tryTrialBtn" class="trial-cta-btn" aria-label="Получить 3 дня Premium">
+    <span class="trial-cta-icon" aria-hidden="true">🎁</span>
+    <span class="trial-cta-label" id="tryTrialLabel">Получить 3 дня Premium</span>
+  </button>
+  <!-- [v2.6.2] Recovery – для случая "случайно вышел", спасает активный ключ из БД -->
+  <button type="button" id="recoverPremiumBtn" class="recover-cta-btn" aria-label="Восстановить мой Premium">
+    <span class="recover-cta-icon" aria-hidden="true">🔓</span>
+    <span class="recover-cta-label" id="recoverPremiumLabel">Восстановить мой Premium</span>
+  </button>
+  <!-- [v3.1.1] Контекстный vpn-locked баннер на «Премиум»: объясняет, почему поле ключа
+       заблокировано пока ВПН включён (основной vpnLockedBanner живёт в «Главной» и отсюда не виден). -->
+  <div id="vpnLockedBannerPremium" class="vpn-locked-banner" role="status" aria-live="polite" hidden>
+    <span class="vpn-locked-banner-icon">🔒</span>
+    <span class="vpn-locked-banner-text" id="vpnLockedBannerPremiumText">Смена сервера и настройки премиума недоступны. Отключите ВПН для изменений.</span>
+  </div>
+  <div id="premiumInputBlock" class="key-row">
+    <input type="text" id="premiumKey" placeholder="Премиум ключ" aria-label="Premium key" maxlength="128" autocomplete="off" data-1p-ignore="true" data-lpignore="true">
+    <button type="button" id="activateKey">OK</button>
+  </div>
+  <a href="https://web.telegram.org/k/#@exp_AnonVPN_bot" target="_blank" rel="noopener noreferrer" class="module-hint trial-link" id="premiumTrialHint">Попробовать через Telegram</a>
+  <button type="button" id="buyPremiumBtn">Купить премиум</button>
+</div>
+<!-- [v2.8.0] premiumPromo блок удалён – описания фич живут на каждой module-title карточке ниже -->
+
+<!-- [v2.6.2] Checker module – launcher for the full-popup checker modal -->
+<!-- [v2.8.0] module-hint вынесен ВЫШЕ lock-badge – описание видно даже при заблокированной карточке -->
+<div class="module premium-module" id="checkerModule">
+  <div class="module-title" id="checkerTitle">🔍 Проверка серверов</div>
+  <div id="checkerLock" class="premium-lock hidden">
+    <span id="premiumOnlyChecker">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="checkerIntroHint">Измерьте скорость и доступность сайтов через все доступные серверы.</p>
+  </div>
+  <div id="checkerContent">
+    <button type="button" class="excl-open-btn" id="openCheckerModal">Открыть проверку</button>
+  </div>
+</div>
+
+<!-- Exclusions summary + open modal -->
+<div class="module premium-module" id="exclusionsModule">
+  <div class="module-title" id="exclusionsTitle">🛡️ Фильтр сайтов</div>
+  <div id="exclusionsLock" class="premium-lock hidden">
+    <span id="premiumOnlyExcl">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="exclusionsFeatureDesc">Чёрный или белый список сайтов: VPN включается только где нужно.</p>
+  </div>
+  <div id="exclusionsContent">
+    <div class="excl-summary">
+      <div class="excl-summary-row" id="exclBlackSummary"><span class="excl-summary-icon">⛔</span><span id="exclBlackCount">0</span></div>
+      <div class="excl-summary-row" id="exclWhiteSummary"><span class="excl-summary-icon">✅</span><span id="exclWhiteCount">0</span></div>
+    </div>
+    <div class="excl-active-badge" id="exclActiveBadge">Включен: ⛔ Чёрный список</div>
+    <button type="button" class="excl-open-btn" id="openExclusionsModal">Настроить списки</button>
+  </div>
+</div>
+
+<!-- [v2.6.2] Ad & tracker blocker -->
+<div class="module premium-module" id="adBlockerModule">
+  <div class="module-title" id="adBlockerTitle">🛑 Блокировка рекламы</div>
+  <div id="adBlockerLock" class="premium-lock hidden">
+    <span id="premiumOnlyAdBlock">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="adBlockerHint">Блокирует рекламу и трекеры на посещаемых сайтах.</p>
+  </div>
+  <div id="adBlockerContent">
+    <div class="adblock-row">
+      <span class="adblock-label" id="adBlockerLabel">Блокировать известные трекеры и рекламу</span>
+      <label class="switch">
+        <input type="checkbox" id="adBlockerToggle" aria-labelledby="adBlockerLabel">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.6.4] Auto-enable VPN для списка сайтов -->
+<div class="module premium-module" id="autoEnableModule">
+  <div class="module-title" id="autoEnableTitle">🚀 Автовключение для сайтов</div>
+  <div id="autoEnableLock" class="premium-lock hidden">
+    <span id="premiumOnlyAutoEnable">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="autoEnableHint">VPN включится сам при посещении сайтов из списка. Отключение – вручную.</p>
+  </div>
+  <div id="autoEnableContent">
+    <div class="adblock-row">
+      <span class="adblock-label" id="autoEnableLabel">Включать VPN автоматически</span>
+      <label class="switch">
+        <input type="checkbox" id="autoEnableToggle" aria-labelledby="autoEnableLabel">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="excl-summary">
+      <div class="excl-summary-row"><span class="excl-summary-icon">🌐</span><span id="autoEnableCountText">Сайтов в списке: 0</span></div>
+    </div>
+    <button type="button" class="excl-open-btn" id="openAutoEnableModal">Настроить список</button>
+  </div>
+</div>
+
+<!-- Color scheme -->
+<div class="module premium-module" id="themeModule">
+  <div class="module-title" id="themeTitle">🎨 Цветовая схема</div>
+  <div id="themeLock" class="premium-lock hidden">
+    <span id="premiumOnlyTheme">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="themeFeatureDesc">17 цветовых тем для оформления расширения.</p>
+  </div>
+  <div id="themeContent">
+    <div class="theme-preview">
+      <span class="theme-preview-swatch" id="themePreviewSwatch"></span>
+      <span class="theme-preview-name" id="themePreviewName">Зелёная</span>
+    </div>
+    <button type="button" class="excl-open-btn" id="openThemeModal">Выбрать тему</button>
+  </div>
+</div>
+
+<!-- [v2.7.6] Резервная копия – Premium feature: экспорт/импорт настроек и списка сайтов -->
+<div class="module premium-module" id="backupModule">
+  <div class="module-title" id="settingsBackupTitle">💾 Резервная копия</div>
+  <div id="backupLock" class="premium-lock hidden">
+    <span id="premiumOnlyBackup">🔒 Доступно только для Premium</span>
+    <p class="module-hint module-feat-desc" id="settingsBackupHint">Сохраните настройки и списки сайтов, чтобы перенести их в другой браузер.</p>
+  </div>
+  <div id="backupContent">
+    <div class="backup-actions">
+      <button type="button" class="settings-btn" id="exportSettingsBtn" aria-label="Экспорт настроек">
+        <span class="settings-btn-icon" aria-hidden="true">📤</span>
+        <span id="exportSettingsLabel">Экспорт</span>
+      </button>
+      <button type="button" class="settings-btn" id="importSettingsBtn" aria-label="Импорт настроек">
+        <span class="settings-btn-icon" aria-hidden="true">📥</span>
+        <span id="importSettingsLabel">Импорт</span>
+      </button>
+    </div>
+    <input type="file" id="importSettingsFile" accept=".json,application/json" tabindex="-1" aria-hidden="true" hidden>
+    <div id="backupResult" class="settings-result"></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ NEWS TAB ═══ -->
+<div class="tab-content" id="tab-news" role="tabpanel" aria-labelledby="tabNews">
+  <div id="sysMsgContainer"></div>
+  <div id="newsLoading" class="news-loading"><div class="news-spinner"></div></div>
+  <div id="newsContainer"></div>
+  <div id="newsEmpty" class="news-empty"></div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Buy Premium -->
+<div id="buyPremiumModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="buyModalTitle">
+  <div class="modal-box">
+    <button class="modal-close" type="button" aria-label="Закрыть" data-close="buyPremiumModal">&times;</button>
+    <h2 id="buyModalTitle">Купить премиум</h2>
+    <p id="buyModalText">Покупка премиум доступа снимает все лимиты, открывает доступ к премиум серверам и функциям</p>
+    <a href="https://web.telegram.org/k/#@exp_AnonVPN_bot" target="_blank" rel="noopener noreferrer" id="buyModalAction" class="modal-action-btn">Купить через Telegram</a>
+    <a href="https://web.telegram.org/k/#@exp_AnonVPN_bot" target="_blank" rel="noopener noreferrer" id="buyModalActionWeb" class="modal-action-btn modal-action-btn-web">Web Telegram</a>
+    <a href="https://balancing.apiget.ru/AnonVPN/lk/premium-access-payment/" target="_blank" rel="noopener noreferrer" id="buyModalActionSite" class="modal-action-btn modal-action-btn-site">Купить на сайте</a>
+  </div>
+</div>
+
+<!-- [v2.5.9] Trial info modal – explains what happens before opening Telegram bot -->
+<div id="trialInfoModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="trialInfoTitle">
+  <div class="modal-box trial-info-box">
+    <div class="modal-header">
+      <h2 id="trialInfoTitle">Пробный Premium</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="trialInfoModal">&times;</button>
+    </div>
+    <div class="trial-info-body">
+      <div class="trial-info-icon">🎁</div>
+      <p id="trialInfoText">Откроется Telegram-бот <b>@exp_AnonVPN_bot</b>. Он выдаст вам пробный Premium-ключ. Скопируйте ключ, вернитесь в расширение → вкладка «Премиум» → вставьте ключ в поле и нажмите OK. Premium-функции активируются на время пробного периода.</p>
+    </div>
+    <div class="trial-info-actions">
+      <button type="button" id="trialInfoCancel" class="overload-btn overload-btn-no">Отмена</button>
+      <button type="button" id="trialInfoWebBtn" class="overload-btn trial-info-web-btn">Web TG</button>
+      <button type="button" id="trialInfoVpnWebBtn" class="overload-btn trial-info-open-btn">Вкл ВПН + Web TG</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.6.2] Logout confirmation – защита от случайного нажатия «Выйти» при активном Premium -->
+<div id="logoutConfirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="logoutConfirmTitle">Точно выйти?</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="logoutConfirmModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⚠</div>
+      <p id="logoutConfirmText">Ваш Premium-ключ остаётся активным до <b id="logoutConfirmExpires">–</b>. После выхода ключ будет удалён локально, но его можно восстановить кнопкой «Восстановить мой Premium».</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="logoutConfirmNo" class="overload-btn overload-btn-no">Отмена</button>
+      <button type="button" id="logoutConfirmYes" class="overload-btn overload-btn-yes">Выйти</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.5.9] Elevated-load confirmation modal -->
+<div id="overloadConfirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="overloadConfirmTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="overloadConfirmTitle">Повышенная нагрузка на сервер</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="overloadConfirmModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⚠</div>
+      <p id="overloadConfirmText">На выбранном сервере возможно повышенная нагрузка (<b id="overloadConfirmCount">–</b> польз.). Подключение может быть медленнее обычного. Продолжить?</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="overloadConfirmNo" class="overload-btn overload-btn-no">Отмена</button>
+      <button type="button" id="overloadConfirmYes" class="overload-btn overload-btn-yes">Подключить</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.7.6] Подтверждение импорта настроек -->
+<div id="importConfirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="importConfirmTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="importConfirmTitle">Подтвердите импорт</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="importConfirmModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⚠</div>
+      <p id="importConfirmText">Текущие настройки будут заменены. Premium-ключ и статистика не затрагиваются.</p>
+      <div id="importConfirmDetails" class="settings-result show"></div>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="importConfirmNo" class="overload-btn overload-btn-no">Отмена</button>
+      <button type="button" id="importConfirmYes" class="overload-btn overload-btn-yes">Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.7.3] Free-юзер пытается подключиться к перегруженному серверу (u ≥ 75) -->
+<div id="freeBlockedModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="freeBlockedTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="freeBlockedTitle">Сервер недоступен</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="freeBlockedModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">🔒</div>
+      <p id="freeBlockedText">Этот сервер перегружен. Без Premium можно подключаться только к серверам с низкой нагрузкой. Активируйте Premium для подключения к любому серверу без ограничений.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="freeBlockedCancel" class="overload-btn overload-btn-no">Закрыть</button>
+      <button type="button" id="freeBlockedUpsell" class="overload-btn overload-btn-yes">Активировать Premium</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.0.3] Гео-ограничения: возможна блокировка YouTube/Instagram в стране сервера -->
+<div id="geoBlockModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="geoBlockTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="geoBlockTitle">Возможны ограничения</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="geoBlockModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">🌐</div>
+      <p id="geoBlockText">В этой стране часто ограничивают интернет – YouTube, Instagram и другие сервисы могут не открываться.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="geoBlockClose" class="overload-btn overload-btn-yes" data-close="geoBlockModal">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.1.6] Легенда обозначений в списке серверов (авто-показ при первом открытии + кнопка «?») -->
+<div id="serverLegendModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="serverLegendTitle">
+  <div class="modal-box overload-confirm-box server-legend-box">
+    <div class="modal-header">
+      <h2 id="serverLegendTitle">Обозначения</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="serverLegendModal">&times;</button>
+    </div>
+    <div class="server-legend-body">
+      <div class="legend-row"><span class="legend-ico legend-ico-ping">42 ms</span><span id="serverLegendPing" class="legend-txt">Число рядом с сервером это скорость его ответа (пинг). Зелёный быстрый, красный медленный.</span></div>
+      <div class="legend-row"><span class="legend-ico legend-ico-fail">✕</span><span id="serverLegendBroken" class="legend-txt">Крестик значит, что сервер не отвечает или не прошёл проверку. Подключиться к нему не выйдет.</span></div>
+      <div class="legend-row"><span class="legend-ico legend-ico-pending">…</span><span id="serverLegendPending" class="legend-txt">Если значка скорости нет, сервер ещё проверяется. Подождите пару секунд.</span></div>
+      <div class="legend-row"><span class="legend-ico">👤 5</span><span id="serverLegendUsers" class="legend-txt">Значок с человеком показывает, сколько людей сейчас на сервере. Чем больше, тем выше нагрузка.</span></div>
+      <div class="legend-row"><span class="legend-ico">⚠</span><span id="serverLegendGeo" class="legend-txt">Треугольник предупреждает, что в стране сервера возможны ограничения или перебои.</span></div>
+      <div class="legend-row"><span class="legend-ico legend-ico-fav">★</span><span id="serverLegendFav" class="legend-txt">Звезда добавляет сервер в избранное, и он закрепляется вверху списка.</span></div>
+      <div class="legend-row"><span class="legend-ico">−</span><span id="serverLegendExclude" class="legend-txt">Минус убирает сервер из автоматического выбора, плюс возвращает обратно.</span></div>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="serverLegendGotIt" class="overload-btn overload-btn-yes" data-close="serverLegendModal">Понятно</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.1.6] Выбран сервер без результата проверки (пинга ещё нет) -->
+<div id="serverNoPingModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="serverNoPingTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="serverNoPingTitle">Проверка ещё идёт</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="serverNoPingModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⏳</div>
+      <p id="serverNoPingText">У этого сервера пока нет результата проверки скорости, возможно он ещё проверяется. Лучше подождать несколько секунд. Подключиться всё равно?</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="serverNoPingCancel" class="overload-btn overload-btn-no">Отмена</button>
+      <button type="button" id="serverNoPingConnect" class="overload-btn overload-btn-yes">Подключиться</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.1.6] Выбран сервер с крестиком (не отвечает / не прошёл проверку) -->
+<div id="serverBrokenModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="serverBrokenTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="serverBrokenTitle">Сервер не отвечает</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="serverBrokenModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">✕</div>
+      <p id="serverBrokenText">Этот сервер не прошёл проверку: он не отвечает и не пингуется. Скорее всего, подключиться к нему не получится. Лучше выбрать другой сервер.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="serverBrokenConnectAnyway" class="overload-btn overload-btn-no">Всё равно подключиться</button>
+      <button type="button" id="serverBrokenChooseOther" class="overload-btn overload-btn-yes" data-close="serverBrokenModal">Выбрать другой</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.1.7] Кнопка «Подобрать сервер» нажата, но в активной вкладке нет сайта -->
+<div id="autoPickNoTabModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="autoPickNoTabTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="autoPickNoTabTitle">Сначала откройте сайт</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="autoPickNoTabModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">🔍</div>
+      <p id="autoPickNoTabText">Сейчас в активной вкладке нет сайта. Откройте нужный сайт и нажмите кнопку ещё раз.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="autoPickNoTabOk" class="overload-btn overload-btn-yes" data-close="autoPickNoTabModal">Понятно</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.0.3] Общий лимит трафика: сервер этой страны может временно пропадать из списка -->
+<div id="trafficModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="trafficTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="trafficTitle">Возможны перебои</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="trafficModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⏳</div>
+      <p id="trafficText">У серверов этой страны есть общий лимит трафика – сервер может временно пропадать из списка.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="trafficClose" class="overload-btn overload-btn-yes" data-close="trafficModal">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.0.3] Rescue не нашёл рабочий сервер – ВПН выключен. Финальная модалка + действия. -->
+<div id="noServerModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="noServerTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="noServerTitle">Не удалось подключиться</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="noServerModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">⚠️</div>
+      <p id="noServerText">Не удалось подключиться ни к одному серверу. Возможно, ваш провайдер блокирует подключение. Попробуйте:</p>
+    </div>
+    <div class="overload-confirm-actions noserver-actions">
+      <button type="button" id="noServerClearCache" class="overload-btn overload-btn-no"><span id="noServerClearCacheLabel">Очистить кэш</span></button>
+      <button type="button" id="noServerDiag" class="overload-btn overload-btn-no"><span id="noServerDiagLabel">Полная диагностика</span></button>
+      <button type="button" id="noServerSupport" class="overload-btn overload-btn-yes"><span id="noServerSupportLabel">Поддержка</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- [v3.0.3] Update Help Modal – как обновиться вручную без удаления (сохраняет ключ/настройки) -->
+<div id="updateHelpModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="updateHelpTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="updateHelpTitle">Как обновить расширение</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="updateHelpModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <p id="updateHelpIntro">Обновитесь до последней версии – это быстро.</p>
+      <p id="updateHelpManual">Чтобы обновить прямо сейчас вручную:</p>
+      <ol class="update-help-steps">
+        <li id="updateHelpStep1">Скопируйте адрес ниже, вставьте его в адресную строку браузера и нажмите Enter.</li>
+        <li id="updateHelpStep2">Включите «Режим разработчика» (переключатель вверху справа).</li>
+        <li id="updateHelpStep3">Нажмите кнопку «Обновить».</li>
+      </ol>
+      <div class="update-help-path-row">
+        <code id="updateHelpPath" class="update-help-path" title="Нажмите, чтобы скопировать">chrome://extensions/</code>
+        <button type="button" id="updateHelpCopyBtn" class="overload-btn overload-btn-no"><span id="updateHelpCopyLabel">Копировать</span></button>
+      </div>
+      <p id="updateHelpNote" class="update-help-note">Удалять расширение не нужно – иначе потеряете свои настройки (и премиум-ключ, если он у вас есть).</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="updateHelpOkBtn" class="overload-btn overload-btn-yes" data-close="updateHelpModal"><span id="updateHelpOkLabel">Понятно</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.8.5] Checker Locked Modal – free без премиума/почты при сортировке «По пингу» -->
+<div id="checkerLockedModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="checkerLockedTitle">
+  <div class="modal-box overload-confirm-box">
+    <div class="modal-header">
+      <h2 id="checkerLockedTitle">Проверка серверов недоступна</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="checkerLockedModal">&times;</button>
+    </div>
+    <div class="overload-confirm-body">
+      <div class="overload-confirm-icon">🔒</div>
+      <p id="checkerLockedText">Проверять серверы можно с Premium или с подтверждённой почтой. Подтвердите почту в настройках расширения (бесплатно) или оформите Premium.</p>
+    </div>
+    <div class="overload-confirm-actions">
+      <button type="button" id="checkerLockedClose" class="overload-btn overload-btn-no">Закрыть</button>
+      <button type="button" id="checkerLockedUpsell" class="overload-btn overload-btn-yes">Активировать Premium</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.9.1] Setup Metric Modal – wizard выбора критерия авто-выбора (load/ping/both)
+     + опциональный запуск bulk-ping топ-15 серверов. Показывается ОДИН РАЗ
+     при первом open popup (sentinel onboardingV2Done). Тексты – через i18n,
+     заполняются в popup.js applyTranslations. -->
+<div id="setupMetricModal" class="modal-overlay setup-overlay" role="dialog" aria-modal="true" aria-labelledby="setupMetricTitle">
+  <div class="modal-box setup-box">
+    <button class="modal-close setup-close" type="button" id="setupMetricClose" aria-label="Закрыть">&times;</button>
+    <div class="setup-hero">
+      <div class="setup-hero-badge"><img src="icons/AnonVPN512.png" alt="AnonVPN" class="setup-hero-logo"></div>
+      <h3 class="setup-h" id="setupMetricTitle">Добро пожаловать в AnonVPN</h3>
+      <p class="setup-lead" id="setupMetricSub">Первичная настройка: подберём рабочий сервер, чтобы ВПН заработал сразу.</p>
+    </div>
+
+    <!-- [v3.0.5] Мастер первичной настройки. Шаг «ключ» – JS полностью скрывает если Premium уже активен. -->
+    <div class="setup-step" id="setupStepKey">
+      <p class="setup-step-text" id="setupKeyPrompt">Есть премиум-ключ? Вставьте его – снимет все лимиты по времени. Нет ключа – просто пропустите, ВПН работает и бесплатно.</p>
+      <div class="setup-key-row">
+        <input type="text" id="setupKeyInput" class="setup-key-input" placeholder="Премиум ключ" aria-label="Premium key" maxlength="128" autocomplete="off" data-1p-ignore="true" data-lpignore="true">
+        <button type="button" id="setupKeyActivate" class="setup-key-ok">OK</button>
+      </div>
+      <div id="setupKeyMsg" class="settings-result" role="status" aria-live="polite" aria-atomic="true"></div>
+      <button type="button" id="setupKeySkip" class="setup-btn-link">У меня нет ключа – пропустить →</button>
+    </div>
+
+    <!-- [v3.0.5] Шаг «проверка» = подбор рабочего сервера (полная диагностика). -->
+    <div class="setup-step" id="setupStepCheck" hidden>
+      <p class="setup-step-text" id="setupPremiumOkText" hidden>Premium активен ✓ – лимитов по времени нет.</p>
+      <p class="setup-step-text" id="setupCheckPrompt">Теперь подберём рабочий сервер, чтобы ВПН сразу заработал. Проверка займёт около 2 минут – расширение переберёт серверы и найдёт рабочий.</p>
+      <div class="setup-warning" id="setupCheckWarn">
+        <span class="setup-warning-icon" aria-hidden="true">⚠️</span>
+        <span id="setupCheckWarnText">Без этого можно попасть на медленный или нерабочий сервер.</span>
+      </div>
+      <div id="setupCheckProgress" class="setup-check-progress" hidden></div>
+      <div id="setupCheckMsg" class="settings-result" role="status" aria-live="polite"></div>
+      <button type="button" id="setupStartCheck" class="setup-btn">Начать проверку</button>
+      <button type="button" id="setupCheckSkip" class="setup-btn-link">Пропустить проверку →</button>
+    </div>
+
+    <!-- [v3.0.5] Готово / результат проверки -->
+    <div class="setup-step" id="setupStepDone" hidden>
+      <div class="setup-done-check" aria-hidden="true">✓</div>
+      <p class="setup-step-text setup-done-text" id="setupDoneText">Всё готово! Закройте это окно и нажмите «Включить ВПН».</p>
+      <div id="setupConflictWarn" class="setup-conflict-warn" role="note" hidden></div>
+      <button type="button" id="setupFinishBtn" class="setup-btn">Отлично</button>
+      <button type="button" id="setupRetryBtn" class="setup-btn-link" hidden>Попробовать снова</button>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.9.1] Bulk-ping progress indicator – показывается когда bulk-ping идёт в фоне.
+     Слушает chrome.runtime.sendMessage({action:'bulkPingProgress',...}). Auto-hides
+     на bulkPingDone. Размещён как fixed bar в верхней части popup. -->
+<div id="bulkPingProgress" class="bulk-ping-indicator" hidden role="status" aria-live="polite">
+  <span class="bulk-ping-text" id="bulkPingProgressText">Проверяем серверы: 0 из 0</span>
+  <div class="bulk-ping-bar"><div class="bulk-ping-bar-fill" id="bulkPingBarFill"></div></div>
+</div>
+
+
+<!-- Server Modal -->
+<div id="serverModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="serverModalTitle">
+  <div class="modal-box modal-list-box">
+    <div class="modal-header"><h2 id="serverModalTitle">Выбор сервера</h2><span id="ghostPingStatus" class="ghost-ping-status"></span><button id="serverLegendBtn" class="server-legend-btn" type="button" aria-label="Что означают значки">?</button><button class="modal-close" type="button" aria-label="Закрыть" data-close="serverModal">&times;</button></div>
+    <div class="auto-sel-bar">
+      <span class="auto-sel-label" id="autoSelLabel">Автовыбор сервера</span>
+      <!-- [v2.9.1] Method-dropdown – критерий авто-выбора (load/ping/both). Зеркало scope-dropdown. -->
+      <div class="auto-sel-method-wrap">
+        <button type="button" class="auto-sel-method-btn" id="autoSelMethodBtn" title="Критерий авто-выбора" aria-haspopup="true" aria-controls="autoSelMethodDropdown">
+          <span class="auto-sel-method-icon">⚡</span><span id="autoSelMethodText">По скорости</span>
+        </button>
+        <div class="auto-sel-method-dropdown" id="autoSelMethodDropdown" role="menu">
+          <div class="auto-sel-method-item" data-method="ping" id="autoSelMethodPing" role="menuitem" tabindex="0">По скорости</div>
+          <div class="auto-sel-method-item" data-method="both" id="autoSelMethodBoth" role="menuitem" tabindex="0">Комбо</div>
+        </div>
+      </div>
+      <div class="auto-sel-scope-wrap">
+        <button type="button" class="auto-sel-scope-btn" id="autoSelScopeBtn" title="Область автовыбора" aria-haspopup="true" aria-controls="autoSelScopeDropdown">
+          <span class="auto-sel-scope-icon">⚙</span><span id="autoSelScopeText">Стандартные</span>
+        </button>
+        <div class="auto-sel-scope-dropdown" id="autoSelScopeDropdown" role="menu">
+          <div class="auto-sel-scope-item" data-scope="all" id="autoSelScopeAll" role="menuitem" tabindex="0">Все</div>
+          <div class="auto-sel-scope-item" data-scope="free" id="autoSelScopeFree" role="menuitem" tabindex="0">Стандартные</div>
+          <div class="auto-sel-scope-item" data-scope="premium" id="autoSelScopePrem" role="menuitem" tabindex="0">Премиум</div>
+        </div>
+      </div>
+      <label class="switch auto-sel-switch">
+        <input type="checkbox" id="autoSelToggle" aria-labelledby="autoSelLabel">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <!-- [v2.6.2] Переключатель сортировки списка серверов -->
+    <div class="sort-mode-bar">
+      <span class="sort-mode-label" id="sortModeLabel">Сортировка:</span>
+      <div class="sort-mode-wrap">
+        <button type="button" class="sort-mode-btn" id="sortModeBtn" aria-haspopup="true" aria-controls="sortModeDropdown">
+          <span id="sortModeText">По нагрузке</span>
+          <span class="sort-mode-caret">▾</span>
+        </button>
+        <div class="sort-mode-dropdown" id="sortModeDropdown" role="menu">
+          <div class="sort-mode-item" data-mode="load" id="sortModeLoad" role="menuitem" tabindex="0">По нагрузке</div>
+          <div class="sort-mode-item" data-mode="index" id="sortModeIndex" role="menuitem" tabindex="0">По номеру</div>
+          <div class="sort-mode-item" data-mode="country" id="sortModeCountry" role="menuitem" tabindex="0">По стране</div>
+          <div class="sort-mode-item" data-mode="ping" id="sortModePing" role="menuitem" tabindex="0">По скорости</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-list" id="serverModalList"></div>
+    <a class="server-status-link" id="serverStatusLink" href="https://balancing.apiget.ru/AnonVPN/lk/status/" target="_blank" rel="noopener noreferrer">📊 <span id="serverStatusLinkLabel">Статус всех серверов</span></a>
+  </div>
+</div>
+
+<!-- Language Modal -->
+<div id="langModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="langModalTitle">
+  <div class="modal-box modal-list-box">
+    <div class="modal-header"><h2 id="langModalTitle">Выбор языка</h2><button class="modal-close" type="button" aria-label="Закрыть" data-close="langModal">&times;</button></div>
+    <div class="modal-list" id="langModalList"></div>
+  </div>
+</div>
+
+<!-- [v2.6.2] Checker modal – full-popup list of servers with per-item and check-all -->
+<div id="checkerModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="checkerModalTitle">
+  <div class="modal-box modal-checker-box">
+    <div class="modal-header">
+      <h2 id="checkerModalTitle">Проверка серверов</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="checkerModal">&times;</button>
+    </div>
+    <p class="module-hint" id="checkerFreeVerifiedHint" hidden>Без Premium – 1 проверка в час. Premium снимает лимит.</p>
+    <div class="checker-controls">
+      <div class="checker-mode-toggle">
+        <button type="button" class="checker-mode-btn active" data-mode="ping" id="modePingBtn">
+          <span class="checker-mode-icon">⚡</span>
+          <span class="checker-mode-label" id="modePingLabel">Скорость</span>
+        </button>
+        <button type="button" class="checker-mode-btn" data-mode="site" id="modeSiteBtn">
+          <span class="checker-mode-icon">🌐</span>
+          <span class="checker-mode-label" id="modeSiteLabel">Сайт</span>
+        </button>
+      </div>
+      <div id="checkerSiteRow" class="checker-site-row hidden">
+        <button type="button" class="modal-select-btn" id="openCheckerSiteModal">
+          <span id="checkerSiteBtnLabel">Google</span>
+          <span class="modal-select-arrow">›</span>
+        </button>
+        <input type="text" id="checker-custom" placeholder="https://example.com" class="hidden" maxlength="2048" aria-label="Custom site URL" autocomplete="off">
+      </div>
+      <select id="checker-site" class="hidden-select" aria-label="Check site selection">
+        <option value="https://google.com">Google</option>
+        <option value="https://youtube.com">YouTube</option>
+        <option value="https://yandex.ru">Yandex</option>
+        <option value="https://instagram.com">Instagram</option>
+        <option value="https://x.com">X (Twitter)</option>
+        <option value="https://facebook.com">Facebook</option>
+        <option value="https://tiktok.com">TikTok</option>
+        <option value="https://www.linkedin.com">LinkedIn</option>
+        <option value="custom">Свой сайт...</option>
+      </select>
+      <button type="button" id="checkAllBtn" class="checker-btn">Проверить все</button>
+      <button type="button" id="autoPickBtn" class="checker-btn checker-btn-autopick hidden">🎯 Подобрать лучший</button>
+    </div>
+    <div class="checker-run-warn" id="checkerRunWarn" role="status" hidden></div>
+    <div class="checker-list" id="checkerServerList"></div>
+  </div>
+</div>
+
+<!-- Checker Site Modal -->
+<div id="checkerSiteModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="checkerSiteModalTitle">
+  <div class="modal-box modal-list-box">
+    <div class="modal-header"><h2 id="checkerSiteModalTitle">Сайт для проверки</h2><button class="modal-close" type="button" aria-label="Закрыть" data-close="checkerSiteModal">&times;</button></div>
+    <div class="modal-list" id="checkerSiteModalList"></div>
+  </div>
+</div>
+
+<!-- Exclusions Modal -->
+<div id="exclusionsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="exclModalTitle">
+  <div class="modal-box modal-excl-box">
+    <div class="modal-header"><h2 id="exclModalTitle">Фильтр сайтов</h2><button class="modal-close" type="button" aria-label="Закрыть" data-close="exclusionsModal">&times;</button></div>
+    <div class="excl-modal-body">
+      <div class="excl-mode-toggle">
+        <button type="button" class="excl-mode-btn active" data-mode="blacklist" id="modeBlacklistBtn"><span class="excl-mode-icon">⛔</span><span class="excl-mode-label" id="modeBlacklistLabel">Чёрный список</span></button>
+        <button type="button" class="excl-mode-btn" data-mode="whitelist" id="modeWhitelistBtn"><span class="excl-mode-icon">✅</span><span class="excl-mode-label" id="modeWhitelistLabel">Белый список</span></button>
+      </div>
+      <p class="module-hint excl-hint" id="exclusionsHint">VPN не будет работать на этих сайтах</p>
+
+      <div class="excl-section" id="exclBlackSection">
+        <div class="excl-section-hdr"><span>⛔ <span id="exclBlackTitle">Чёрный список</span></span><button type="button" class="excl-copy-btn" id="copyToWhiteBtn" title="Копировать в белый список" aria-label="Копировать в белый список">📋→✅</button></div>
+        <div class="exclusion-add-row"><input type="text" id="blacklistInput" placeholder="example.com" maxlength="253" aria-label="Blacklist domain" autocomplete="off"><button type="button" class="excl-add-btn" id="addBlacklistBtn" aria-label="Add to blacklist">+</button></div>
+        <div id="blacklistItems" class="exclusions-list"></div>
+      </div>
+
+      <div class="excl-section" id="exclWhiteSection">
+        <div class="excl-section-hdr"><span>✅ <span id="exclWhiteTitle">Белый список</span></span><button type="button" class="excl-copy-btn" id="copyToBlackBtn" title="Копировать в чёрный список" aria-label="Копировать в чёрный список">📋→⛔</button></div>
+        <div class="exclusion-add-row"><input type="text" id="whitelistInput" placeholder="example.com" maxlength="253" aria-label="Whitelist domain" autocomplete="off"><button type="button" class="excl-add-btn" id="addWhitelistBtn" aria-label="Add to whitelist">+</button></div>
+        <div id="whitelistItems" class="exclusions-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.6.4] Auto-enable domains modal -->
+<div id="autoEnableModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="autoEnableModalTitle">
+  <div class="modal-box modal-excl-box">
+    <div class="modal-header"><h2 id="autoEnableModalTitle">🚀 Автовключение для сайтов</h2><button class="modal-close" type="button" aria-label="Закрыть" data-close="autoEnableModal">&times;</button></div>
+    <div class="excl-modal-body">
+      <p class="module-hint" id="autoEnableModalHint">VPN включится сам, когда вы зайдёте на любой из этих сайтов.</p>
+      <div class="excl-section">
+        <div class="exclusion-add-row"><input type="text" id="autoEnableInput" placeholder="netflix.com" maxlength="253" aria-label="Auto-enable domain" autocomplete="off"><button type="button" class="excl-add-btn" id="autoEnableAddBtn" aria-label="Add to auto-enable list">+</button></div>
+        <div id="autoEnableList" class="exclusions-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Theme Modal -->
+<div id="themeModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+  <div class="modal-box modal-list-box">
+    <div class="modal-header"><h2 id="themeModalTitle">Цветовая схема</h2><button class="modal-close" type="button" aria-label="Закрыть" data-close="themeModal">&times;</button></div>
+    <div class="theme-grid" id="themeGrid"></div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS DRAWER ═══ -->
+<div id="settingsOverlay" class="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+  <div id="settingsDrawer" class="settings-drawer">
+    <div class="settings-header">
+      <h2 id="settingsTitle">Настройки</h2>
+      <button class="modal-close" id="closeSettingsBtn" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-title" id="statsTitle">Статистика</div>
+        <div class="stats-grid">
+          <div class="stat-item"><span class="stat-value" id="statTotalTime">–</span><span class="stat-label" id="statTotalTimeLabel">Общее время</span></div>
+          <div class="stat-item"><span class="stat-value" id="statSessions">–</span><span class="stat-label" id="statSessionsLabel">Сессий</span></div>
+        </div>
+        <div class="stat-server-row">
+          <span class="stat-label" id="statTopServerLabel">Топ сервер</span>
+          <span class="stat-server-value" id="statTopServer">–</span>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title" id="languageLabel">Язык</div>
+        <button type="button" class="modal-select-btn settings-lang-btn" id="openLangModal">
+          <span id="langBtnLabel" class="btn-label-with-flag"><img src="flags/ru.svg" class="flag-img" id="langBtnFlag" alt=""><span id="langBtnText">Русский</span></span>
+          <span class="modal-select-arrow">›</span>
+        </button>
+        <select id="language" class="hidden-select" aria-label="Language selection">
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="pt">Português</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+          <option value="it">Italiano</option>
+          <option value="nl">Nederlands</option>
+          <option value="pl">Polski</option>
+          <option value="tr">Türkçe</option>
+          <option value="ar">العربية</option>
+          <option value="hi">हिन्दी</option>
+          <option value="vi">Tiếng Việt</option>
+          <option value="th">ไทย</option>
+          <option value="id">Bahasa Indonesia</option>
+          <option value="sv">Svenska</option>
+          <option value="am">አማርኛ</option>
+          <option value="bg">Български</option>
+          <option value="bn">বাংলা</option>
+          <option value="ca">Català</option>
+          <option value="cs">Čeština</option>
+          <option value="da">Dansk</option>
+          <option value="el">Ελληνικά</option>
+          <option value="et">Eesti</option>
+          <option value="fa">فارسی</option>
+          <option value="fi">Suomi</option>
+          <option value="fil">Filipino</option>
+          <option value="gu">ગુજરાતી</option>
+          <option value="he">עברית</option>
+          <option value="hr">Hrvatski</option>
+          <option value="hu">Magyar</option>
+          <option value="kn">ಕನ್ನಡ</option>
+          <option value="lt">Lietuvių</option>
+          <option value="lv">Latviešu</option>
+          <option value="ml">മലയാളം</option>
+          <option value="mr">मराठी</option>
+          <option value="ms">Bahasa Melayu</option>
+          <option value="no">Norsk</option>
+          <option value="ro">Română</option>
+          <option value="sk">Slovenčina</option>
+          <option value="sl">Slovenščina</option>
+          <option value="sr">Српски</option>
+          <option value="sw">Kiswahili</option>
+          <option value="ta">தமிழ்</option>
+          <option value="te">తెలుగు</option>
+        </select>
+      </div>
+      <!-- [v2.8.0] Account section: link to web user, displays email/verify status -->
+      <div class="settings-section">
+        <div class="settings-section-title" id="accountSection">Аккаунт</div>
+        <div id="accountUnlinkedBlock">
+          <p class="settings-hint" id="accountUnlinkedHint">С подтверждённым e-mail сессии длятся 60 минут вместо 30.</p>
+          <ol class="account-link-steps">
+            <li id="accountStep1">Откройте сайт, войдите или зарегистрируйтесь, подтвердите почту.</li>
+            <li id="accountStep2">В личном кабинете нажмите «Сгенерировать код».</li>
+            <li id="accountStep3">Скопируйте код и вставьте сюда.</li>
+          </ol>
+          <a class="settings-btn settings-btn-primary account-get-code-btn" id="accountRegisterLink" href="https://balancing.apiget.ru/AnonVPN/lk/premium-access-payment/account.php?utm_source=ext&utm_medium=link_account_setup" target="_blank" rel="noopener noreferrer">
+            <span id="accountRegisterLinkLabel">Открыть сайт и получить код</span>
+          </a>
+          <div class="account-link-row">
+            <input type="text" id="accountCodeInput" class="account-code-input" placeholder="Вставьте код" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Код для привязки почты">
+            <button type="button" class="settings-btn settings-btn-secondary" id="accountLinkBtn" aria-label="Привязать аккаунт">
+              <span id="accountLinkBtnLabel">Привязать</span>
+            </button>
+          </div>
+          <div id="accountLinkResult" class="settings-result"></div>
+        </div>
+        <div id="accountLinkedBlock" hidden>
+          <p class="settings-hint">
+            <span id="accountLinkedLabel">Привязан:</span>
+            <b id="accountEmailDisplay">–</b>
+          </p>
+          <p class="settings-hint" id="accountLinkedBenefit">Сессии 60 минут (вместо 30).</p>
+          <button type="button" class="settings-btn settings-btn-danger" id="accountUnlinkBtn">
+            <span id="accountUnlinkBtnLabel">Отвязать</span>
+          </button>
+        </div>
+      </div>
+      <!-- [v3.1.1] Уведомления о конце free-сессии: обе опции default ON -->
+      <div class="settings-section">
+        <div class="settings-section-title" id="notifySectionTitle">Уведомления</div>
+        <div class="notify-row">
+          <span class="notify-label" id="notifyEndLabel">Уведомление об окончании сессии</span>
+          <label class="switch">
+            <input type="checkbox" id="notifyEndToggle" aria-labelledby="notifyEndLabel" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="notify-row">
+          <span class="notify-label" id="notifySoonLabel">Предупреждать за 5 минут до конца сессии</span>
+          <label class="switch">
+            <input type="checkbox" id="notifySoonToggle" aria-labelledby="notifySoonLabel" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <!-- [v3.1.7] Список серверов: подсказка проверенных сайтов при наведении (default ON) -->
+      <div class="settings-section">
+        <div class="settings-section-title" id="serverListSectionTitle">Список серверов</div>
+        <div class="notify-row">
+          <span class="notify-label" id="siteHintsToggleLabel">Показывать проверенные сайты при наведении на сервер</span>
+          <label class="switch">
+            <input type="checkbox" id="siteHintsToggle" aria-labelledby="siteHintsToggleLabel" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title" id="settingsConflictTitle">Конфликты ВПН</div>
+        <p class="settings-hint" id="settingsConflictHint">Проверка других активных ВПН-расширений, которые могут мешать работе</p>
+        <button type="button" class="settings-btn" id="checkVpnConflictBtn">
+          <span class="settings-btn-icon">🔍</span>
+          <span id="checkVpnConflictLabel">Проверить</span>
+        </button>
+        <div id="vpnConflictResult" class="settings-result"></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title" id="settingsDiagTitle">Диагностика</div>
+        <p class="settings-hint" id="settingsDiagHint">Проверьте подключение или скопируйте лог для поддержки</p>
+        <button type="button" class="settings-btn" id="fullDiagBtn">
+          <span class="settings-btn-icon">🔬</span>
+          <span id="fullDiagLabel">Полная диагностика</span>
+        </button>
+        <div id="fullDiagProgress" class="diag-hidden"></div>
+        <div id="fullDiagResult" class="diag-hidden"></div>
+        <button type="button" class="settings-btn diag-mt" id="diagCopyResultBtn" disabled>
+          <span class="settings-btn-icon">📋</span>
+          <span id="diagCopyResultLabel">Скопировать результат</span>
+        </button>
+        <div id="diagCopyResultMsg" class="settings-result"></div>
+        <button type="button" class="settings-btn diag-mt" id="copyDiagBtn">
+          <span class="settings-btn-icon">📄</span>
+          <span id="copyDiagLabel">Скопировать лог</span>
+        </button>
+        <div id="copyDiagResult" class="settings-result"></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title" id="settingsCacheTitle">Кэш и данные</div>
+        <p class="settings-hint" id="settingsCacheHint">Очистка кэша может помочь при проблемах с работой расширения</p>
+        <button type="button" class="settings-btn settings-btn-danger" id="clearCacheBtn">
+          <span class="settings-btn-icon">🗑️</span>
+          <span id="clearCacheLabel">Очистить кэш</span>
+        </button>
+        <div id="clearCacheResult" class="settings-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.6.2] Support hub modal: страница поддержки + чат + FAQ embed -->
+<div id="supportModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+  <div class="modal-box modal-support-box">
+    <div class="modal-header">
+      <h2 id="supportModalTitle">Поддержка</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="supportModal">&times;</button>
+    </div>
+    <div class="support-actions">
+      <button type="button" class="support-btn support-btn-primary" id="openSupportPageBtn">
+        <span class="support-btn-icon">🌐</span>
+        <span id="openSupportPageLabel">Страница поддержки</span>
+      </button>
+      <button type="button" class="support-btn support-btn-secondary" id="openSupportChatBtn">
+        <span class="support-btn-icon">💬</span>
+        <span id="openSupportChatLabel">Чат поддержки</span>
+      </button>
+    </div>
+    <div class="support-faq-wrap">
+      <div class="support-faq-title" id="supportFaqTitle">Частые вопросы</div>
+      <!-- [v2.8.0] Sandbox без allow-same-origin (Chrome warning: с обоими флагами iframe может escape).
+           api.php имеет CORS allow-origin:* – fetch работает с null-origin. localStorage внутри
+           iframe не нужен (FAQ – read-only список). -->
+      <iframe id="supportFaqFrame" title="FAQ" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- [v2.6.2] Support chat embed modal (открывается из supportModal) -->
+<div id="supportChatModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="supportChatTitle">
+  <div class="modal-box modal-chat-box">
+    <div class="modal-header">
+      <h2 id="supportChatTitle">Чат поддержки</h2>
+      <button class="modal-close" type="button" aria-label="Закрыть" data-close="supportChatModal">&times;</button>
+    </div>
+    <!-- [v2.8.0] Sandbox содержит allow-scripts И allow-same-origin – Chrome warning про escape.
+         В нашем случае iframe (anon-vpn.ru/support/chat-embed.php) НЕ same-origin с popup
+         (chrome-extension://...) – реального escape нет, cross-origin barrier работает.
+         allow-same-origin нужен для localStorage (user_token хранится внутри iframe для
+         восстановления сессии чата между открытиями popup'а). Refactor через postMessage
+         между popup и iframe – отложено на 2.9.0. -->
+    <iframe id="supportChatFrame" title="Support chat" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms" referrerpolicy="no-referrer"></iframe>
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Lukk"
+   },
+   "copy": {
+      "message": "Kopier URL"
+   },
+   "copy_success": {
+      "message": "Kopiert vellykket."
+   },
+   "download": {
+      "message": "nedlasting"
+   },
+   "filter_lead": {
+      "message": "Video som er mindre enn denne verdien vil ikke bli tatt opp"
+   },
+   "hour": {
+      "message": "time"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "En profesjonell videonedlaster for å lagre nettvideoer som mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Video nedlasting - MPMux"
+   },
+   "minute": {
+      "message": "minutt"
+   },
+   "more_than_one_day": {
+      "message": "Over en dag"
+   },
+   "no_more_resolution": {
+      "message": "Ingen mer oppløsning"
+   },
+   "no_result": {
+      "message": "Finner ingen ressursfil!"
+   },
+   "no_video": {
+      "message": "Video kan ikke tas opp, eller video eksisterer ikke!"
+   },
+   "not_support": {
+      "message": "Denne siden støttes ikke"
+   },
+   "play": {
+      "message": "Spill av video"
+   },
+   "popup_modal_body": {
+      "message": "Prøv å velge en fast oppløsning før opptak (hvis videoen har dette alternativet). Fordi automatisk oppløsning kan produsere bilder med forskjellig størrelse, noe som fører til at videoen deles."
+   },
+   "popup_modal_close": {
+      "message": "Lukk"
+   },
+   "popup_modal_confirm": {
+      "message": "Bekrefte"
+   },
+   "popup_modal_title": {
+      "message": "Tips"
+   },
+   "recording_mode": {
+      "message": "Opptaksmodus"
+   },
+   "second": {
+      "message": "sekunder"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips_text_1": {
+      "message": "Noen videoer blir kanskje ikke tatt opp før de er spilt av. Hvis målvideoen ikke er på listen, prøv å spille den av, eller oppdater siden."
+   },
+   "tips_text_2": {
+      "message": "Hvis det fortsatt ikke fungerer etter å ha prøvd, last det ned med makt med \"opptaksmodus\"."
+   },
+   "video_flush_error": {
+      "message": "Feil ved spyling av video"
+   }
+}

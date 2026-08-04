@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Cerca"
+   },
+   "copy": {
+      "message": "Copiar URL"
+   },
+   "copy_success": {
+      "message": "Copiado con éxito."
+   },
+   "download": {
+      "message": "Descargar"
+   },
+   "filter_lead": {
+      "message": "Vídeo cuyo tamaño sea inferior a este valor no se capturará"
+   },
+   "hour": {
+      "message": "hora"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Un descargador de videos profesional, además, puede guardar o grabar videos en línea como HLS, m3u8, mp4, etc."
+   },
+   "manifest_name": {
+      "message": "Descargador de videos - MPMux"
+   },
+   "minute": {
+      "message": "minuto"
+   },
+   "more_than_one_day": {
+      "message": "más de un día"
+   },
+   "no_more_resolution": {
+      "message": "No más resolución"
+   },
+   "no_result": {
+      "message": "¡No se ha encontrado ningún archivo de recursos!"
+   },
+   "no_video": {
+      "message": "¡El video no se puede grabar o el video no existe!"
+   },
+   "not_support": {
+      "message": "Este sitio no es compatible"
+   },
+   "play": {
+      "message": "Reproduce el video"
+   },
+   "popup_modal_body": {
+      "message": "Intenta elegir una resolución fija antes de grabar (si el video tiene esta opción). Porque la resolución automática puede producir cuadros de diferentes tamaños, lo que hace que el video se divida."
+   },
+   "popup_modal_close": {
+      "message": "Cerca"
+   },
+   "popup_modal_confirm": {
+      "message": "Confirmar"
+   },
+   "popup_modal_title": {
+      "message": "Puntas"
+   },
+   "recording_mode": {
+      "message": "Modo grabación"
+   },
+   "second": {
+      "message": "segundos"
+   },
+   "size_filter": {
+      "message": "Filtrar"
+   },
+   "tips": {
+      "message": "Puntas"
+   },
+   "tips_text_1": {
+      "message": "Es posible que algunos videos no se capturen hasta que se reproduzcan. Si el video de destino no está en la lista, intente reproducirlo o actualice la página."
+   },
+   "tips_text_2": {
+      "message": "Si sigue sin funcionar después de intentarlo, descárguelo a la fuerza con \"modo de grabación\"."
+   },
+   "video_flush_error": {
+      "message": "Error de descarga de video"
+   }
+}

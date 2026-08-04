@@ -1,0 +1,21 @@
+{
+  "topic": "Концепция UNI v2.6 — доработка раздела 7",
+  "round_id": "20260802-205033",
+  "participants": [
+    "DeepSeek",
+    "QWEN",
+    "Hermes"
+  ],
+  "signatures": {},
+  "errors": {
+    "DeepSeek": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}",
+    "QWEN": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}",
+    "Hermes": "BadRequestError: Error code: 400 - {'error': {'message': \"No models loaded. Please load a model in the developer page or use the 'lms load' command.\", 'type': 'invalid_request_error', 'param': 'model', 'code': None}}"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260802-205033_DeepSeek.md",
+    "QWEN": ".uni-council\\20260802-205033_QWEN.md",
+    "Hermes": ".uni-council\\20260802-205033_Hermes.md",
+    "report": ".uni-council\\20260802-205033_report.md"
+  }
+}

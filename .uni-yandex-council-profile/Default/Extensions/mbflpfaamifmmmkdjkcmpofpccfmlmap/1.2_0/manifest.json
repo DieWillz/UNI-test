@@ -1,0 +1,45 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "img/icon-128.png",
+         "16": "img/icon-16.png",
+         "48": "img/icon-48.png"
+      },
+      "default_popup": "popup.html",
+      "default_title": "__MSG_manifest_browser_action__"
+   },
+   "background": {
+      "service_worker": "background.js"
+   },
+   "content_scripts": [ {
+      "js": [ "js/jquery.min.js", "js/content-downloader.js" ],
+      "matches": [ "*://mpmux.com/hlsdownloader", "*://mpmux.com/*/hlsdownloader", "*://mpmux.com/staticdownloader", "*://mpmux.com/*/staticdownloader", "*://mpmux.com/buffermuxer", "*://mpmux.com/*/buffermuxer", "*://*.mpmux.com/hlsdownloader", "*://*.mpmux.com/*/hlsdownloader", "*://*.mpmux.com/staticdownloader", "*://*.mpmux.com/*/staticdownloader", "*://*.mpmux.com/buffermuxer", "*://*.mpmux.com/*/buffermuxer" ],
+      "run_at": "document_end"
+   }, {
+      "all_frames": true,
+      "exclude_globs": [ "*//*.mpmux.com/*", "*//mpmux.com/*" ],
+      "js": [ "js/content-listener.js" ],
+      "matches": [ "*://*/*" ],
+      "run_at": "document_start"
+   } ],
+   "default_locale": "en",
+   "description": "__MSG_manifest_description__",
+   "homepage_url": "https://mpmux.com/",
+   "host_permissions": [ "http://*/*", "https://*/*" ],
+   "icons": {
+      "128": "img/icon-128.png",
+      "16": "img/icon-16.png",
+      "48": "img/icon-48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAva8A0Cses7ltN4Oyw4uZycgPDAFQ/BzaLb5FJFPme0ejI/LiXoqWXKy0gAK4yOeVRRrWztqjshkimmXwB4sgJON6eWXds0M3F94vo89oS6SUYBgG6Vrgyh3yNcEOJ5b/iRyPA72Mvi/YXWCClqVI8X57nZhkq2qRYcjBswedXn71139k4lKe2yKGbX1DPrveNTBAcqdwfVipGo9Chu2b8Al0Ct8BzICWEihb+JDfjTBeTCsI4JFK1aF1VJCQUhuiCJY9bZQftbyMQG/vgfdSdnwjhyHA6b8s5SpEG6cC7HDV7MfAuNhgP9eKQVlvL12GjHzrjmpp8u3xhXnjEDM/KwIDAQAB",
+   "manifest_version": 3,
+   "name": "__MSG_manifest_name__",
+   "permissions": [ "tabs", "webRequest", "storage", "declarativeNetRequest" ],
+   "short_name": "MPMux",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.2",
+   "web_accessible_resources": [ {
+      "matches": [ "*://*/*" ],
+      "resources": [ "js/proxy.js" ]
+   } ]
+}

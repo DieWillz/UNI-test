@@ -1,0 +1,53 @@
+{
+   "appDesc": {
+      "message": "Allow copying and remove copy protection. Enable text selection, right-click menu, and context menu."
+   },
+   "appName": {
+      "message": "Enable Right Click ─ Allow Copy Everywhere"
+   },
+   "cannotTips": {
+      "message": "Can't Crack Disable Copy"
+   },
+   "crackTips": {
+      "message": "Crack Disable Copy"
+   },
+   "delete": {
+      "message": "Delete Domain"
+   },
+   "disableTips": {
+      "message": "Click to Cancel Crack"
+   },
+   "domainLists": {
+      "message": "Domain Lists"
+   },
+   "domainListsTips": {
+      "message": " Enable SuperCopy when the domain is in this lists."
+   },
+   "enableTips": {
+      "message": "Click to Crack Disable Copy"
+   },
+   "rate": {
+      "message": "Rate"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips1": {
+      "message": "Cancel CSS Anti Copy"
+   },
+   "tips2": {
+      "message": "Cancel Js Anti Copy"
+   },
+   "tips3": {
+      "message": "Clear HTML Anti Copy"
+   },
+   "tips4": {
+      "message": "Clear Jquery Anti Copy"
+   },
+   "tips5": {
+      "message": "Enable the Right Click"
+   },
+   "tips6": {
+      "message": "Enable Copy"
+   }
+}

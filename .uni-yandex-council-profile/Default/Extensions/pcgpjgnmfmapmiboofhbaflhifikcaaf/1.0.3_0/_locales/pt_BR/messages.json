@@ -1,0 +1,53 @@
+{
+   "appDesc": {
+      "message": "Permitir cópia e remover a proteção contra cópia. Habilitar seleção de texto, menu de contexto (clique com o botão direito do mouse) e menu de contexto geral."
+   },
+   "appName": {
+      "message": "Enable Right Click ─ Permitir cópia"
+   },
+   "cannotTips": {
+      "message": "Não é possível Quebrar Desabilitar Cópia"
+   },
+   "crackTips": {
+      "message": "Quebrar Desabilitar Cópia"
+   },
+   "delete": {
+      "message": "Excluir Domínio"
+   },
+   "disableTips": {
+      "message": "Clique para Cancelar Quebra"
+   },
+   "domainLists": {
+      "message": "Listas de Domínios"
+   },
+   "domainListsTips": {
+      "message": "Habilitar SuperCópia quando o domínio está nesta lista."
+   },
+   "enableTips": {
+      "message": "Clique para Quebrar Desabilitar Cópia"
+   },
+   "rate": {
+      "message": "Avaliar"
+   },
+   "tips": {
+      "message": "Dicas"
+   },
+   "tips1": {
+      "message": "Cancelar CSS Anti Cópia"
+   },
+   "tips2": {
+      "message": "Cancelar Js Anti Cópia"
+   },
+   "tips3": {
+      "message": "Limpar HTML Anti Cópia"
+   },
+   "tips4": {
+      "message": "Limpar Jquery Anti Cópia"
+   },
+   "tips5": {
+      "message": "Habilitar o Clique Direito"
+   },
+   "tips6": {
+      "message": "Habilitar Cópia"
+   }
+}

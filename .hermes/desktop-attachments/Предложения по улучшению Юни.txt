@@ -1,0 +1,1148 @@
+Вот **детальный анализ** ваших концепций (`UNI_CONCEPTS_ANALYSIS_AND_FEEDBACK.html` и `CONCEPT_INTEGRATED_AGENCY.html`), а также **предложения по улучшению** и **критические замечания**:
+
+---
+
+---
+
+# 🔍 **1. Общий анализ концепций**
+Ваши идеи **хорошо проработаны** и решают реальные проблемы в разработке автономных агентов. Основные плюсы:
+✅ **Модульность** — чёткое разделение на `Threading`, `Vision`, `Skills`, `Mouse Control`, `Site Templates`, `Status Check`.
+✅ **Практическая применимость** — предложения основаны на реальных сценариях (например, коллизии ID, дублирование данных).
+✅ **Инварианты безопасности** — чёткие правила эскалации (например, `PAUSED_NEEDS_USER_INTERVENTION` после 3 неудач).
+✅ **Единая структура** — объединение `Vision`, `Templates`, `Skills` в `SiteProfile` упрощает управление.
+
+---
+**Но есть и слабые стороны**, которые требуют доработки. Разберём каждую концепцию отдельно.
+
+---
+
+---
+
+# 🧵 **2. Анализ концепции `Threading` (Идентификация сообщений)**
+
+## ✅ **Плюсы**
+| Идея | Преимущества |
+|------|--------------|
+| **Уникальные ID** | Позволяет группировать сообщения по задачам. |
+| **Категории (PLN, VIS, BRW, etc.)** | Упрощает фильтрацию и маршрутизацию. |
+| **Сквозная идентификация** | Легко отслеживать цепочки действий. |
+
+## ❌ **Проблемы и риски**
+| Проблема | Описание | Уровень риска |
+|----------|----------|---------------|
+| **Коллизии ID** | Формат `[ДД-ЧЧ-ККК-ММСС]` зависит от времени → при одновременных задачах возможны дубли. | ⚠️ **Высокий** |
+| **Закрывающие теги** | LLM может забыть закрыть тег `[/end-...]`, что нарушит парсинг. | ⚠️ **Высокий** |
+| **Нагрузка на LLM** | Длинные ID увеличивают токены в промпте. | ⚠️ **Средний** |
+| **Сложность парсинга** | Формат `[ДД-ЧЧ-ККК-ММСС]` требует сложной логики для извлечения данных. | ⚠️ **Средний** |
+
+## 🔧 **Рекомендации по улучшению**
+### **🔹 1. Новый формат ID**
+**Предложение**:
+Использовать **UUID + категория + хэш** (как в `CONCEPT_INTEGRATED_AGENCY.html`):
+```python
+Task ID = [UNI:{CATEGORY}:{TIMESTAMP}-{HASH}]
+# Пример: [UNI:PLN:20260803-A8F2]
+```
+**Преимущества**:
+- **Уникальность**: `TIMESTAMP` (до миллисекунд) + `HASH` (4-8 символов) гарантирует отсутствие коллизий.
+- **Компактность**: Короткий формат (например, `A8F2` вместо `ДД-ЧЧ-ККК-ММСС`).
+- **Легкость парсинга**: Регулярное выражение `\[UNI:(\w+):([^\]]+)\]` легко извлекает категорию и ID.
+
+**Реализация**:
+```python
+import uuid
+import hashlib
+from datetime import datetime
+
+def generate_task_id(category: str) -> str:
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")[:15]  # 20260803-142530-123
+    hash_part = hashlib.sha256(timestamp.encode()).hexdigest()[:4]  # A8F2
+    return f"[UNI:{category}:{timestamp}-{hash_part}]"
+```
+
+### **🔹 2. Отказ от закрывающих тегов**
+**Проблема**: LLM может не закрыть тег `[/end-...]`.
+**Решение**:
+- **Не использовать закрывающие теги** — парсить ID на стороне кода.
+- **Использовать разделители** (например, `---` или JSON):
+  ```markdown
+  [UNI:PLN:20260803-A8F2]
+  Текст сообщения...
+  ---
+  [UNI:VIS:20260803-B1C9]
+  Ответ Vision...
+  ```
+
+### **🔹 3. Оптимизация для LLM**
+**Проблема**: Длинные ID увеличивают токены.
+**Решение**:
+- **Использовать короткие категории**:
+  | Категория | Сокращение |
+  |----------|------------|
+  | Planner | `PLN` |
+  | Vision | `VIS` |
+  | Browser | `BRW` |
+  | Computer | `COM` |
+  | Memory | `MEM` |
+  | Architecture | `ARC` |
+  | Bugfix | `BUG` |
+  | Voice | `VOC` |
+  | XToys | `XTY` |
+- **Хранить ID в метаданных**, а не в тексте сообщения (если возможно).
+
+### **🔹 4. Автоматический парсинг**
+**Реализация**:
+```python
+import re
+
+def parse_task_id(text: str) -> dict | None:
+    match = re.search(r"\[UNI:(\w+):([^\]]+)\]", text)
+    if not match:
+        return None
+    category, task_id = match.groups()
+    return {"category": category, "task_id": task_id}
+```
+
+---
+---
+# 🖱️ **3. Анализ концепции `Mouse Control` (Управление мышью)**
+
+## ✅ **Плюсы**
+| Идея | Преимущества |
+|------|--------------|
+| **Dual-Mode** | Разделение на `Interactive` (визуальный) и `Turbo` (быстрый). |
+| **Easing и траектории** | Плавные движения курсора (как у человека). |
+| **Визуальная обратная связь** | Пульсация кликов, подсветка полей. |
+| **Задержка ввода текста** | Эмуляция естественного набора. |
+
+## ❌ **Проблемы и риски**
+| Проблема | Описание | Уровень риска |
+|----------|----------|---------------|
+| **Замедление рутинных задач** | В `Interactive Mode` парсинг и фоновые задачи работают медленно. | ⚠️ **Высокий** |
+| **Сложность реализации Easing** | Кривые Безье требуют сложных вычислений. | ⚠️ **Средний** |
+| **Конфликт с Playwright** | Playwright не поддерживает плавное движение мыши. | ⚠️ **Высокий** |
+| **Зависимость от Screen Capture** | `Interactive Mode` требует активного захвата экрана. | ⚠️ **Средний** |
+
+## 🔧 **Рекомендации по улучшению**
+### **🔹 1. Уточнение режимов**
+**Предложение**:
+| Режим | Описание | Применение |
+|-------|----------|------------|
+| **Interactive Mode** | Плавные движения, анимации, задержки. | Для работы с пользователем (демонстрация, отладка). |
+| **Turbo Mode** | Прямые CDP/DOM-события, максимальная скорость. | Для фоновых задач (парсинг, тесты). |
+| **Hybrid Mode** | Плавные движения **только для видимых пользователю действий**. | По умолчанию. |
+
+**Реализация**:
+```python
+from enum import Enum
+
+class MouseMode(Enum):
+    INTERACTIVE = "interactive"  # Плавные движения + анимации
+    TURBO = "turbo"               # Быстрые CDP-события
+    HYBRID = "hybrid"             # Плавные движения только для видимых действий
+```
+
+### **🔹 2. Реализация Easing**
+**Проблема**: Playwright не поддерживает плавное движение мыши.
+**Решение**:
+- **Использовать `pyautogui` для плавных движений**:
+  ```python
+  import pyautogui
+  import time
+  import math
+
+  def smooth_move(x1, y1, x2, y2, duration=0.5):
+      """Плавное движение по кривой Безье."""
+      steps = 50
+      for i in range(steps):
+          t = i / steps
+          # Кривая Безье (упрощённая)
+          x = x1 + (x2 - x1) * (1 - math.cos(t * math.pi)) / 2
+          y = y1 + (y2 - y1) * (1 - math.cos(t * math.pi)) / 2
+          pyautogui.moveTo(x, y, _pause=False)
+          time.sleep(duration / steps)
+  ```
+- **Для Turbo Mode**:
+  ```python
+  def turbo_click(x, y):
+      """Мгновенный клик через Playwright."""
+      page.mouse.click(x, y)
+  ```
+
+### **🔹 3. Автоматическое переключение режимов**
+**Предложение**:
+- **Interactive Mode**:
+  - Включается, если:
+    - Активен захват экрана (`Screen Capture`).
+    - Пользователь наблюдает за процессом (например, через веб-интерфейс).
+- **Turbo Mode**:
+  - Включается, если:
+    - Задача выполняется в фоне.
+    - Нет активного захвата экрана.
+- **Hybrid Mode**:
+  - Плавные движения только для действий, видимых пользователю (например, клики в браузере).
+  - Быстрые события для фоновых задач (например, парсинг DOM).
+
+**Реализация**:
+```python
+class MouseController:
+    def __init__(self, mode: MouseMode = MouseMode.HYBRID):
+        self.mode = mode
+        self.screen_capture_active = False
+
+    def move(self, x, y, duration=0.5):
+        if self.mode == MouseMode.TURBO:
+            page.mouse.move(x, y)  # Playwright (быстро)
+        else:
+            smooth_move(x, y, duration)  # pyautogui (плавно)
+```
+
+### **🔹 4. Визуальная обратная связь**
+**Предложение**:
+- **Пульсация кликов**:
+  ```python
+  def click_with_pulse(x, y):
+      # Пульсация (3 раза)
+      for _ in range(3):
+          pyautogui.moveTo(x, y, _pause=False)
+          time.sleep(0.1)
+          pyautogui.moveTo(x + 5, y + 5, _pause=False)  # Смещение
+          time.sleep(0.1)
+      pyautogui.click(x, y)
+  ```
+- **Подсветка полей**:
+  - Использовать `pyautogui.screenshot()` + `opencv` для рисования рамки:
+    ```python
+    import cv2
+    import numpy as np
+
+    def highlight_region(x, y, width, height, color=(0, 255, 0), thickness=2):
+        screenshot = pyautogui.screenshot()
+        img = np.array(screenshot)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        cv2.rectangle(img, (x, y), (x + width, y + height), color, thickness)
+        cv2.imshow("Highlight", img)
+        cv2.waitKey(1000)  # Показать на 1 секунду
+        cv2.destroyAllWindows()
+    ```
+
+---
+---
+# 🌐 **4. Анализ концепции `Vision + Memory для сайтов` и `Site Templates`**
+
+## ✅ **Плюсы**
+| Идея | Преимущества |
+|------|--------------|
+| **Сетка 6x4** | Упрощает анализ экрана. |
+| **Мёртвые зоны** | Игнорирование рекламы, попапов. |
+| **Шаблоны сайтов** | Ускоряет взаимодействие с известными сайтами. |
+| **Хранение в Markdown** | Удобно для редактирования. |
+
+## ❌ **Проблемы и риски**
+| Проблема | Описание | Уровень риска |
+|----------|----------|---------------|
+| **Дублирование данных** | `Vision`, `Templates`, `Skills` хранят одни и те же данные (селекторы, сетки). | ⚠️ **Высокий** |
+| **Сложность поддержки** | При изменении сайта нужно обновлять несколько файлов. | ⚠️ **Высокий** |
+| **Нет единого стандарта** | Разные форматы для `Vision`, `Templates`, `Skills`. | ⚠️ **Средний** |
+| **Сложность масштабирования** | При большом количестве сайтов будет сложно управлять. | ⚠️ **Средний** |
+
+## 🔧 **Рекомендации по улучшению**
+### **🔹 1. Объединение в `SiteProfile`**
+**Предложение** (как в `CONCEPT_INTEGRATED_AGENCY.html`):
+- **Структура**:
+  ```bash
+  skills/
+  ├── global/               # Глобальные правила (ожидание загрузки, закрытие попапов)
+  │   ├── wait_for_load.md
+  │   └── dismiss_popups.md
+  ├── templates/            # Типовые шаблоны
+  │   ├── ai_chat.json      # Шаблон для чатов (DeepSeek, Claude)
+  │   ├── video_player.json # Шаблон для видеоплееров (YouTube)
+  │   └── e_commerce.json   # Шаблон для интернет-магазинов
+  └── sites/                # Специфичные настройки для сайтов
+      ├── deepseek.com.json
+      ├── youtube.com.json
+      └── xtoys.app.json
+  ```
+- **Формат `SiteProfile`**:
+  ```json
+  {
+    "id": "site_deepseek_com",
+    "domain": "chat.deepseek.com",
+    "template": "ai_chat_v1",
+    "grid": {
+      "cols": 6,
+      "rows": 4,
+      "ignore_zones": [
+        {"id": "ad_top", "selector": ".header-banner", "reason": "Реклама"},
+        {"id": "popup", "selector": ".cookie-modal", "reason": "Cookie-согласие"}
+      ]
+    },
+    "selectors": {
+      "input_field": "textarea#chat-input",
+      "send_button": "button[type='submit']",
+      "last_message": ".message-nodes:last-child"
+    },
+    "interaction_skills": [
+      "how_to_send_message.md",
+      "how_to_copy_code.md"
+    ],
+    "fallback_rules": [
+      "If send_button is disabled -> press Enter key",
+      "If input_field not found -> scroll down and retry"
+    ],
+    "vision_rules": {
+      "screenshot_regions": [
+        {"name": "chat_area", "x": 0, "y": 0, "width": 800, "height": 600}
+      ],
+      "ocr_enabled": true,
+      "ignore_text": ["Advertisement", "Cookie Policy"]
+    }
+  }
+  ```
+
+### **🔹 2. Иерархия применения**
+**Предложение**:
+```python
+Final Config = Global Policy ⊕ Template Rules ⊕ Site Rules
+```
+**Пример**:
+- **Global Policy**: `wait_for_load.md` (ждать загрузки страницы 5 секунд).
+- **Template Rules**: `ai_chat.json` (селекторы для чатов).
+- **Site Rules**: `deepseek.com.json` (специфичные селекторы для DeepSeek).
+
+**Реализация**:
+```python
+from pathlib import Path
+import json
+
+def load_site_profile(domain: str) -> dict:
+    # 1. Загрузить глобальные правила
+    global_rules = load_global_rules()
+
+    # 2. Найти подходящий шаблон
+    template = find_template_for_domain(domain)
+
+    # 3. Загрузить специфичные правила для сайта
+    site_rules = load_site_rules(domain)
+
+    # 4. Объединить (Site Rules > Template > Global)
+    return {**global_rules, **template, **site_rules}
+```
+
+### **🔹 3. Автоматическое обновление шаблонов**
+**Проблема**: При изменении сайта нужно вручную обновлять `SiteProfile`.
+**Решение**:
+- **Добавить механизм обучения**:
+  - Если `Auditor` обнаруживает, что селектор не работает, он может:
+    1. Попробовать найти новый селектор (через Vision).
+    2. Сохранить его в `SiteProfile` (с пометкой `auto_generated: true`).
+    3. Предложить пользователю подтвердить изменение.
+- **Реализация**:
+  ```python
+  class SiteProfileUpdater:
+      def __init__(self, profile_path: str):
+          self.profile_path = profile_path
+          self.profile = self._load_profile()
+
+      def update_selector(self, old_selector: str, new_selector: str):
+          if old_selector in self.profile["selectors"]:
+              self.profile["selectors"][old_selector] = new_selector
+              self.profile["auto_generated"] = True
+              self._save_profile()
+
+      def _load_profile(self) -> dict:
+          with open(self.profile_path, "r", encoding="utf-8") as f:
+              return json.load(f)
+
+      def _save_profile(self):
+          with open(self.profile_path, "w", encoding="utf-8") as f:
+              json.dump(self.profile, f, indent=2, ensure_ascii=False)
+  ```
+
+### **🔹 4. Валидация `SiteProfile`**
+**Предложение**:
+- **Добавить схему валидации** (например, через `pydantic`):
+  ```python
+  from pydantic import BaseModel, Field
+  from typing import List, Optional
+
+  class IgnoreZone(BaseModel):
+      id: str
+      selector: str
+      reason: Optional[str] = None
+
+  class Grid(BaseModel):
+      cols: int = Field(ge=1, le=10)
+      rows: int = Field(ge=1, le=10)
+      ignore_zones: List[IgnoreZone] = []
+
+  class SiteProfile(BaseModel):
+      id: str
+      domain: str
+      template: Optional[str] = None
+      grid: Grid
+      selectors: dict
+      interaction_skills: List[str] = []
+      fallback_rules: List[str] = []
+      vision_rules: Optional[dict] = None
+  ```
+- **Проверка при загрузке**:
+  ```python
+  def validate_profile(profile: dict) -> SiteProfile:
+      return SiteProfile(**profile)
+  ```
+
+---
+---
+# 🔍 **5. Анализ концепции `Status Check` (Проверка статуса)**
+
+## ✅ **Плюсы**
+| Идея | Преимущества |
+|------|--------------|
+| **Трёхуровневая проверка** | Vision + Browser + Computer → надёжность. |
+| **Auditor** | Централизованная проверка результатов. |
+| **Эскалация после 3 неудач** | Инвариант безопасности. |
+| **Структурированный ответ** | Легко анализировать причины ошибок. |
+
+## ❌ **Проблемы и риски**
+| Проблема | Описание | Уровень риска |
+|----------|----------|---------------|
+| **Зацикливание при ошибках** | Нет чёткого правила, что делать после 3 неудач. | ⚠️ **Высокий** |
+| **Сложность Auditor** | Нужно реализовать логику для всех типов проверок. | ⚠️ **Средний** |
+| **Нет приоритетов проверок** | Все уровни (Vision, Browser, Computer) равнозначны. | ⚠️ **Средний** |
+| **Нет кэширования результатов** | Повторные проверки одного и того же действия. | ⚠️ **Низкий** |
+
+## 🔧 **Рекомендации по улучшению**
+### **🔹 1. Чёткое правило эскалации**
+**Предложение** (как в `CONCEPT_INTEGRATED_AGENCY.html`):
+- **После 3 неудачных попыток**:
+  - Задача переводится в статус `PAUSED_NEEDS_USER_INTERVENTION`.
+  - Фиксируется **скриншот** и **логи**.
+  - Уведомляется пользователь (через веб-интерфейс или консоль).
+- **Реализация**:
+  ```python
+  class Auditor:
+      MAX_RETRIES = 3
+
+      def verify_action(self, task_id: str, action: str) -> AuditResult:
+          for attempt in range(self.MAX_RETRIES):
+              result = self._check_action(task_id, action)
+              if result.verified:
+                  return result
+              time.sleep(1)  # Задержка перед повторной попыткой
+
+          # После 3 неудач
+          return AuditResult(
+              task_id=task_id,
+              verified=False,
+              attempts_left=0,
+              check_levels=result.check_levels,
+              reason=f"Failed after {self.MAX_RETRIES} attempts",
+              recommended_action="Manual intervention required",
+              status="PAUSED_NEEDS_USER_INTERVENTION"
+          )
+  ```
+
+### **🔹 2. Приоритеты проверок**
+**Предложение**:
+- **Уровень 1 (Быстрый)**: Browser (DOM/URL) → если успешно, не проверять Vision.
+- **Уровень 2 (Средний)**: Vision (скриншот + OCR).
+- **Уровень 3 (Медленный)**: Computer (окна/процессы).
+- **Реализация**:
+  ```python
+  class StatusCollector:
+      def collect_status(self, task_id: str) -> dict:
+          status = {}
+
+          # Уровень 1: Browser (быстро)
+          status["browser"] = self._check_browser(task_id)
+          if status["browser"] == "success":
+              return status  # Не проверяем дальше
+
+          # Уровень 2: Vision (средне)
+          status["vision"] = self._check_vision(task_id)
+          if status["vision"] == "success":
+              return status
+
+          # Уровень 3: Computer (медленно)
+          status["computer"] = self._check_computer(task_id)
+          return status
+  ```
+
+### **🔹 3. Кэширование результатов**
+**Предложение**:
+- Кэшировать результаты проверок для одного и того же действия в течение **N секунд**.
+- **Реализация**:
+  ```python
+  from functools import lru_cache
+  import time
+
+  class StatusCollector:
+      def __init__(self):
+          self.cache = {}
+
+      @lru_cache(maxsize=100)
+      def _check_browser(self, task_id: str) -> str:
+          # Логика проверки
+          return "success"
+
+      def collect_status(self, task_id: str) -> dict:
+          cache_key = f"{task_id}-{int(time.time() // 10)}"  # Кэш на 10 секунд
+          if cache_key in self.cache:
+              return self.cache[cache_key]
+
+          status = self._collect_status_uncached(task_id)
+          self.cache[cache_key] = status
+          return status
+  ```
+
+### **🔹 4. Улучшенный формат `AuditResult`**
+**Предложение**:
+```json
+{
+  "task_id": "UNI:BRW:20260803-A8F2",
+  "verified": false,
+  "attempts_left": 2,
+  "check_levels": {
+    "browser": {
+      "status": "success",
+      "details": {
+        "url": "https://deepseek.com/chat",
+        "dom_selector": "textarea#chat-input",
+        "found": true
+      }
+    },
+    "vision": {
+      "status": "failed",
+      "details": {
+        "error": "element_not_visible",
+        "screenshot": "base64_encoded_screenshot",
+        "ocr_text": "Кнопка отправки перекрыта..."
+      }
+    },
+    "computer": {
+      "status": "n/a",
+      "details": null
+    }
+  },
+  "reason": "Кнопка отправки перекрыта модальным окном",
+  "recommended_action": "Dismiss modal popup first",
+  "timestamp": "2026-08-03T14:25:30.123Z",
+  "status": "PAUSED_NEEDS_USER_INTERVENTION"
+}
+```
+
+---
+---
+# 🎯 **6. Общие рекомендации по всем концепциям**
+
+## **🔹 1. Единая система конфигурации**
+**Проблема**: Разные концепции используют разные форматы (JSON, Markdown, YAML).
+**Решение**:
+- **Использовать JSON для структурированных данных** (`SiteProfile`, `AuditResult`).
+- **Использовать Markdown для инструкций** (`interaction_skills`).
+- **Добавить валидацию через `pydantic`**.
+
+## **🔹 2. Логирование и отладка**
+**Предложение**:
+- **Добавить структурированное логирование** (например, через `structlog`):
+  ```python
+  import structlog
+
+  logger = structlog.get_logger()
+  logger.info("action_executed", task_id="UNI:BRW:20260803-A8F2", action="click", status="success")
+  ```
+- **Сохранять логи в файл** для отладки.
+
+## **🔹 3. Тестирование**
+**Предложение**:
+- **Добавить unit-тесты** для:
+  - Парсинга `Task ID`.
+  - Генерации `SiteProfile`.
+  - Логики `Auditor`.
+- **Добавить integration-тесты** для:
+  - Взаимодействия с браузером (через Playwright).
+  - Работы с Vision (через OpenCV).
+- **Пример теста**:
+  ```python
+  def test_parse_task_id():
+      text = "[UNI:PLN:20260803-A8F2] Some message"
+      result = parse_task_id(text)
+      assert result == {"category": "PLN", "task_id": "20260803-A8F2"}
+
+  def test_auditor_retry_logic():
+      auditor = Auditor(MAX_RETRIES=3)
+      result = auditor.verify_action("UNI:BRW:123", "click")
+      assert result.attempts_left == 0
+      assert result.status == "PAUSED_NEEDS_USER_INTERVENTION"
+  ```
+
+## **🔹 4. Документация**
+**Предложение**:
+- **Добавить примеры** в `examples/`:
+  - `examples/threading.py` — работа с `Task ID`.
+  - `examples/mouse_control.py` — демонстрация `Interactive` и `Turbo` режимов.
+  - `examples/site_profile.py` — загрузка и применение `SiteProfile`.
+- **Добавить диаграммы** в `docs/`:
+  - Диаграмма потока данных (`Threading`).
+  - Диаграмма классов (`SiteProfile`, `Auditor`).
+
+## **🔹 5. Производительность**
+**Предложение**:
+- **Использовать асинхронность** для параллельных проверок:
+  ```python
+  import asyncio
+
+  async def check_action_async(task_id: str) -> AuditResult:
+      browser_task = asyncio.create_task(check_browser(task_id))
+      vision_task = asyncio.create_task(check_vision(task_id))
+      computer_task = asyncio.create_task(check_computer(task_id))
+
+      results = await asyncio.gather(browser_task, vision_task, computer_task)
+      return combine_results(results)
+  ```
+- **Оптимизировать Vision**:
+  - Использовать **кэширование скриншотов**.
+  - Обрабатывать только **релевантные области** (из `SiteProfile`).
+
+---
+---
+# 📊 **7. Сводная таблица улучшений**
+
+| Концепция | Проблема | Решение | Приоритет |
+|-----------|----------|---------|-----------|
+| **Threading** | Коллизии ID | Новый формат `[UNI:{CATEGORY}:{TIMESTAMP}-{HASH}]` | ⭐⭐⭐⭐⭐ |
+| **Threading** | Закрывающие теги | Отказаться от тегов, парсить на стороне кода | ⭐⭐⭐⭐ |
+| **Threading** | Нагрузка на LLM | Короткие категории, хранение ID в метаданных | ⭐⭐⭐ |
+| **Mouse Control** | Замедление рутинных задач | Dual-Mode (`Interactive`/`Turbo`) | ⭐⭐⭐⭐⭐ |
+| **Mouse Control** | Сложность Easing | Использовать `pyautogui` + кривые Безье | ⭐⭐⭐⭐ |
+| **Vision/Templates/Skills** | Дублирование данных | Объединить в `SiteProfile` | ⭐⭐⭐⭐⭐ |
+| **Vision/Templates/Skills** | Сложность поддержки | Иерархия `Global ⊕ Template ⊕ Site` | ⭐⭐⭐⭐ |
+| **Status Check** | Зацикливание при ошибках | Эскалация после 3 неудач | ⭐⭐⭐⭐⭐ |
+| **Status Check** | Нет приоритетов проверок | Уровни: Browser → Vision → Computer | ⭐⭐⭐ |
+| **Status Check** | Нет кэширования | Кэшировать результаты на 10 секунд | ⭐⭐ |
+
+---
+---
+# 🎯 **8. Итоговое видение**
+Ваши концепции **отлично проработаны** и решают реальные проблемы. **Основные улучшения**:
+1. **Перейти на новый формат `Task ID`** (`[UNI:{CATEGORY}:{TIMESTAMP}-{HASH}]`).
+2. **Объединить `Vision`, `Templates`, `Skills` в `SiteProfile`**.
+3. **Реализовать Dual-Mode для `Mouse Control`**.
+4. **Добавить чёткие правила эскалации для `Auditor`**.
+5. **Улучшить документацию и тесты**.
+
+---
+**Вопрос к вам**:
+Хотите, чтобы я **реализовал прототип** одной из концепций (например, `SiteProfile` или `Auditor`) в коде? 😊
+
+от https://chat.mistral.ai/code/019fc6a7-eac3-7421-9ad4-a573241eeef4/019fc6a8-6d5d-7554-8bf8-7f19abdcaab0
+
+Кратко — что я прочитал и на чём основаны предложения
+- Пробежался по README.md, ARCHITECTURE.md, BUILD_STATUS.md, AGENTS.md, pyproject.toml и requirements.txt.
+- Осмотрел ключевые модули в uni/: __init__.py, contracts.py, agent.py, planner.py и регистр capabilities через Agent. BUILD_STATUS указывает на явные блокеры (несовпадение контрактов, дубли, несинхронизованный planner/executor).
+- Исходя из этого предлагаю набор улучшений с приоритетом, кратким описанием реализации и небольшими примерами.
+
+Главные проблемы (кратко)
+1. Нет единого канонического контракта: в repo contracts.py сейчас только ToolResult, а planner и другие модули используют собственные интерфейсы (Action, ActionResult, AgentContext и т.д.). Это вызывает рассинхронизацию между вариантами.
+2. Несовпадение соглашений имен: planner генерирует "dotted" action names (capability.action), а текущие исполнители/роутер могут ожидать underscore-формат — приводит к неправильной маршрутизации.
+3. Дубли веток/вариантов (Root/Claude/DeepSeek/OpenCode) — приводит к ошибкам импорта, конфликтам и затрудняет тестирование.
+4. Тесты и CI: тесты заблокированы (BUILD_STATUS), нет/маловато интеграционного E2E, нет CI, чтобы обнаруживать регрессии на раннем этапе.
+5. Документация/конфиги для воспроизводимости: отсутствует пример config.yaml в репо, нет LICENSE, нет шаблона для секретов, нет инструкции по локальному запуску LM Studio/vision mock.
+6. Набор зависимостей тяжёлый и частично платформо‑зависимый (Windows + Playwright + локальные модели), нужен понятный dev-path и mock‑режимы.
+
+Приоритетные улучшения (с краткой реализацией)
+
+Immediate (в течение дня — неделя)
+- Добавить LICENSE (MIT или другая), CONTRIBUTING.md и SECURITY.md — формализует использование и вклад.
+- Добавить пример config.sample.yaml в корень с комментариями (LM Studio URL, vision mock flags, browser profile placeholder).
+- Добавить лёгкий smoke-test и CI:
+  - GitHub Actions: job на ubuntu-latest и windows-latest, который:
+    - Устанавливает Python 3.11/3.12, pip install -r requirements.txt (или минимальный subset),
+    - Запускает unit tests (pytest) с заглушками для Brain/Playwright (mock).
+  Это быстро выявит регрессии и позволит запускать тесты на Windows.
+
+Short-term (1–2 недели)
+- Унитаризация контрактов: создать в uni/contracts.py полноту моделей Pydantic для:
+  - Action, ActionResult (статус, error, observation), Observation, AgentContext, Task и TaskQueue интерфейсы.
+  - Обновить planner, executor и остальные модули, чтобы они импортировали и использовали эти модели.
+  Это устраняет расхождения между вариантами и делает типы однозначными.
+
+Пример (предлагаемая модель, добавить в uni/contracts.py):
+```python name=uni/contracts_suggestion.py
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+
+class Action(BaseModel):
+    name: str  # canonical: "capability.action"
+    params: Dict[str, Any] = {}
+
+class ActionResult(BaseModel):
+    action: Action
+    status: str  # "success" | "failure" | "skipped"
+    error: Optional[str] = None
+    observation: Optional[Dict[str, Any]] = None
+    timestamp: Optional[str] = None
+
+class AgentContext(BaseModel):
+    goal: str
+    history: List[ActionResult] = []
+    metadata: Dict[str, Any] = {}
+```
+
+- Маппинг dotted ↔ underscore: добавить адаптер-уровень, который переводит имена, если существуют legacy-имена у capability. Это быстрый патч, не ломающий внешний planner.
+
+Пример функции-переводчика:
+```python name=scripts/translate_action_name.py
+def normalize_action_name(name: str) -> str:
+    # Преобразует "browser.navigate" -> "browser_navigate" если необходимо
+    if "." in name:
+        return name.replace(".", "_")
+    return name
+```
+
+Medium-term (2–6 недель)
+- Рефакторинг Planner ↔ Executor contract:
+  - Стандартизировать, чтобы Planner возвращал Task-объекты с уникальными task.id (UUID) и depends_on ссылались на task.id (а не на произвольные строки). Сейчас planner пишет depends_on, но BUILD_STATUS указывает на несоответствие.
+  - Убедиться, что TaskQueue возвращает и маркирует ID корректно и есть однозначный mapping dependency_id → generated task.id.
+- Создать интеграционный E2E тест для MVP YouTube-сценария:
+  - Тест запускает Brain mock, запускает Playwright в headless, проверяет, что action sequence: open browser → поиск → открыть результат → play → verify возвращает конечный ActionResult success.
+  - Это должен быть повторяемый тест с фиксацией шагов и полным логом session_logger.
+Пример skeleton теста (pytest + playwright mock):
+```python name=tests/test_youtube_e2e_skeleton.py
+import pytest
+from uni.agent import Agent
+from uni.config import load_config
+
+@pytest.mark.asyncio
+async def test_youtube_scenario(tmp_path):
+    config = load_config("config.sample.yaml")
+    agent = Agent(config)
+    # Здесь заменить real Brain на MockBrain, BrowserSession на Playwright headless controlled
+    # Запустить agent.run("найди и воспроизведи видео ...") и assert final ActionResult.status == "success"
+```
+
+- Убрать/уединить дубли пакетов: провести инвентаризацию и слить (или архивировать) все non-canonical копии (Uni-Claude, DeepSeek, OpenCode) в read-only reference и оставить одну canonical реализацию. Это требует ADR и постепенных PR с тестами.
+
+Long-term (6+ недель)
+- Полная типизация и линтинг: mypy конфигурация, pre-commit hooks (black, isort, ruff), и enforce через CI.
+- Разделение runtime и dev orchestration:
+  - Перенести .uni-dev в отдель workflow репозиторий или make .uni-dev read-only metadata; не смешивать runtime и dev-orchestration.
+- Улучшение наблюдаемости:
+  - Унифицировать SessionLogger: структурированные логи (JSON), возможности replay, trace id для каждой action/task.
+- Безопасность и UX:
+  - Sandbox режима для опасных действий (нажатия, учетные данные).
+  - Явный пермишенный UI для действий с аккаунтами/камерами/сообщениями.
+- Поддержка контейнеризации: хотя Windows UI сложен в Docker, можно контейнеризовать Brain/vision mocking и тестовую среду, чтобы CI не зависел от локального HW.
+
+Конкретные шаги для ближайшего PR (план на 1–2 дня)
+1. Добавить config.sample.yaml и README секцию с минимальным example.
+2. Добавить LICENSE (MIT) и CONTRIBUTING.md.
+3. Добавить uni/contracts.py с предложенными моделями Action/ActionResult/AgentContext и обновить planner.py и tools, чтобы импортировать эти модели (минимальные правки: замена локальных ActionResult на contracts.ActionResult).
+4. Добавить GitHub Actions workflow: python-tests.yml (ubuntu + windows matrix) с быстрым mock install и pytest (можно skip heavy deps).
+
+Почему это поможет
+- Единые контракты устранят большинство рассинхронизаций между версиями и упростят рефакторинг и код‑ревью.
+- CI + E2E обеспечат защиту MVP сценария от регрессий.
+- Примерные конфиgurации и LICENSE улучшат вклад и воспроизводимость.
+- Перевод имён и адаптеры снизят риск срочных поломок при смене формата (dotted vs underscore) и позволят постепенно мигрировать.
+
+Готовность помочь
+- Могу подготовить PR с:
+  - uni/contracts.py (модели и типы),
+  - простым translator adapter для action names,
+  - config.sample.yaml + CONTRIBUTING.md,
+  - базовым GitHub Actions workflow.
+- Скажите, с чего начать: сделать весь первый PR (contracts + sample config + CI) или начать с одного конкретного шага (например, только contracts)?
+
+от https://github.com/copilot/c/4ea58177-4fcf-462a-bc71-6829edda4e52
+
+
+Спасибо за предоставленный код! Я внимательно изучил файлы. Проект UNI выглядит как очень амбициозный и интересный эксперимент по созданию локального AI-агента с управлением компьютером, веб-серфингом и интеграцией специфических устройств (XToys) с элементами автономного режима (BDSM-контекст).
+
+Архитектура в целом неплоха: есть разделение на инструменты, capabilities, отдельный цикл событий (EventLoop) и контроллер автономности. Однако в коде есть несколько критических багов, архитектурных "запахов" (code smells) и мест, которые сломаются при первом же обновлении браузеров. 
+
+Ниже представлен подробный анализ и варианты улучшения, разбитые по категориям.
+
+---
+
+### 1. Критические баги (Необходимо исправить прямо сейчас)
+
+**Файл `autonomous.py`:**
+* **Опечатка в `re.search`:** В методе `_is_connected` вы используете `re_search` (с нижним подчеркиванием), хотя правильно — `re.search`. Это вызовет `NameError` при первой же проверке статуса XToys.
+  ```python
+  # Было:
+  return bool(re_search(r"connected|disconnect|stop|включ|подключ", text, re.I))
+  # Стало:
+  return bool(re.search(r"connected|disconnect|stop|включ|подключ", text, re.I))
+  ```
+* **Динамический импорт внутри цикла:** В `_conductor_loop` вы делаете `import json` прямо внутри бесконечного цикла. Импорт `json` должен быть в начале файла. Это не сломает код (Python кэширует импорты), но это плохая практика.
+
+**Файл `browser_session.py`:**
+* **Кривой импорт `rich`:** В методе `start` есть строка:
+  ```python
+  console = __import__("rich.console", fromlist=["Console"]).Console()
+  ```
+  Это очень странный способ. Просто добавьте `from rich.console import Console` в начало файла и используйте `console.print(...)`.
+
+---
+
+### 2. Проблемы параллелизма и безопасности (Concurrency & Safety)
+
+**Игнорирование локов в автономном режиме:**
+В `event_loop.py` все инструменты вызываются через `async with self._tool_lock:`. Однако в `autonomous.py` метод `_run_tool` написан так:
+```python
+async def _run_tool(self, name: str, args: dict) -> ToolResult:
+    """Execute a tool WITHOUT the global EventLoop lock (parallel autonomy)."""
+    return await self.agent.tool_executor.execute(name, args)
+```
+**Проблема:** Playwright (браузер) — это библиотека с состоянием (stateful). Если `EventLoop` (например, делает скриншот) и `AutonomousController` (например, дергает слайдер XToys) одновременно попытаются обратиться к `BrowserSession`, Playwright может выбросить ошибку или кликнуть не туда. 
+**Решение:** Лок (`_tool_lock`) нужно использовать **всегда**, когда вы работаете с общими ресурсами (браузер, мышь, клавиатура). Если автономный режим висит из-за долгого ответа LLM, разблокируйте лок только на время ожидания сети, но блокируйте его на время DOM-операций.
+
+**Аварийная остановка (Emergency Stop):**
+В `emergency_stop` создается таска через `asyncio.create_task(...)`. В критической ситуации (например, болевой предел) задача может встать в очередь за другими тасками и сработать с задержкой. 
+**Решение:** Для аварийной остановки физических устройств лучше использовать синхронный вызов (если это возможно) или гарантию того, что таска выполняется немедленно.
+
+---
+
+### 3. Архитектурные улучшения (Refactoring)
+
+**Файл `event_loop.py`:**
+* **Монструозный `parse_direct_command`:** Этот метод состоит из огромного количества `if` и регулярок. Поддерживать его будет кошмаром. Если ИИ скажет "Открой игрушку" вместо "Включи игрушку", код сломается.
+  **Решение:** Разбейте парсинг на классы-обработчики (Command Pattern) или вынесите логику в словарь синонимов. В идеале, для естественного языка нужно сильнее опираться на LLM (Tool Calling), а регуляры оставить только для жестких команд (стоп, интенсивность N).
+* **Магические числа в истории:** `self._history[-8:]` и `self._history[-16:]`. Вынесите эти числа в `config.yaml` (например, `config.memory.short_term_history_size`).
+* **Уязвимость `_clean_answer`:** Разбивка текста на предложения через `re.split(r"(?<=[.!?])\s+", clean)` плохо работает для русского языка (сокращения вроде "т.д.", "г.", инициалы "А.С. Пушкин" будут разрезаны). 
+  **Решение:** Используйте библиотеку `nltk` (`nltk.sent_tokenize`) или просто обрезайте по лимиту символов, не пытаясь угадать границы предложений.
+
+**Файл `browser_session.py`:**
+* **Хрупкие CSS-селекторы:** 
+  В `search_web` используется `li.b_algo h2 a` (это селектор Bing). В `search_images` — `a.iusc` (Bing Images) и парсинг атрибута `m` через JSON. 
+  **Проблема:** Поисковики меняют верстку почти каждый месяц. Ваш код сломается при следующем апдейте Bing.
+  **Решение:** 
+  1. Используйте официальные API (Bing Search API, Google Custom Search JSON API), где это возможно. 
+  2. Для парсинга картинок Yandex/Bing лучше использовать Playwright Accessibility Tree (дерево доступности) или抽取 `img` теги с определенными фильтрами, а не уникальные классы поисковика.
+* **Обработка всплывающих окон:** В `search_images` есть попытка кликнуть "Нет, спасибо" (`decline = page.get_by_text("Нет, спасибо", exact=True)`). Это сработает только в русской локали. Лучше искать по роли кнопки или просто блокировать оверлеи через `page.add_init_script()`.
+
+---
+
+### 4. Улучшение автономного режима (`autonomous.py`)
+
+* **Хардкод фраз в `_next_phrase`:** Жесткие матерные фразы зашиты прямо в код. 
+  **Решение:** Вынесите их в `roles/dominatrix.md` или отдельный конфиг (например, `config/autonomous_phrases.yaml`). Это сделает роли гибкими — пользователь сможет редактировать их без изменения кода.
+* **Предсказуемость ИИ:** В `_conductor_loop` вы просите LLM вернуть JSON. Локальные модели (особенно через LM Studio) часто оборачивают JSON в markdown ` ```json ... ``` `. Вы это учитываете в `event_loop.py` (`_next_exploration_query`), но в `_conductor_loop` парсите ответ "как есть". 
+  **Решение:** Примените ту же логику очистки от markdown-блоков перед `json.loads()` в `autonomous.py`.
+
+---
+
+### 5. Рекомендации по фичам (Что можно добавить)
+
+1. **Перехват исключений в циклах автономного режима:** Если в `_vision_loop` или `_device_loop` произойдет необработанная ошибка, цикл умрет, и автономный режим зависнет в странном состоянии. Оберните тело `while` в `try/except`, чтобы цикл продолжал работать даже при временной ошибке (с логированием в `logger.warning`).
+2. **Graceful Shutdown браузера:** В `browser_session.py` метод `close()` не вызывается автоматически при закрытии Python. Используйте контекстные менеджеры (`async with`) или регистрируйте `shutdown` хуки в `EventLoop`, чтобы Playwright корректно закрывал браузер и не оставлял зомби-процессов Chrome в памяти.
+3. **Модерация безопасности камеры:** Вы правильно делаете, что озвучиваете включение камеры. Но было бы круто добавить "паническую" кнопку или горячую клавишу (помимо ESC), которая аппаратно глушит камеры и устройства на уровне ОС, на случай если софт зависнет.
+
+### Резюме действий (Action Plan):
+1. Замените `re_search` на `re.search`.
+2. Уберите хардкод импортов и фраз (вынесите в конфиги/роли).
+3. Почините использование `Lock` для инструментов, чтобы автономный режим и ручной не конфликтовали в браузере.
+4. Сделайте селекторы браузера более устойчивыми или перейдите на API поисковиков.
+
+Проект очень крутой, особенно реализация визуального управления UI (через VLM). Если причистить архитектуру, он станет гораздо стабильнее!
+
+https://chat.z.ai/c/754983e0-0e0d-4880-9257-10b92147b39b
+
+## 🔍 Детальный анализ ваших файлов — полная картина
+
+Я проанализировал ваш проект UNI на основе предоставленных файлов и моих предыдущих рекомендаций. Вот детальный разбор **каждого проблемного места** с прямыми ссылками на код.
+
+---
+
+## 📊 Сводка по файлам
+
+| Файл | Размер | Проблем | Статус |
+|------|--------|---------|--------|
+| `uni/contracts.py` | 433 B | ❌ Слишком простой контракт | Требует расширения |
+| `uni/config.py` | 4.6 KB | ⚠️ Опасные дефолты (`debug: true`) | Нужно исправить |
+| `uni/event_loop.py` | 30 KB | ❌ God Object (300+ строк) | Критическое упрощение |
+| `uni/agent.py` | 3.2 KB | ⚠️ Ручная регистрация 6+ capability | Нужен autodiscovery |
+| `uni/working_memory.py` | 3.7 KB | ❌ Синхронный I/O в async коде | Нужен async + debounce |
+| `uni/brain.py` | 2.9 KB | ⚠️ Нет resilience (retry/circuit breaker) | Нужно усилить |
+| `uni/capabilities/registry.py` | 770 B | ⚠️ Только словарь, нет lifecycle | Нужен plugin system |
+| `uni/planner.py` | 6.7 KB | ⚠️ Валидация плана слабая | Нужен строгий парсинг |
+| `uni/__main__.py` | 2.2 KB | ❌ Мутация config после загрузки | Нужен immutable config |
+
+---
+
+## 🔴 1. `uni/contracts.py` — слишком простой
+
+**Сейчас:**
+```python
+class ToolResult(BaseModel):
+    success: bool
+    message: str = ""
+    data: Optional[Any] = None
+    error: Optional[str] = None
+```
+
+**Проблемы:**
+- `data: Optional[Any]` — нет типовой безопасности
+- `error: Optional[str]` — нет структурированной ошибки
+- Нет метаданных (время выполнения, токены, модель)
+
+**Рекомендация:**
+```python
+# uni/contracts.py — расширенный контракт
+from typing import Generic, TypeVar, Optional
+from enum import Enum
+from pydantic import BaseModel
+
+class ErrorSeverity(str, Enum):
+    RECOVERABLE = "recoverable"
+    PERMANENT = "permanent"
+    CONFIGURATION = "configuration"
+
+class ErrorDetail(BaseModel):
+    message: str
+    severity: ErrorSeverity
+    suggested_action: Optional[str] = None
+
+T = TypeVar("T")
+
+class ToolResult(BaseModel, Generic[T]):
+    success: bool
+    message: str = ""
+    data: Optional[T] = None
+    error: Optional[ErrorDetail] = None
+    metadata: dict = {}  # latency_ms, tokens, model, timestamp
+```
+
+---
+
+## 🔴 2. `uni/event_loop.py` — God Object (300+ строк)
+
+**Сейчас:** 30 KB, один класс делает всё — парсинг команд, работу с камерой, XToys, экраном, аудио.
+
+**Проблемные места:**
+- `_parse_direct_command` — 150+ строк в одном классе (строки 340-490)
+- `_execute_camera_action` — 70 строк (строки 586-655)
+- `_execute_xtoys_action` — 60 строк (строки 657-716)
+- `_execute_google_search` — 50 строк (строки 720-770)
+- `_execute_vision_action` — 30 строк
+
+**Рекомендация: Command Pattern**
+
+```python
+# uni/commands/base.py
+class CommandHandler(ABC):
+    trigger_patterns: ClassVar[list[str]]
+    
+    @abstractmethod
+    async def handle(self, text: str, ctx: CommandContext) -> CommandResult:
+        pass
+
+# uni/commands/camera.py
+class CameraCommand(CommandHandler):
+    trigger_patterns = [r"посмотри.*камер", r"включи камер"]
+    
+    async def handle(self, text: str, ctx: CommandContext) -> CommandResult:
+        camera = ctx.agent.capabilities.get("camera")
+        result = await camera.execute("look", {})
+        return CommandResult(
+            handled=True,
+            response="Смотрю..." if result.success else f"Ошибка: {result.message}"
+        )
+
+# uni/event_loop.py — упрощается до 50 строк
+class EventLoop:
+    def __init__(self, ...):
+        self._commands = CommandRegistry()
+        self._commands.autodiscover()
+    
+    async def _process_input(self, text: str):
+        result = await self._commands.try_handle(text, CommandContext(self))
+        if result and result.handled:
+            return result.response
+        return await self._llm_process(text)
+```
+
+---
+
+## 🔴 3. `uni/config.py` — опасные дефолты
+
+**Сейчас:**
+```python
+class Config(BaseModel):
+    debug: bool = True  # ❌ Опасно для production
+    log_level: str = "DEBUG"  # ❌ Слишком шумно
+    allow_camera: bool = True  # ❌ Безопасность?
+```
+
+**Проблемы:**
+- `debug: True` по умолчанию — потенциально раскрывает секреты
+- `allow_camera` и `allow_screenshot` — без явного согласия пользователя
+
+**Рекомендация:**
+```python
+class Config(BaseModel):
+    debug: bool = False  # безопасный дефолт
+    log_level: str = "INFO"
+    allow_camera: bool = False  # пользователь должен явно включить
+    allow_screenshot: bool = False
+    
+    model_config = ConfigDict(frozen=True)  # immutable
+```
+
+---
+
+## 🔴 4. `uni/working_memory.py` — синхронный I/O
+
+**Сейчас:**
+```python
+class WorkingMemory:
+    def __init__(self, path: Path):
+        self._lock = threading.RLock()  # ❌ блокирует event loop
+    
+    def append_exchange(self, user: str, assistant: str) -> bool:
+        with self._lock:  # ❌ синхронная блокировка
+            self.data["exchanges"].append(...)
+            self._persist()  # ❌ синхронный I/O
+    
+    def _persist(self) -> None:
+        with self._lock:
+            self.path.write_text(json.dumps(...))  # ❌ блокирующий I/O
+```
+
+**Рекомендация:**
+```python
+import aiofiles
+import asyncio
+
+class WorkingMemory:
+    def __init__(self, path: Path, persist_interval: float = 5.0):
+        self._lock = asyncio.Lock()
+        self._dirty = False
+        self._persist_interval = persist_interval
+        self._persist_task = None
+    
+    async def append_exchange(self, user: str, assistant: str) -> bool:
+        async with self._lock:
+            self.data["exchanges"].append(...)
+            self._dirty = True
+        self._schedule_persist()  # debounced
+        return True
+    
+    async def _persist(self) -> None:
+        async with self._lock:
+            if not self._dirty:
+                return
+            self._dirty = False
+            async with aiofiles.open(self.path, "w") as f:
+                await f.write(json.dumps(self.data))
+```
+
+---
+
+## 🔴 5. `uni/brain.py` — отсутствие resilience
+
+**Сейчас:**
+```python
+class Brain:
+    async def chat(self, messages, ...):
+        response = await self.client.chat.completions.create(...)  # ❌ может зависнуть
+```
+
+**Рекомендация:**
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+class Brain:
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    async def chat(self, messages, ...):
+        try:
+            return await self.client.chat.completions.create(...)
+        except (TimeoutError, ConnectionError) as exc:
+            logger.warning(f"LLM API error: {exc}, retrying...")
+            raise  # tenacity обработает
+```
+
+---
+
+## 🔴 6. `uni/capabilities/registry.py` — только словарь
+
+**Сейчас:**
+```python
+class CapabilityRegistry:
+    def __init__(self):
+        self._capabilities = {}  # ❌ только хранение
+    
+    def register(self, cap: Capability):
+        self._capabilities[cap.name] = cap
+```
+
+**Проблемы:**
+- Нет lifecycle (`initialize`/`shutdown`)
+- Нет discovery
+- 40+ строк ручной регистрации в `Agent.__init__`
+
+**Рекомендация:**
+```python
+# uni/capabilities/discovery.py
+class CapabilityPlugin(BaseModel):
+    name: str
+    factory: Callable[[Config], Capability]
+    dependencies: list[str] = []
+
+class PluginRegistry:
+    @classmethod
+    def discover(cls):
+        """Auto-discover capabilities from modules."""
+        for file in Path(__file__).parent.glob("*.py"):
+            module = importlib.import_module(f"uni.capabilities.{file.stem}")
+            if hasattr(module, "CAPABILITY_PLUGIN"):
+                plugin = module.CAPABILITY_PLUGIN
+                cls._plugins[plugin.name] = plugin
+    
+    @classmethod
+    def create_all(cls, config: Config) -> CapabilityRegistry:
+        registry = CapabilityRegistry()
+        # topological sort по dependencies
+        for plugin in cls._topological_sort():
+            deps = {dep: registry.get(dep) for dep in plugin.dependencies}
+            cap = plugin.factory(config, **deps)
+            registry.register(cap)
+        return registry
+
+# uni/capabilities/browser.py
+def create_browser(config: Config) -> BrowserCapability:
+    return BrowserCapability(config.capabilities.browser)
+
+CAPABILITY_PLUGIN = CapabilityPlugin(
+    name="browser",
+    factory=create_browser,
+    dependencies=[],
+)
+```
+
+---
+
+## 📋 Приоритетный план исправлений
+
+| Приоритет | Файл | Задача | Время |
+|-----------|------|--------|-------|
+| 🔴 P0 | `contracts.py` | Расширить контракт с типами и ошибками | 2ч |
+| 🔴 P0 | `working_memory.py` | Async + debounced persistence | 3ч |
+| 🟡 P1 | `event_loop.py` | Выделить Command Handlers | 4ч |
+| 🟡 P1 | `config.py` | Immutable + безопасные дефолты | 1ч |
+| 🟡 P1 | `brain.py` | Добавить retry/circuit breaker | 2ч |
+| 🟢 P2 | `capabilities/registry.py` | Plugin-based autodiscovery | 3ч |
+| 🟢 P2 | `agent.py` | Упростить регистрацию | 1ч |
+| 🟢 P2 | `planner.py` | Усилить валидацию | 2ч |
+
+**Общее время:** ~18 часов на полный рефакторинг.
+
+---
+
+Хотите, чтобы я создал исправленные версии этих файлов в порядке приоритета?
+
+https://chat.deepseek.com/a/chat/s/7f67f946-644c-4e2e-bc72-c804e99e37f4
+

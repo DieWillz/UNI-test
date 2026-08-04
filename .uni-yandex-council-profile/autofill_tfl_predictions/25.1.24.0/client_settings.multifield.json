@@ -1,0 +1,3 @@
+{
+  "input_format": "$not_empty_name_or_id $label"
+}

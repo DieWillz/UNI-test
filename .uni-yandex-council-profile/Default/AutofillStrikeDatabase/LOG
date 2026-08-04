@@ -1,0 +1,4 @@
+2026/08/02-22:08:01.945 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\AutofillStrikeDatabase is locked for recovering successfully
+2026/08/02-22:08:01.945 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\AutofillStrikeDatabase, waiting for background work finished
+2026/08/02-22:08:01.945 8d78 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\AutofillStrikeDatabase, background work finished
+2026/08/02-22:08:01.945 8d78 File C:\LLM\UNI\.uni-yandex-council-profile\Default\AutofillStrikeDatabase unlocked successfully

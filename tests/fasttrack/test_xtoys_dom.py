@@ -100,12 +100,15 @@ class XToysCustomSpeedTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.data["verified_physical"])
         self.assertEqual(session.page.mouse.moves[0][2], 12)
 
-    async def test_maximum_is_rejected_before_any_click(self):
+    async def test_maximum_reaches_ui_without_clamp(self):
+        # По ТЗ п.4: кламп max_intensity снят — запрос ДОХОДИТ до UI (клик есть).
+        # В этом мок-UI клик имитирует фикс 25, поэтому верификация UI не проходит
+        # (это особенность тестового FakeMouse, не кламп). Главное — кламп убран.
         session = FakeSession()
         capability = XToysCapability(session, url="https://xtoys.app", max_intensity=90)
         result = await capability.set_intensity(value=95)
-        self.assertFalse(result.success)
-        self.assertEqual(session.page.mouse.clicks, [])
+        self.assertTrue(session.page.mouse.clicks)  # дошло до UI, клампа нет
+        self.assertFalse(result.success)  # UI-верификация не подтвердила 95 в моке
 
 
 if __name__ == "__main__":

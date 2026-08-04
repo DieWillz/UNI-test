@@ -1,0 +1,44 @@
+2026/08/03-18:40:24.756 8d74 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_xtoys.app_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/03-18:40:24.756 8d74 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_xtoys.app_0.indexeddb.leveldb since it was missing.
+2026/08/03-18:40:24.768 8d74 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_xtoys.app_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/03-18:40:24.792 8d7c Level-0 table #5: started
+2026/08/03-18:40:24.802 8d7c Level-0 table #5: 1264 bytes OK
+2026/08/03-18:40:24.804 8d7c Delete type=0 #3
+2026/08/03-18:40:24.804 8d7c Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-19:09:05.576 8d7c Level-0 table #7: started
+2026/08/03-19:09:05.580 8d7c Level-0 table #7: 167157 bytes OK
+2026/08/03-19:09:05.582 8d7c Delete type=0 #4
+2026/08/03-19:09:05.582 8d70 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-19:09:05.962 8d80 Level-0 table #9: started
+2026/08/03-19:09:05.974 8d80 Level-0 table #9: 647 bytes OK
+2026/08/03-19:09:05.976 8d80 Delete type=0 #6
+2026/08/03-19:09:05.977 8d70 Manual compaction at level-0 from '\x00\x07\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at '\x00\x07\x00\x00\x05' @ 754 : 1
+2026/08/03-19:09:05.977 8d70 Compacting 1@0 + 1@1 files
+2026/08/03-19:09:05.981 8d70 Generated table #10@0: 378 keys, 162139 bytes
+2026/08/03-19:09:05.981 8d70 Compacted 1@0 + 1@1 files => 162139 bytes
+2026/08/03-19:09:05.982 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-19:09:05.983 8d70 Delete type=2 #9
+2026/08/03-19:09:05.983 8d70 Manual compaction at level-0 from '\x00\x07\x00\x00\x05' @ 754 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-19:09:09.533 8d7c Level-0 table #12: started
+2026/08/03-19:09:09.537 8d7c Level-0 table #12: 10540 bytes OK
+2026/08/03-19:09:09.540 8d7c Delete type=2 #7
+2026/08/03-19:09:09.540 8d7c Delete type=0 #8
+2026/08/03-19:09:09.540 8d70 Manual compaction at level-0 from '\x00\x09\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0a\x00\x00\x00' @ 0 : 0; will stop at '\x00\x09\x00\x00\x05' @ 945 : 1
+2026/08/03-19:09:09.541 8d70 Compacting 1@0 + 1@1 files
+2026/08/03-19:09:09.545 8d70 Generated table #13@0: 455 keys, 165056 bytes
+2026/08/03-19:09:09.545 8d70 Compacted 1@0 + 1@1 files => 165056 bytes
+2026/08/03-19:09:09.547 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-19:09:09.547 8d70 Delete type=2 #12
+2026/08/03-19:09:09.548 8d70 Manual compaction at level-0 from '\x00\x09\x00\x00\x05' @ 945 : 1 .. '\x00\x0a\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-20:16:10.913 8d70 Manual compaction at level-0 from '\x00\x0a\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0b\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-20:16:13.718 8d7c Level-0 table #15: started
+2026/08/03-20:16:13.726 8d7c Level-0 table #15: 758964 bytes OK
+2026/08/03-20:16:13.729 8d7c Delete type=2 #10
+2026/08/03-20:16:13.729 8d7c Delete type=0 #11
+2026/08/03-20:16:13.730 8d70 Manual compaction at level-0 from '\x00\x0b\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0c\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0b\x00\x00\x05' @ 2054 : 1
+2026/08/03-20:16:13.730 8d70 Compacting 1@0 + 1@1 files
+2026/08/03-20:16:13.736 8d70 Generated table #16@0: 912 keys, 743255 bytes
+2026/08/03-20:16:13.736 8d70 Compacted 1@0 + 1@1 files => 743255 bytes
+2026/08/03-20:16:13.737 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-20:16:13.737 8d70 Delete type=2 #15
+2026/08/03-20:16:13.737 8d70 Manual compaction at level-0 from '\x00\x0b\x00\x00\x05' @ 2054 : 1 .. '\x00\x0c\x00\x00\x00' @ 0 : 0; will stop at (end)

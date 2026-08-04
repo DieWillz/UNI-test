@@ -1,0 +1,26 @@
+2026/08/03-01:48:04.828 8d74 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/03-01:48:04.828 8d74 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/03-01:48:04.829 8d74 Recovering log #10
+2026/08/03-01:48:04.829 8d74 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_coder.qwen.ai_0.indexeddb.leveldb/000010.log 
+2026/08/03-01:48:04.829 8d74 Delete type=2 #5
+2026/08/03-01:48:04.829 8d74 Delete type=2 #7
+2026/08/03-01:48:04.829 8d74 Delete type=2 #9
+2026/08/03-01:48:06.148 8d74 Level-0 table #16: started
+2026/08/03-01:48:06.156 8d74 Level-0 table #16: 234011 bytes OK
+2026/08/03-01:48:06.161 8d74 Delete type=0 #10
+2026/08/03-01:48:06.272 8d7c Level-0 table #18: started
+2026/08/03-01:48:06.283 8d7c Level-0 table #18: 234227 bytes OK
+2026/08/03-01:48:06.286 8d7c Delete type=0 #15
+2026/08/03-01:48:06.395 8d7c Level-0 table #20: started
+2026/08/03-01:48:06.404 8d7c Level-0 table #20: 234543 bytes OK
+2026/08/03-01:48:06.405 8d7c Delete type=0 #17
+2026/08/03-01:48:06.495 8d70 Level-0 table #22: started
+2026/08/03-01:48:06.503 8d70 Level-0 table #22: 177603 bytes OK
+2026/08/03-01:48:06.505 8d70 Delete type=0 #19
+2026/08/03-01:48:06.505 8d70 Manual compaction at level-0 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at '\x00\x03\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 9163 : 1
+2026/08/03-01:48:06.505 8d70 Compacting 3@0 + 1@1 files
+2026/08/03-01:48:06.528 8d70 Generated table #23@0: 1941 keys, 17202 bytes
+2026/08/03-01:48:06.528 8d70 Compacted 3@0 + 1@1 files => 17202 bytes
+2026/08/03-01:48:06.529 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-01:48:06.530 8d70 Delete type=2 #22
+2026/08/03-01:48:06.530 8d70 Manual compaction at level-0 from '\x00\x03\x01\x02\x03\x00\x00\x00\x00\x00\x00,@' @ 9163 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)

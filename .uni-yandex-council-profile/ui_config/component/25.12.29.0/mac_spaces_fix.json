@@ -1,0 +1,69 @@
+{
+  "style_sheet": [
+    //==========================================================================
+    //                   Fix for very light wallpapers.
+    //                          [platform=macosx]
+    //==========================================================================
+    //                          Inactive Space.
+    //                       Only background colors.
+    //==========================================================================
+    // Transparent theme - wallpaper visible
+    {
+      "selector": [
+        "[platform=macosx]:not([theme]):not(:dark_wp_top)#custo_dock > #space_strip > #space:not(.active)",
+      ],
+      "background": ["color(#fff a(0.4))", "color(#fff a(0.7))"]
+    },
+
+    // Light Wallpaper visible on ntp/bottom and sly_zen
+    // (sly zen is zen achived by scroll from ntp without tab switching)
+    {
+      "selector": [
+        "[platform=macosx]#custo_dock > #space_strip > #space:is([state=ntp], :sly_zen):not(:dark_wp_top)"
+      ],
+      "background": ["color(#fff a(0.4))", "color(#fff a(0.7))"]
+    },
+    //==========================================================================
+    //                          Active Space.
+    //                       Only background colors.
+    //==========================================================================
+    // Space strip transparent on ntp/bottom or :sly_zen - wallpaper (dark or light) visible
+    {
+      "selector": [
+        "[platform=macosx]#custo_dock > #space_strip > #space.active",
+      ],
+      "meta_selector": [
+        ":is([state=ntp], :sly_zen):not(:dark_wp_top)",
+      ],
+      "background": ["color(#fff a(0.95))"]
+    },
+    //==========================================================================
+    //                    Hovered New Space Button.
+    //                     Only background colors.
+    //==========================================================================
+    // Rules below should be a copy from Inactive space background colors,
+    // but with transparent background color in normal state.
+    // Copy only hover color.
+    // See block with name "Inactive Space. Only background colors."
+    {
+      "selector": [
+        "[platform=macosx]:not([theme]):not(:dark_wp_top)#custo_dock > #new_space_button",
+      ],
+      "background": ["#0000", "color(#fff a(0.7))"]
+    },
+    // Light Wallpaper visible on ntp/bottom and sly_zen
+    // (sly zen is zen achived by scroll from ntp without tab switching)
+    {
+      "selector": [
+        "[platform=macosx]#custo_dock > #new_space_button:is([state=ntp], :sly_zen):not(:dark_wp_top)"
+      ],
+      "background": ["#0000", "color(#fff a(0.7))"]
+    },
+    // Temporary override transparent background from default_hat_config on 22.3.3
+    {
+      "selector":  "#top_container",
+      "meta_selector": ":is([platform=macosx]):is([state=ntp], :sly_zen):not(:incognito)",
+      "background": ["color(#000 a(0.1))"]
+    }
+  ]
+}

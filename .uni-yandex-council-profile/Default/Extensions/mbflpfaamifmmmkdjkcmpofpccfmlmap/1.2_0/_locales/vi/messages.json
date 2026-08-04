@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Đóng"
+   },
+   "copy": {
+      "message": "Sao chép URL"
+   },
+   "copy_success": {
+      "message": "Đã sao chép thành công."
+   },
+   "download": {
+      "message": "Tải xuống"
+   },
+   "filter_lead": {
+      "message": "Video có kích thước nhỏ hơn giá trị này sẽ không được quay"
+   },
+   "hour": {
+      "message": "giờ"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Trình tải video chuyên nghiệp để lưu các video trực tuyến như mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Trình tải xuống video - MPMux"
+   },
+   "minute": {
+      "message": "phút"
+   },
+   "more_than_one_day": {
+      "message": "Hơn một ngày"
+   },
+   "no_more_resolution": {
+      "message": "Không còn độ phân giải"
+   },
+   "no_result": {
+      "message": "Không tìm thấy tệp tài nguyên nào!"
+   },
+   "no_video": {
+      "message": "Không thể quay video, hoặc video không tồn tại!"
+   },
+   "not_support": {
+      "message": "Trang web này không được hỗ trợ"
+   },
+   "play": {
+      "message": "Phát video"
+   },
+   "popup_modal_body": {
+      "message": "Cố gắng chọn độ phân giải cố định trước khi quay (nếu video có tùy chọn này). Vì độ phân giải tự động có thể tạo ra các khung hình có kích thước khác nhau, khiến video bị tách."
+   },
+   "popup_modal_close": {
+      "message": "Đóng"
+   },
+   "popup_modal_confirm": {
+      "message": "Xác nhận"
+   },
+   "popup_modal_title": {
+      "message": "Lời khuyên"
+   },
+   "recording_mode": {
+      "message": "Chế độ ghi âm"
+   },
+   "second": {
+      "message": "giây"
+   },
+   "size_filter": {
+      "message": "Lọc"
+   },
+   "tips": {
+      "message": "Lời khuyên"
+   },
+   "tips_text_1": {
+      "message": "Một số video có thể không được quay cho đến khi chúng được phát. Nếu video mục tiêu không có trong danh sách, hãy thử phát video đó hoặc làm mới trang."
+   },
+   "tips_text_2": {
+      "message": "Nếu nó vẫn không hoạt động sau khi thử, hãy tải xuống cưỡng bức với \"chế độ ghi\"."
+   },
+   "video_flush_error": {
+      "message": "Lỗi xả video"
+   }
+}

@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "proche"
+   },
+   "copy": {
+      "message": "Copier le lien"
+   },
+   "copy_success": {
+      "message": "Copié avec succès."
+   },
+   "download": {
+      "message": "Télécharger"
+   },
+   "filter_lead": {
+      "message": "La vidéo dont la taille est inférieure à cette valeur ne sera pas capturée"
+   },
+   "hour": {
+      "message": "heure"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Un téléchargeur de vidéos professionnel pour enregistrer des vidéos en ligne telles que mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Téléchargeur de vidéos - MPMux"
+   },
+   "minute": {
+      "message": "minute"
+   },
+   "more_than_one_day": {
+      "message": "Plus d'une journée"
+   },
+   "no_more_resolution": {
+      "message": "Plus de résolution"
+   },
+   "no_result": {
+      "message": "Aucun fichier de ressources trouvé&nbsp;!"
+   },
+   "no_video": {
+      "message": "La vidéo ne peut pas être enregistrée ou la vidéo n'existe pas&nbsp;!"
+   },
+   "not_support": {
+      "message": "Ce site n'est pas pris en charge"
+   },
+   "play": {
+      "message": "Lire la vidéo"
+   },
+   "popup_modal_body": {
+      "message": "Essayez de choisir une résolution fixe avant l'enregistrement (si la vidéo a cette option). Parce que la résolution automatique peut produire des images de tailles différentes, ce qui entraîne la division de la vidéo."
+   },
+   "popup_modal_close": {
+      "message": "proche"
+   },
+   "popup_modal_confirm": {
+      "message": "Confirmer"
+   },
+   "popup_modal_title": {
+      "message": "Des astuces"
+   },
+   "recording_mode": {
+      "message": "Mode d'enregistrement"
+   },
+   "second": {
+      "message": "secondes"
+   },
+   "size_filter": {
+      "message": "Filtre"
+   },
+   "tips": {
+      "message": "Des astuces"
+   },
+   "tips_text_1": {
+      "message": "Certaines vidéos peuvent ne pas être capturées tant qu'elles ne sont pas lues. Si la vidéo cible ne figure pas dans la liste, essayez de la lire ou actualisez la page."
+   },
+   "tips_text_2": {
+      "message": "Si cela ne fonctionne toujours pas après avoir essayé, téléchargez-le de force avec le \"mode d'enregistrement\"."
+   },
+   "video_flush_error": {
+      "message": "Erreur de vidage vidéo"
+   }
+}

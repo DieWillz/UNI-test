@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Zapri"
+   },
+   "copy": {
+      "message": "Kopiraj URL"
+   },
+   "copy_success": {
+      "message": "Uspešno kopirano."
+   },
+   "download": {
+      "message": "Prenesi"
+   },
+   "filter_lead": {
+      "message": "Video, katerega velikost je manjša od te vrednosti, ne bo zajet"
+   },
+   "hour": {
+      "message": "uro"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionalni prenosnik videoposnetkov za shranjevanje spletnih videov, kot so mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Razširitve za prenos videa - MPMux"
+   },
+   "minute": {
+      "message": "minuta"
+   },
+   "more_than_one_day": {
+      "message": "Več kot en dan"
+   },
+   "no_more_resolution": {
+      "message": "Nič več resolucije"
+   },
+   "no_result": {
+      "message": "Ni najdene datoteke vira!"
+   },
+   "no_video": {
+      "message": "Videoposnetka ni mogoče posneti ali pa video ne obstaja!"
+   },
+   "not_support": {
+      "message": "To spletno mesto ni podprto"
+   },
+   "play": {
+      "message": "Predvajaj video"
+   },
+   "popup_modal_body": {
+      "message": "Pred snemanjem poskusite izbrati fiksno ločljivost (če ima video to možnost). Ker lahko samodejna ločljivost ustvari okvirje različnih velikosti, zaradi česar se videoposnetek razdeli."
+   },
+   "popup_modal_close": {
+      "message": "Zapri"
+   },
+   "popup_modal_confirm": {
+      "message": "Potrdi"
+   },
+   "popup_modal_title": {
+      "message": "Nasveti"
+   },
+   "recording_mode": {
+      "message": "Način snemanja"
+   },
+   "second": {
+      "message": "sekund"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Nasveti"
+   },
+   "tips_text_1": {
+      "message": "Nekaterih videoposnetkov morda ne bo mogoče zajeti, dokler jih ne predvajate. Če ciljnega videa ni na seznamu, ga poskusite predvajati ali osvežite stran."
+   },
+   "tips_text_2": {
+      "message": "Če po poskusu še vedno ne deluje, ga prenesite na silo z \"snemalnim načinom\"."
+   },
+   "video_flush_error": {
+      "message": "Napaka pri izpiranju videa"
+   }
+}

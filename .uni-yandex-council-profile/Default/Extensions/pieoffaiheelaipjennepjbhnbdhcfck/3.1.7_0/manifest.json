@@ -1,0 +1,60 @@
+{
+   "action": {
+      "default_icon": {
+         "16": "icons/disabledop.png",
+         "32": "icons/disabledop.png",
+         "48": "icons/disabledop.png"
+      },
+      "default_popup": "popup.html"
+   },
+   "author": "AnonVPN Team",
+   "background": {
+      "service_worker": "service_worker.js"
+   },
+   "commands": {
+      "toggle-vpn": {
+         "description": "Toggle VPN on/off",
+         "suggested_key": {
+            "default": "Alt+Shift+V",
+            "mac": "Alt+Shift+V"
+         }
+      }
+   },
+   "content_security_policy": {
+      "extension_pages": "default-src 'self'; connect-src http: https://api.bot-support.ru https://n1.bot-support.ru https://g1.bot-support.ru https://api.unkill.ru https://n1.unkill.ru https://g1.unkill.ru https://api.sibirlife.ru https://n1.sibirlife.ru https://g1.sibirlife.ru https://api.1150.ru https://n1.1150.ru https://g1.1150.ru https://api.foofle.ru https://n1.foofle.ru https://g1.foofle.ru https://cp.cloudflare.com https://api.ipify.org https://ipinfo.io https://www.youtube.com https://www.google.com; script-src 'self'; style-src 'self'; frame-src https://apiget.ru https://balancing.apiget.ru; object-src 'none';"
+   },
+   "declarative_net_request": {
+      "rule_resources": [ {
+         "enabled": false,
+         "id": "ad_blocker",
+         "path": "rules/blocklist.json"
+      } ]
+   },
+   "default_locale": "ru",
+   "description": "__MSG_extDesc__",
+   "homepage_url": "https://anon-vpn.ru",
+   "host_permissions": [ "\u003Call_urls>" ],
+   "icons": {
+      "128": "icons/AnonVPN128.png",
+      "16": "icons/AnonVPN16.png",
+      "256": "icons/AnonVPN256.png",
+      "32": "icons/AnonVPN32.png",
+      "48": "icons/AnonVPN48.png",
+      "512": "icons/AnonVPN512.png",
+      "64": "icons/AnonVPN64.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtMtV4JXiMaTnlLMF4ghxkOlfSlIAckvTFt7+5g0q/LKkCj9Hv34IMK1zsxqTo0y24R3MpAdrjfru6YxP+CiDbub9l0xQqe0wQrtbEfyal3pNSDX0XRhJf/ZjESfI2/z6vi3ZWcQbEky2Zr/13FUoZhqOEj9N41muji6oiA8KzlRk2VbHKrBRDCgiBAbMYiC0Seot2MVLIXCGqdiACk2Lkx0OpvArhoXii3argkOcfOFertsURninlVnXG/8zWCIDqBl0EfSyzttl6rg3I+E2qt2Kfnfa3GulVRh0BnIXf/+ZrML4x31nSAu4sfUNnBepiiLOcxViAJHGOMWP8m2puQIDAQAB",
+   "manifest_version": 3,
+   "minimum_chrome_version": "109",
+   "name": "__MSG_extName__",
+   "offline_enabled": true,
+   "optional_permissions": [ "management", "webNavigation" ],
+   "permissions": [ "proxy", "storage", "alarms", "webRequest", "webRequestAuthProvider", "declarativeNetRequest", "offscreen", "notifications" ],
+   "short_name": "AnonVPN",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "3.1.7",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "ae-gate.html" ]
+   } ]
+}

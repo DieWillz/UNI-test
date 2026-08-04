@@ -1,0 +1,10 @@
+{
+    "name": {
+      "description": "Extension's name",
+      "message": "Spotify Reklam Engelleyici - Blockify"
+    },
+    "description": {
+        "description": "Extension's description",
+        "message": "Blockify, Spotify reklam engelleme teknolojisini kullanarak Spotify reklamlarını engelleyen bir Spotify reklam engelleyicisidir."
+      }
+}

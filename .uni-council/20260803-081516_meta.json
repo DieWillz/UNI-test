@@ -1,0 +1,15 @@
+{
+  "topic": "Проверка статуса ИИ",
+  "round_id": "20260803-081516",
+  "participants": [
+    "DeepSeek"
+  ],
+  "signatures": {},
+  "errors": {
+    "DeepSeek": "TimeoutError: the message was sent, but no completed answer appeared"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260803-081516_DeepSeek.md",
+    "report": ".uni-council\\20260803-081516_report.md"
+  }
+}

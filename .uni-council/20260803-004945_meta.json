@@ -1,0 +1,25 @@
+{
+  "topic": "Перекличка",
+  "round_id": "20260803-004945",
+  "participants": [
+    "Gemini",
+    "Groq",
+    "OpenRouter",
+    "HuggingFace",
+    "Hermes"
+  ],
+  "signatures": {},
+  "errors": {
+    "Gemini": "ConnectError: [Errno 11001] getaddrinfo failed",
+    "OpenRouter": "HTTP 403: {\"error\":{\"message\":\"Key limit exceeded (total limit). Manage it using https://openrouter.ai/workspaces/free/keys/5edfc1b4d67156a134445ca362466a696a2d6fbe60e95b06621d5394617f44b4\",\"code\":403}}",
+    "Hermes": "ConnectError: All connection attempts failed"
+  },
+  "artifacts": {
+    "Gemini": ".uni-council\\20260803-004945_Gemini.md",
+    "Groq": ".uni-council\\20260803-004945_Groq.md",
+    "OpenRouter": ".uni-council\\20260803-004945_OpenRouter.md",
+    "HuggingFace": ".uni-council\\20260803-004945_HuggingFace.md",
+    "Hermes": ".uni-council\\20260803-004945_Hermes.md",
+    "report": ".uni-council\\20260803-004945_report.md"
+  }
+}

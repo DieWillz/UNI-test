@@ -1,0 +1,44 @@
+﻿py : Traceback (most recent call last):
+строка:3 знак:1
++ py -3 -m git_filter_repo --force --invert-paths --paths-from-file "pa ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\git_filter_repo.py", line 4976, in <mod
+ule>
+    main()
+    ~~~~^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\git_filter_repo.py", line 4968, in main
+    args = FilteringOptions.parse_args(sys.argv[1:])
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\git_filter_repo.py", line 2417, in pars
+e_args
+    args = parser.parse_args(input_args)
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2003, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2013, in parse_known_args
+    return self._parse_known_args2(args, namespace, intermixed=False)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2042, in _parse_known_args2
+    namespace, args = self._parse_known_args(args, namespace, intermixed)
+                      ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2293, in _parse_known_args
+    start_index = consume_optional(start_index)
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2217, in consume_optional
+    take_action(action, args, option_string)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\argparse.py", line 2118, in take_action
+    action(self, namespace, argument_values, option_string)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\git_filter_repo.py", line 1825, in __ca
+ll__
+    namespace.path_changes += FilteringOptions.get_paths_from_file(values)
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\user\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\git_filter_repo.py", line 2360, in get_
+paths_from_file
+    with open(filename, 'br') as f:
+         ~~~~^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: b'paths-to-remove.txt'

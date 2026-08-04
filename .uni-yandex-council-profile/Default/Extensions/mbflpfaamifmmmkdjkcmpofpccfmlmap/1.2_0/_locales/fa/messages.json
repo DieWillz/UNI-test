@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "نزدیک"
+   },
+   "copy": {
+      "message": "URL را کپی کنید"
+   },
+   "copy_success": {
+      "message": "با موفقیت کپی شد."
+   },
+   "download": {
+      "message": "دانلود"
+   },
+   "filter_lead": {
+      "message": "ویدیویی که اندازه آن کوچکتر از این مقدار باشد گرفته نمی شود"
+   },
+   "hour": {
+      "message": "ساعت"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "دانلودر حرفه‌ای ویدیو برای ذخیره ویدیوهای آنلاین مانند mp4، m3u8، hls، live."
+   },
+   "manifest_name": {
+      "message": "دانلود کننده ویدیو رایگان - MPMux"
+   },
+   "minute": {
+      "message": "دقیقه"
+   },
+   "more_than_one_day": {
+      "message": "بیش از یک روز"
+   },
+   "no_more_resolution": {
+      "message": "وضوح بیشتری وجود ندارد"
+   },
+   "no_result": {
+      "message": "هیچ فایل منبعی پیدا نشد!"
+   },
+   "no_video": {
+      "message": "ویدیو ضبط نمی شود یا ویدیو وجود ندارد!"
+   },
+   "not_support": {
+      "message": "این سایت پشتیبانی نمی شود"
+   },
+   "play": {
+      "message": "پخش ویدئو"
+   },
+   "popup_modal_body": {
+      "message": "سعی کنید قبل از ضبط یک وضوح ثابت را انتخاب کنید (اگر ویدیو دارای این گزینه است). زیرا رزولوشن خودکار ممکن است فریم هایی با اندازه های مختلف تولید کند و باعث تقسیم شدن ویدیو شود."
+   },
+   "popup_modal_close": {
+      "message": "نزدیک"
+   },
+   "popup_modal_confirm": {
+      "message": "تایید"
+   },
+   "popup_modal_title": {
+      "message": "نکات"
+   },
+   "recording_mode": {
+      "message": "حالت ضبط"
+   },
+   "second": {
+      "message": "ثانیه"
+   },
+   "size_filter": {
+      "message": "فیلتر کنید"
+   },
+   "tips": {
+      "message": "نکات"
+   },
+   "tips_text_1": {
+      "message": "برخی از ویدیوها ممکن است تا زمانی که پخش نشوند ضبط نشوند. اگر ویدیوی مورد نظر در لیست نیست، سعی کنید آن را پخش کنید یا صفحه را بازخوانی کنید."
+   },
+   "tips_text_2": {
+      "message": "اگر بعد از تلاش باز هم کار نکرد، با \"حالت ضبط\" آن را به زور دانلود کنید."
+   },
+   "video_flush_error": {
+      "message": "خطای فلاش ویدیو"
+   }
+}

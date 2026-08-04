@@ -12,6 +12,7 @@ class Role:
     system_prompt: str
     behavior: str
     constraints: str
+    nsfw: bool = False
 
 
 class RoleLoader:
@@ -62,6 +63,7 @@ class RoleLoader:
             system_prompt=full_prompt,
             behavior=behavior,
             constraints=constraints,
+            nsfw=str(frontmatter.get("nsfw", "false")).strip().lower() == "true",
         )
 
     def _extract_section(self, body: str, section_name: str) -> str:

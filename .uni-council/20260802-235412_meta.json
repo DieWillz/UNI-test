@@ -1,0 +1,15 @@
+{
+  "topic": "����������",
+  "round_id": "20260802-235412",
+  "participants": [
+    "Groq",
+    "HuggingFace"
+  ],
+  "signatures": {},
+  "errors": {},
+  "artifacts": {
+    "Groq": ".uni-council\\20260802-235412_Groq.md",
+    "HuggingFace": ".uni-council\\20260802-235412_HuggingFace.md",
+    "report": ".uni-council\\20260802-235412_report.md"
+  }
+}

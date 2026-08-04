@@ -1,0 +1,51 @@
+
+2026-08-02 19:07:57.370 [0] InitSessionLog done
+2026-08-02 19:07:57.370 [0] ReadLastSessionCommands
+2026-08-02 19:07:57.370 [0]   Initial SessionState
+2026-08-02 19:07:57.370 [1]   Init
+2026-08-02 19:07:57.370 [0]   Init done
+2026-08-02 19:07:57.372 [0]   ReadCommandsFromFile
+2026-08-02 19:07:57.372 [0]   Session file not found
+2026-08-02 19:07:57.372 [-4]   ! Read error
+2026-08-02 19:07:57.372 [1]   ReadCommandsFromFile done: -1 (0/no mraker)
+2026-08-02 19:07:57.372 [0] ReadLastSessionCommands done
+2026-08-02 19:09:25.606 [10] AppendCommandsWithReset
+2026-08-02 19:09:25.606 [0] TruncateOrOpenFile
+2026-08-02 19:09:25.606 [0] OpenAndWriteHeader
+2026-08-02 19:09:25.607 [0] OpenAndWriteHeader done
+2026-08-02 19:09:25.607 [0] TruncateOrOpenFile done
+2026-08-02 19:09:42.152 [5] AppendCommands
+2026-08-02 19:10:15.838 [5] AppendCommands
+2026-08-02 19:10:23.106 [0] Flush done
+2026-08-02 19:10:39.405 [4] AppendCommands
+2026-08-02 19:11:36.901 [0] Flush done
+2026-08-02 19:12:28.178 [4] AppendCommands
+2026-08-02 19:13:25.679 [0] Flush done
+2026-08-02 19:30:22.984 [5] AppendCommands
+2026-08-02 19:31:20.485 [0] Flush done
+2026-08-02 19:31:40.455 [5] AppendCommands
+2026-08-02 19:32:37.957 [0] Flush done
+2026-08-02 20:52:11.397 [5] AppendCommands
+2026-08-02 20:53:08.898 [0] Flush done
+2026-08-02 21:41:54.727 [5] AppendCommands
+2026-08-02 21:42:52.229 [0] Flush done
+2026-08-02 21:45:17.385 [5] AppendCommands
+2026-08-02 21:46:14.887 [0] Flush done
+2026-08-02 21:51:54.368 [5] AppendCommands
+2026-08-02 21:52:51.877 [0] Flush done
+2026-08-02 22:48:39.512 [6] AppendCommands
+2026-08-02 22:48:42.013 [10] AppendCommands
+2026-08-02 22:49:37.013 [0] Flush done
+2026-08-03 00:17:38.759 [5] AppendCommands
+2026-08-03 00:18:36.270 [0] Flush done
+2026-08-03 00:22:24.759 [5] AppendCommands
+2026-08-03 00:23:22.265 [0] Flush done
+2026-08-03 01:04:06.209 [5] AppendCommands
+2026-08-03 01:04:16.503 [1] AppendCommands
+2026-08-03 01:05:03.718 [0] Flush done
+2026-08-03 02:18:29.077 [5] AppendCommands
+2026-08-03 02:19:26.582 [0] Flush done
+2026-08-03 04:28:36.755 [5] AppendCommands
+2026-08-03 04:29:34.256 [0] Flush done
+2026-08-03 21:48:19.917 [15] AppendCommands
+2026-08-03 21:49:17.422 [0] Flush done

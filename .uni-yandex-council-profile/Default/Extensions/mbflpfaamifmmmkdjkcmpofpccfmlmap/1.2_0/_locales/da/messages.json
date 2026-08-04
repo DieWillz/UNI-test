@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Tæt"
+   },
+   "copy": {
+      "message": "Kopiér URL"
+   },
+   "copy_success": {
+      "message": "Kopieret med succes."
+   },
+   "download": {
+      "message": "Hent"
+   },
+   "filter_lead": {
+      "message": "Video, hvis størrelse er mindre end denne værdi, vil ikke blive optaget"
+   },
+   "hour": {
+      "message": "time"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "En professionel videonedlaster til at gemme onlinevideoer som mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Download video fra nettet - MPMux"
+   },
+   "minute": {
+      "message": "minut"
+   },
+   "more_than_one_day": {
+      "message": "Over en dag"
+   },
+   "no_more_resolution": {
+      "message": "Ikke mere opløsning"
+   },
+   "no_result": {
+      "message": "Ingen ressourcefil fundet!"
+   },
+   "no_video": {
+      "message": "Video kan ikke optages, eller video findes ikke!"
+   },
+   "not_support": {
+      "message": "Dette websted er ikke understøttet"
+   },
+   "play": {
+      "message": "Afspil video"
+   },
+   "popup_modal_body": {
+      "message": "Prøv at vælge en fast opløsning før optagelse (hvis videoen har denne mulighed). Fordi automatisk opløsning kan producere billeder af forskellig størrelse, hvilket forårsager, at videoen bliver opdelt."
+   },
+   "popup_modal_close": {
+      "message": "Tæt"
+   },
+   "popup_modal_confirm": {
+      "message": "Bekræfte"
+   },
+   "popup_modal_title": {
+      "message": "Tips"
+   },
+   "recording_mode": {
+      "message": "Optagetilstand"
+   },
+   "second": {
+      "message": "sekunder"
+   },
+   "size_filter": {
+      "message": "Filter"
+   },
+   "tips": {
+      "message": "Tips"
+   },
+   "tips_text_1": {
+      "message": "Nogle videoer bliver muligvis ikke optaget, før de er afspillet. Hvis målvideoen ikke er på listen, kan du prøve at afspille den eller opdatere siden."
+   },
+   "tips_text_2": {
+      "message": "Hvis det stadig ikke virker efter at have prøvet, så download det med magt med \"optagetilstand\"."
+   },
+   "video_flush_error": {
+      "message": "Videoudskylningsfejl"
+   }
+}

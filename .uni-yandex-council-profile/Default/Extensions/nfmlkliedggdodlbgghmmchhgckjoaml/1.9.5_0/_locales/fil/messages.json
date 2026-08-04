@@ -1,0 +1,10 @@
+{
+   "description": {
+      "description": "Extension's description",
+      "message": "Ang Blockify ay isang Spotify ad blocker na humaharang at nag-aalis ng mga audio ad gamit ang teknolohiyang Spotify-adblock."
+   },
+   "name": {
+      "description": "Extension's name",
+      "message": "Tagapigil ng Ads sa Spotify - Blockify"
+   }
+}

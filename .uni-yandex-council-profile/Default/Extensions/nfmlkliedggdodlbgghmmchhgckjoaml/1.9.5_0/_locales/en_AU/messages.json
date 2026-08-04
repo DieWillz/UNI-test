@@ -1,0 +1,10 @@
+{
+   "description": {
+      "description": "Extension's description",
+      "message": "Blockify is an advanced ad blocker for Chrome that blocks ads on all websites & content platforms (including Spotify!)"
+   },
+   "name": {
+      "description": "Extension's name",
+      "message": "Best Ad Blocker for Chrome - Blockify"
+   }
+}

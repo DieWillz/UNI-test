@@ -1,0 +1,41 @@
+2026/08/02-22:13:02.533 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb is locked for recovering successfully
+2026/08/02-22:13:02.533 8d70 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/02-22:13:02.534 8d70 Recovering log #4
+2026/08/02-22:13:02.534 8d70 Reusing old log C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb/000004.log 
+2026/08/02-22:13:02.537 8d7c Manual compaction at level-0 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/02-22:13:02.537 8d7c Manual compaction at level-1 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/02-22:13:02.595 8d7c Level-0 table #8: started
+2026/08/02-22:13:02.605 8d7c Level-0 table #8: 2343 bytes OK
+2026/08/02-22:13:02.607 8d7c Delete type=0 #4
+2026/08/02-22:13:02.607 8d70 Manual compaction at level-0 from '\x00\x05\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-15:47:58.760 8d74 Level-0 table #10: started
+2026/08/03-15:47:58.777 8d74 Level-0 table #10: 748964 bytes OK
+2026/08/03-15:47:58.779 8d74 Delete type=0 #7
+2026/08/03-18:13:27.979 8d70 Compacting 1@0 + 1@1 files
+2026/08/03-18:13:27.985 8d70 Generated table #11@0: 463 keys, 16293 bytes
+2026/08/03-18:13:27.985 8d70 Compacted 1@0 + 1@1 files => 16293 bytes
+2026/08/03-18:13:27.987 8d70 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-18:13:27.987 8d70 Delete type=2 #8
+2026/08/03-18:13:27.987 8d70 Delete type=2 #10
+2026/08/03-18:45:55.947 8d74 Level-0 table #13: started
+2026/08/03-18:45:55.955 8d74 Level-0 table #13: 1204606 bytes OK
+2026/08/03-18:45:55.958 8d74 Delete type=0 #9
+2026/08/03-18:45:55.958 8d74 Manual compaction at level-0 from (begin) .. (end); will stop at '\x00\x04\x01\x02\x01\x17\x00_\x00_\x00a\x00p\x00p\x00l\x00o\x00g\x00_\x00d\x00e\x00g\x00r\x00a\x00d\x00e\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 1520 : 1
+2026/08/03-18:45:55.958 8d74 Compacting 1@0 + 1@1 files
+2026/08/03-18:45:55.962 8d74 Generated table #14@0: 770 keys, 17082 bytes
+2026/08/03-18:45:55.962 8d74 Compacted 1@0 + 1@1 files => 17082 bytes
+2026/08/03-18:45:55.963 8d74 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-18:45:55.963 8d74 Delete type=2 #11
+2026/08/03-18:45:55.963 8d74 Delete type=2 #13
+2026/08/03-18:45:55.964 8d74 Manual compaction at level-0 from '\x00\x04\x01\x02\x01\x17\x00_\x00_\x00a\x00p\x00p\x00l\x00o\x00g\x00_\x00d\x00e\x00g\x00r\x00a\x00d\x00e\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 1520 : 1 .. (end); will stop at (end)
+2026/08/03-18:45:55.964 8d74 Manual compaction at level-1 from (begin) .. (end); will stop at '\x00\x04\x01\x02\x01\x17\x00_\x00_\x00a\x00p\x00p\x00l\x00o\x00g\x00_\x00d\x00e\x00g\x00r\x00a\x00d\x00e\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 2432 : 1
+2026/08/03-18:45:55.964 8d74 Compacting 1@1 + 1@2 files
+2026/08/03-18:45:55.966 8d74 Generated table #15@1: 30 keys, 10496 bytes
+2026/08/03-18:45:55.966 8d74 Compacted 1@1 + 1@2 files => 10496 bytes
+2026/08/03-18:45:55.967 8d74 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/03-18:45:55.967 8d74 Delete type=2 #5
+2026/08/03-18:45:55.967 8d74 Delete type=2 #14
+2026/08/03-18:45:55.968 8d74 Manual compaction at level-1 from '\x00\x04\x01\x02\x01\x17\x00_\x00_\x00a\x00p\x00p\x00l\x00o\x00g\x00_\x00d\x00e\x00g\x00r\x00a\x00d\x00e\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 2432 : 1 .. (end); will stop at (end)
+2026/08/03-18:45:55.968 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb, waiting for background work finished
+2026/08/03-18:45:55.968 8d70 Deletion DBImpl for C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb, background work finished
+2026/08/03-18:45:55.968 8d70 File C:\LLM\UNI\.uni-yandex-council-profile\Default\IndexedDB\https_chat.deepseek.com_0.indexeddb.leveldb unlocked successfully

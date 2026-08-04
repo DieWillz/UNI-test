@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<!-- [v2.8.0] update_page.html – Premium-upsell для FREE-юзеров на real-update.
+     НЕ страница «что нового». Цель: конверсия в Premium через сильное визуальное предложение. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AnonVPN – Premium</title>
+<link rel="stylesheet" href="update_page.css">
+</head>
+<body>
+<main>
+
+<!-- Hero – заголовок, sub, главный CTA -->
+<section class="hero">
+    <div class="container">
+        <div class="brand-row">
+            <img src="icons/AnonVPN64.png" alt="" class="brand-logo">
+            <span class="brand-name">AnonVPN</span>
+            <span class="brand-tag" id="brandTag">Premium</span>
+            <div class="lang-switch" id="langSwitch" role="group" aria-label="Language">
+                <button type="button" data-lang-btn="ru">RU</button>
+                <button type="button" data-lang-btn="en">EN</button>
+                <button type="button" data-lang-btn="zh">中文</button>
+                <button type="button" data-lang-btn="es">ES</button>
+                <button type="button" data-lang-btn="de">DE</button>
+                <button type="button" data-lang-btn="fr">FR</button>
+                <button type="button" data-lang-btn="pt">PT</button>
+            </div>
+        </div>
+
+        <!-- Пояснение почему юзер видит эту страницу -->
+        <div class="why-here">
+            <div class="why-here-body">
+                <div class="why-here-label" id="whyLabel">Почему Вы здесь</div>
+                <ul class="why-list">
+                    <li id="whyReason1">AnonVPN обновился до новой версии</li>
+                    <li id="whyReason2">Эта страница открывается у пользователей без Premium при каждом обновлении</li>
+                    <li id="whyReason3">ЭТО НЕ РЕКЛАМА</li>
+                </ul>
+            </div>
+        </div>
+
+        <h1 class="hero-title" id="heroTitle">Безлимитный VPN без ограничений</h1>
+        <p class="hero-sub" id="heroSub">Откройте все возможности расширения. Без ограничений по времени, без переполненных серверов, без рекламы и трекеров.</p>
+        <div class="hero-cta">
+            <button class="btn-primary btn-lg" id="buyBtnHero" type="button">Активировать Premium</button>
+            <span class="hero-price" id="heroPrice">от 15 ₽</span>
+        </div>
+        <a href="#trial" class="trial-prompt" id="heroTrialPrompt">
+            <span class="trial-prompt-emoji">🎁</span>
+            <span class="trial-prompt-body">
+                <span class="trial-prompt-label" id="heroTrialPreLabel">Или активируйте 3 дня Premium</span>
+                <span class="trial-prompt-head" id="heroTrialHeadline">3 дня Premium – без карты, без кодов</span>
+            </span>
+            <span class="trial-prompt-arrow">→</span>
+        </a>
+    </div>
+</section>
+
+<!-- Features grid – 6 ключевых преимуществ -->
+<section class="features">
+    <div class="container">
+        <h2 class="section-title" id="featuresTitle">Что входит в Premium</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-name" id="feat1Name">Безлимит времени</h3>
+                <p class="feature-desc" id="feat1Desc">Сессии – 60 минут. Premium – без таймера. Сидите часами, никаких принудительных переподключений.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3 class="feature-name" id="feat2Name">Premium-серверы</h3>
+                <p class="feature-desc" id="feat2Desc">Отдельная сеть с меньшей нагрузкой. Скорость выше, пинг ниже, перебои реже. Plus доступ к перегруженным серверам.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛑</div>
+                <h3 class="feature-name" id="feat3Name">Блокировка рекламы</h3>
+                <p class="feature-desc" id="feat3Desc">Обширный фильтр против рекламы и трекеров – большинство популярных рекламных сетей и аналитики не доходит до браузера.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-name" id="feat4Name">Авто-включение</h3>
+                <p class="feature-desc" id="feat4Desc">Указали любимые сайты – VPN сам включается, как только их открываете. Сворачивается на остальном трафике.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3 class="feature-name" id="feat5Name">Цветовые темы</h3>
+                <p class="feature-desc" id="feat5Desc">Меняйте оформление под себя. Для тех, кому базовая палитра уже надоела.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3 class="feature-name" id="feat6Name">Резервная копия настроек</h3>
+                <p class="feature-desc" id="feat6Desc">Экспорт-импорт списка серверов, фильтров сайтов, тем. Перенос в другой браузер за пару кликов.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing CTA – большой блок -->
+<section class="cta-block">
+    <div class="container">
+        <h2 class="cta-title" id="ctaTitle">Premium от 15 ₽</h2>
+        <p class="cta-sub" id="ctaSub">Pro-rating от 3 дней до года. Деактивация в любой момент.</p>
+        <button class="btn-primary btn-xl" id="buyBtnMain" type="button">Активировать Premium</button>
+        <p class="cta-fineprint" id="ctaFineprint">Без автопродления по умолчанию. Без скрытых комиссий.</p>
+    </div>
+</section>
+
+<!-- Trial section – мягкая альтернатива для тех, кому не готов покупать -->
+<section class="trial-block" id="trial">
+    <div class="container">
+        <div class="trial-card">
+            <div class="trial-emoji">🎁</div>
+            <h2 class="trial-title" id="trialTitle">3 дня Premium</h2>
+            <p class="trial-text" id="trialText">Один клик внутри расширения. Без регистрации, без карты, без кодов. Trial выдаётся один раз на устройство.</p>
+            <div class="trial-steps">
+                <div class="trial-step"><span class="trial-step-num">1</span><span id="trialStep1">Откройте расширение AnonVPN</span></div>
+                <div class="trial-step"><span class="trial-step-num">2</span><span id="trialStep2">Перейдите на вкладку «Премиум»</span></div>
+                <div class="trial-step"><span class="trial-step-num">3</span><span id="trialStep3">Нажмите жёлтую кнопку «🎁 Получить 3 дня Premium»</span></div>
+            </div>
+            <button id="openExtBtn" class="trial-cta-btn" type="button">Открыть расширение</button>
+            <p class="trial-cta-hint" id="openExtHint">Если кнопка не сработала – кликните на иконку AnonVPN в панели браузера.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="ftr">
+    <div class="container">
+        <a href="https://balancing.apiget.ru/AnonVPN/lk/" target="_blank" rel="noopener">anon-vpn.ru</a>
+        <span class="ftr-sep">·</span>
+        <a href="help.html#faq" target="_blank" rel="noopener" id="fullFaqLink">FAQ</a>
+        <span class="ftr-sep">·</span>
+        <a href="https://balancing.apiget.ru/AnonVPN/lk/privacy" target="_blank" rel="noopener" id="privacyLink">Политика конфиденциальности</a>
+    </div>
+</footer>
+</main>
+
+<script src="update_page.js"></script>
+</body>
+</html>

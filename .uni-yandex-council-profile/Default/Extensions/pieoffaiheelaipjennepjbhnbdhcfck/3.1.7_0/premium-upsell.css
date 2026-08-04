@@ -1,0 +1,190 @@
+/* AnonVPN v2.5.9 — Premium Upsell Page */
+/* Extends help.css */
+
+/* [v2.8.0 fix] Алиасы для CSS-переменных popup.css-style — premium-upsell.css изначально
+   использовал имена `--accent`, `--card`, `--grad1` и т.п., которые есть только в popup.css.
+   help.css определяет другие имена (`--green`, `--paper-2`, `--ink`). Без этих алиасов
+   градиенты, цвет текста и фон карточек слетали в дефолт. */
+:root {
+    --accent: #4caf50;
+    --accent-dk: #388e3c;
+    --accent-lt: #e8f5e9;
+    --accent-100: #c8e6c9;
+    --grad1: #2e7d32;
+    --grad2: #43a047;
+    --bg: #f0f2f5;
+    --card: #fff;
+    --txt: #1d1d1f;
+    --txt2: #555;
+    --txt3: #8e8e93;
+    --brd: #e5e5ea;
+    --r: 12px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+    --shadow-md: 0 4px 14px rgba(0,0,0,.10);
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --accent: #66bb6a;
+        --accent-dk: #4caf50;
+        --accent-lt: rgba(76,175,80,.18);
+        --accent-100: rgba(76,175,80,.45);
+        --grad1: #2e7d32;
+        --grad2: #43a047;
+        --bg: #16161c;
+        --card: #1f1f25;
+        --txt: #f5f5f7;
+        --txt2: #c8c8cc;
+        --txt3: #8e8e93;
+        --brd: #2a2a31;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+        --shadow-md: 0 4px 14px rgba(0,0,0,.5);
+    }
+    .upsell-body{background:linear-gradient(180deg,#16161c 0%,#1a1a22 100%) !important}
+    .upsell-features li{border-bottom-color:rgba(255,255,255,.06)}
+}
+
+.upsell-body{background:linear-gradient(180deg,#f4f6f8 0%,#eaeef4 100%);min-height:100vh}
+/* Header is now <header class="site-header"> reusing help.css's gradient header.
+   Keep the brand text size readable on the upsell page where help.css's brand is mono/uppercase. */
+.upsell-body .site-header__brand{font-family:var(--sans);font-size:15px;letter-spacing:.02em;text-transform:none;font-weight:800}
+
+/* ══ HERO ══ */
+.upsell-hero{
+  text-align:center;padding:42px 20px 28px;
+  background:linear-gradient(135deg,rgba(76,175,80,.08),rgba(102,187,106,.04));
+  border-bottom:1px solid var(--brd);
+}
+.upsell-hero-icon{
+  font-size:56px;line-height:1;margin-bottom:14px;
+  display:inline-block;
+  animation:upsellPulse 2s ease-in-out infinite;
+}
+@keyframes upsellPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:.85}}
+/* [v2.7.3 audit] prefers-reduced-motion — a11y для vestibular disorder */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+}
+.upsell-hero-title{
+  font-size:28px;font-weight:800;color:var(--txt);
+  margin:0 auto 10px;max-width:640px;line-height:1.25;
+}
+.upsell-hero-sub{
+  font-size:15px;color:var(--txt2);
+  max-width:560px;margin:0 auto;line-height:1.55;
+}
+
+/* ══ CONTENT LAYOUT ══ */
+.content{max-width:900px;margin:0 auto;padding:32px 20px 48px}
+
+/* ══ COMPARISON ══ */
+.upsell-compare{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  margin-bottom:28px;
+}
+.upsell-col{
+  background:var(--card);border-radius:var(--r);
+  padding:24px 20px;box-shadow:var(--shadow-md);
+  position:relative;
+  border:2px solid transparent;
+}
+/* [v2.8.1 audit] .upsell-col-free{} — empty rule, удалён */
+.upsell-col-premium{
+  border-color:var(--accent);
+  box-shadow:0 4px 14px rgba(76,175,80,.18),0 16px 40px rgba(76,175,80,.08);
+}
+.upsell-badge{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));
+  color:#fff;font-size:11px;font-weight:800;
+  padding:5px 14px;border-radius:20px;letter-spacing:.6px;
+  text-transform:uppercase;box-shadow:0 2px 8px rgba(46,125,50,.35);
+}
+.upsell-col-title{
+  font-size:20px;font-weight:800;color:var(--txt);
+  text-align:center;margin-bottom:18px;
+  padding-bottom:14px;border-bottom:1px solid var(--brd);
+}
+.upsell-col-premium .upsell-col-title{color:var(--accent-dk)}
+
+.upsell-features{list-style:none;padding:0;margin:0}
+.upsell-features li{
+  padding:10px 0 10px 30px;font-size:14px;color:var(--txt);
+  position:relative;line-height:1.45;
+  border-bottom:1px dashed rgba(0,0,0,.05);
+}
+.upsell-features li:last-child{border-bottom:none}
+.upsell-features li::before{
+  position:absolute;left:0;top:10px;font-size:16px;line-height:1;
+}
+.upsell-features li.f-yes::before{content:"✓";color:var(--accent);font-weight:800}
+.upsell-features li.f-no{color:var(--txt3)}
+.upsell-features li.f-no::before{content:"✕";color:#e53935;font-weight:700}
+.upsell-features li.f-limit::before{content:"⏱";color:#f57c00}
+.upsell-features li strong{color:var(--accent-dk);font-weight:700}
+
+/* ══ CTAs ══ */
+.upsell-ctas{
+  display:flex;flex-direction:column;gap:12px;
+  max-width:420px;margin:0 auto 20px;
+}
+/* Override help.css global `a` and `a:hover` colors — specificity must beat `a:hover` */
+a.upsell-btn,
+a.upsell-btn:hover,
+a.upsell-btn:visited,
+a.upsell-btn:active{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:14px 22px;font-size:15px;font-weight:700;
+  text-decoration:none;border-radius:12px;
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+  cursor:pointer;
+}
+a.upsell-btn:hover{transform:translateY(-1px)}
+
+a.upsell-btn-primary,
+a.upsell-btn-primary:hover,
+a.upsell-btn-primary:visited,
+a.upsell-btn-primary:active{
+  background:linear-gradient(135deg,var(--grad2),var(--grad1));
+  color:#fff;
+  box-shadow:0 4px 14px rgba(46,125,50,.3);
+}
+a.upsell-btn-primary:hover{box-shadow:0 6px 20px rgba(46,125,50,.4)}
+
+a.upsell-btn-secondary,
+a.upsell-btn-secondary:hover,
+a.upsell-btn-secondary:visited,
+a.upsell-btn-secondary:active{
+  background:var(--card);
+  color:var(--accent-dk);
+  border:1.5px solid var(--accent-100);
+  box-shadow:var(--shadow-sm);
+}
+a.upsell-btn-secondary:hover{background:var(--accent-lt);border-color:var(--accent)}
+
+a.upsell-btn-trial,
+a.upsell-btn-trial:hover,
+a.upsell-btn-trial:visited,
+a.upsell-btn-trial:active{
+  background:#fff8e1;
+  color:#ff8f00;
+  border:1.5px solid #ffe082;
+  box-shadow:var(--shadow-sm);
+}
+a.upsell-btn-trial:hover{background:#ffecb3;border-color:#ffc107}
+
+.upsell-btn-icon{font-size:18px;line-height:1}
+
+/* ══ NOTE ══ */
+.upsell-note{
+  text-align:center;font-size:13px;color:var(--txt3);
+  max-width:560px;margin:24px auto 0;line-height:1.6;
+  padding:14px 18px;background:var(--card);border-radius:10px;
+  border:1px dashed var(--brd);
+}
+
+/* ══ RESPONSIVE ══ */
+@media (max-width:720px){
+  .upsell-compare{grid-template-columns:1fr}
+  .upsell-hero-title{font-size:22px}
+  .upsell-hero-sub{font-size:14px}
+}

@@ -1,0 +1,1645 @@
+Ниже представлен **пошаговый практический план разработки MVP** системы Юни, который решает вашу главную задачу: **создать работающий интерфейс, организовать сбор данных/кода от всех ИИ-участников и автоматизировать внедрение их решений.**
+
+В основу плана положен принцип **«Проверка кодом (Grep/Smoke) — прежде всего»** (из v3). Мы не тратим время на переписывание абстрактных модулей, а строим автоматизированный конвейер мультиагентной разработки на базе реально работающего ядра.
+
+---
+
+## 📐 Архитектура MVP-конвейера Авторазработки
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        UNI MVP INTERFACE (UI/CLI)                       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ (Задачи/Промпты)
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                     DEV-COORDINATOR (HUB / ROUTER)                      │
+│   • Управляет очередью задач и версионностью                         │
+│   • Собирает генерации кода и очищает JSON/Markdown                     │
+└────────┬──────────────────────────┬───────────────────────────┬────────┘
+         │                          │                           │
+         ▼                          ▼                           ▼
+┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
+│ Agent 1: Hermes │        │ Agent 2: DeepSeek│        │ Agent 3: Claude │
+│ (Ревизор кода/  │        │ (Алгоритмы/      │        │ (Архитектура/   │
+│  Grep-аналитик) │        │  Рефакторинг)   │        │  Тесты)         │
+└────────┬────────┘        └────────┬────────┘        └────────┬────────┘
+         │                          │                           │
+         └──────────────────────────┼───────────────────────────┘
+                                    │ (Предложенный код/Патчи)
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                    AUTO-TEST & INTEGRATION PIPELINE                    │
+│   1. Очистка маркдауна (` ```python `)                                  │
+│   2. Асинхронный запуск `pytest` + `check_architecture.py`            │
+│   3. Фиксация в git при успехе ИЛИ возврат ошибки ИИ-автору           │
+└────────────────────────────────────────────────────────────────────────┘
+
+```
+
+---
+
+## 🚀 Пошаговый План Разработки MVP (4 Этапа)
+
+### 📌 ФАЗА 0: Быстрая валидация исходного кода (30 минут)
+
+Прежде чем строить интерфейс взаимодействия ИИ, нужно снять противоречия между v1/v2 и v3.
+
+* [ ] **Шаг 0.1 (Grep-проверка):** Выполнить проверку спорных мест из таблицы v3:
+* Поиск `debug` / `allow_camera` в `uni/config.py`.
+
+
+* Поиск вызовов `PlannerImpl` вне самого планировщика (`grep -r "PlannerImpl" uni/`).
+
+
+* Проверка наличия `_API_ALIASES` в `uni/tools/executors.py`.
+
+
+
+
+* [ ] **Шаг 0.2 (Точечный фикс-блокер):** В `autonomous.py` исправить критическую опечатку `re_search` $\rightarrow$ `re.search`.
+
+
+
+---
+
+### 📌 ФАЗА 1: Модуль оркестрации ИИ-участников (`Multi-Agent Hub`)
+
+Создаем бэкенд-механизм, который может параллельно отправлять контекст задачи разным моделям (через API LM Studio / OpenAI / Anthropic / Ollama) и забирать от них ответ.
+
+* [ ] **Шаг 1.1 — Унификация очистки ответов ИИ:**
+* Создать универсальный парсер ответов `clean_llm_json_or_code()`. Применить его в `autonomous.py` и `event_loop.py` для устранения ошибок `JSONDecodeError` от блоков ````json` и ````python`.
+
+
+
+
+* [ ] **Шаг 1.2 — Контракт задачи для ИИ:**
+* Использовать каноническую Pydantic-модель задачи из `contracts.py`:
+
+
+* `task_id`: `[UNI:DEV:{TIMESTAMP}-{HASH}]`.
+
+
+* `target_file`: Путь к файлу репозитория.
+* `prompt`: Описание требуемой доработки.
+
+
+
+
+* [ ] **Шаг 1.3 — Модуль отправки и сбора (DevCoordinator):**
+* Реализовать асинхронную рассылку задачи сразу $N$ агентам (например, DeepSeek для написания кода, Hermes для ревью) с помощью `asyncio.gather`.
+
+
+
+---
+
+### 📌 ФАЗА 2: Простой UI/Интерфейс Управления (MVP Interface)
+
+Интерфейс должен быть максимально легким (FastAPI + HTML/WebSocket или Rich CLI), не перегружая ядро.
+
+* [ ] **Шаг 2.1 — Веб-панель / CLI Консоль:**
+* **Окно 1 (Ввод задачи):** Поле ввода цели разработки (например: *"Добавь retry через tenacity в brain.py"*).
+
+
+* **Окно 2 (Дашборд ИИ-участников):** Таблица статусов (Hermes — *Reviewing*, DeepSeek — *Generating*, Claude — *Testing*).
+* **Окно 3 (Diff-вьюер):** Визуализация предложенного ИИ кода перед авто-применением.
+
+
+* [ ] **Шаг 2.2 — WebSocket / EventStream:**
+* Подключить поток логов из `event_loop.py` и процесса сборки прямо в интерфейс в режиме реального времени.
+
+
+
+---
+
+### 📌 ФАЗА 3: Автоматический конвейер сборки и интеграции кода (Auto-Dev Pipeline)
+
+Сердце системы, заставляющее ИИ разрабатывать код Юни **в автоматическом режиме**.
+
+* [ ] **Шаг 3.1 — Изолированный Lock и Безопасность:**
+* Зафиксировать единый `_tool_lock` для предотвращения параллельных конфликтов при работе агентов с локальным окружением.
+
+
+
+
+* [ ] **Шаг 3.2 — Авто-применение патча и Запуск Тестов:**
+* При получении кода от ИИ бэкенд сохраняет его во временную ветку/файл.
+* Автоматически запускается легкий тестовый прогон: `pytest tests/` + `python check_architecture.py`.
+
+
+
+
+* [ ] **Шаг 3.3 — Цикл авто-коррекции (Self-Healing Loop):**
+* **Если тесты ПРОШЛИ:** Код автоматически коммитится в Git, статус задачи в UI меняется на `COMPLETED`.
+* **Если тесты УПАЛИ:** Ошибка из терминала (`traceback`) автоматически отправляется обратно ИИ-автору с промптом: *"Твой код вызвал ошибку. Исправь."* (лимит попыток $N_{\text{retry}} = 3$).
+
+
+
+
+
+---
+
+### 📌 ФАЗА 4: Развертывание базовых стандартов репозитория
+
+Обеспечиваем среду для безопасного авто-кодинга.
+
+* [ ] **Шаг 4.1:** Создание `config.sample.yaml`, `CONTRIBUTING.md`, `SECURITY.md`.
+
+
+* [ ] **Шаг 4.2:** Настройка базового Smoke-CI (GitHub Actions) для валидации коммитов, сгенерированных агентами.
+
+
+
+---
+
+## 🛠️ Стек технологий для MVP
+
+* **Backend:** Python 3.12, FastAPI, `asyncio`, `aiofiles`, `pydantic`.
+
+
+* **Интеграция ИИ:** `httpx` / `openai` SDK (работает как с LM Studio / Ollama, так и с внешними API).
+* **UI Frontend:** HTML5 + TailwindCSS + Vanilla JS (на базе `CONCEPT_INTEGRATED_AGENCY.html` из предыдущих итераций) или `NiceGUI` / `Streamlit` для быстрой сборки.
+* **Тестирование и Контроль:** `pytest`, `tenacity` (для повторов), `gitpython` (для управления ветками/коммитами).
+
+
+
+---
+
+## 🎯 Результат MVP
+
+После выполнения этих шагов вы получите систему, в которой:
+
+1. Вы открываете UI и пишете задачу: *"Оптимизировать working_memory на async/debounce"*.
+
+
+2. Система веером отправляет задачу подключенным ИИ.
+3. ИИ генерируют код, система очищает его, применяет, прогоняет `pytest`.
+
+
+4. В случае успеха вы видите зелёный индикатор и готовый коммит в репозитории Юни без вашего ручного переписывания кода.
+
+
+Вот мой план — с поправкой на то, что мы уже знаем из разбора кода: часть инфраструктуры (devcoord, council, консоль) уже существует, но её реальная работоспособность не подтверждена end-to-end, а часть предложенного раньше (браузерная автоматизация платных чатов) я строить не буду по причине ToS. План строю вокруг того, что реально можно сдать поэтапно, с проверкой на каждом шаге, а не одним большим рывком.
+
+## Шаг 0 — прежде чем писать код: проверить, что уже работает
+
+Это не отдельная фича, а предпосылка — иначе MVP строится поверх непроверенных предположений (ровно та ошибка, что уже была видна в расхождениях между источниками v2/v3).
+
+1. Прогнать 3 `grep`-проверки из плана v3 (contracts.py, planner runtime refs, `_API_ALIASES`) — 5 минут, снимает неопределённость про архитектуру.
+2. Запустить `uni.webui` (`python -m uni.webui --port 8787`) и проверить: `/api/participants` реально отдаёт список, а не 404/500. Если консоль (`index.html`) сейчас работает в демо-режиме — значит бэкенд не поднят или endpoint не реализован. Это первое, что нужно понять — до любых улучшений интерфейса.
+
+**Результат шага 0:** честный ответ на вопрос «что из построенного реально работает прямо сейчас», а не предположение.
+
+## Шаг 1 — один провайдер, один реальный раунд, без демо-режима
+
+Цель: не «красивый интерфейс», а один настоящий цикл запрос→ответ через реальный API, без фейковых данных.
+
+- Взять **одного** провайдера с подтверждённым рабочим ключом — судя по журналу, это либо локальный Hermes (LM Studio на 127.0.0.1:1234), либо Groq (был статус `рабочий` в последней проверке).
+- Через `devcoord` или `council` (смотря какой модуль реально исполняется, см. шаг 0) прогнать один раунд: один вопрос → один реальный ответ → запись в файл.
+- **Definition of done:** в терминале виден реальный HTTP-запрос и реальный текстовый ответ от модели, не строка из `FALLBACK_AGENTS`.
+
+Это самый важный шаг — если он не пройден, всё остальное строится на песке.
+
+## Шаг 2 — подключить существующий интерфейс к этому реальному раунду
+
+Не переписывать консоль заново — она уже собрана (index.html/script.js/style.css из предыдущих сообщений). Задача — довести её до того, чтобы `BACKEND_OK` было `true`, а не падало в демо-режим.
+
+- Проверить, что `/api/participants` и `/api/round/start` (SSE) в `uni/webui/server.py` реально вызывают тот провайдер, что заработал на шаге 1.
+- Прогнать раунд **через интерфейс**, а не через терминал — увидеть карточку участника, живую индикацию, итог.
+- **Definition of done:** нажал «Запустить раунд» в браузере → увидел реальный ответ реальной модели в сетке, не заглушку.
+
+## Шаг 3 — добавить второго и третьего провайдера, по одному, с проверкой каждого
+
+Не «настроить всех сразу» — по одному, потому что именно так вскрылись реальные проблемы (OpenRouter 403, Gemini 404 из прошлого разбора). Каждый провайдер добавляется только после того, как для него подтверждён живой ответ, а не после того, как вписан в config.yaml.
+
+Порядок по надёжности (дешевизна/бесплатность в приоритете):
+1. Gemini Flash (бесплатный тир, но проверить актуальный `model_id` — в прошлый раз `gemini-1.5-flash` давал 404, модель снята).
+2. DeepSeek через API (платно, но копейки) — если нужен реальный API-доступ, а не веб-чат.
+3. OpenRouter — только после того, как подобран рабочий `:free`-id вместо текущего 404.
+
+**Браузерные участники (DeepSeek/QWEN/Claude/Grok через веб-чат) я сознательно не включаю в core MVP** — автоматизация их веб-интерфейсов без официального API, скорее всего, нарушает условия использования этих сервисов, я отказывался это строить раньше и позиция не меняется. Если хочешь их держать в проекте — это отдельная, опциональная и ручная часть («скопировать вопрос → вставить в веб-чат → скопировать ответ» — то, чем ты и занимался изначально), не автоматизированный core.
+
+## Шаг 4 — структурированный сбор данных (то, ради чего всё затевалось)
+
+- Каждый раунд пишется не только в лог, но и в структуру, которую можно потом скормить обратно в разработку UNI: тема, участник, ответ, `decision` (ACCEPT/REJECT), `source_verified`.
+- Это уже частично спроектировано (Coverage/Responses таблица, `DevelopmentTask`/`CoordinationStore` в `devcoord`) — не изобретать заново, свести к одному формату хранения.
+- **Definition of done:** после 5 раундов можно открыть файл истории и увидеть 5 структурированных записей, а не 5 строк в чате, которые придётся искать вручную.
+
+## Шаг 5 — «автоматический режим» разработки кода UNI
+
+Здесь важно точно определить, что значит «автоматически», потому что есть два разных сценария:
+
+**А. Автоматический сбор мнений/ревью** (модели анализируют код, дают рекомендации) — это то, что мы уже делаем этим самым файлом-планом. Автоматизировать полностью можно: скрипт берёт diff/файл, шлёт всем настроенным провайдерам, складывает ответы в Coverage/Responses. Это безопасно автоматизировать целиком.
+
+**Б. Автоматическое применение изменений к коду UNI** — это должно **оставаться с ручным гейтом**, и вот почему конкретно, не абстрактно: в этом самом разборе кода источники давали друг другу противоречащие фактические утверждения о содержимом одних и тех же файлов (есть ли `debug=True` в конфиге, используется ли `planner.py` в рантеме). Если позволить моделям автоматически коммитить правки без проверки человеком — ошибочное «исправление» несуществующей проблемы попадёт в код первым, а не будет отловлено сравнением с реальным файлом. Схема: агенты предлагают патч → он идёт в PR/diff → ты (или следующий раунд с явным указанием «прочитай файл перед ответом») подтверждаешь → мерж. Не полная автономность.
+
+## Что явно не входит в MVP (сознательно, не забыл)
+
+- Красивый продуктовый GUI поверх нестабильного ядра — сначала стабильность (шаги 0–3), интерфейс уже есть и его достаточно.
+- Браузерная автоматизация платных ИИ-сервисов — ToS-риск, не строю.
+- Полностью автономный мёрдж кода без ревью — риск на основании уже увиденных противоречий между источниками.
+- `SiteProfile`, Dual-Mode курсора, векторная память и прочее из P2/P3 плана — полировка, делать после того, как шаги 1–4 реально работают.
+
+---
+
+Если согласен с таким порядком — предлагаю начать с шага 0 прямо сейчас: хочешь, дам тебе короткий скрипт/команды для трёх `grep`-проверок и запуска `uni.webui`, чтобы за 10 минут узнать, на чём мы реально стоим, прежде чем писать что-либо ещё?
+
+Основываясь на вашем видении из `README.md` (раздел "UNI Council") и анализе кода из предыдущих шагов, я подготовил пошаговый план разработки MVP. 
+
+Цель этого MVP: **Создать работающий веб-интерфейс, который позволяет отправить задачу (промпт) нескольким ИИ (локальным и API), асинхронно собирать от них код/решения, объединять их и автоматически применять к кодовой базе UNI с запуском тестов.**
+
+Сначала мы реализуем "Этап A" из вашего документа v3 (исправление критических багов, чтобы ядро не упало при автогенерации), а затем перейдем к самому Council.
+
+---
+
+### Этап 0: Экспресс-фиксы (Фундамент)
+*Прежде чем доверять ИИ автоматическую правку кода, ядро должно быть стабильно. Выполняем пункты, сошедшиеся во всех обзорах.*
+
+1. **Фикс `autonomous.py`:** Заменяем `re_search` на `re.search` (строка ~208).
+2. **Фикс парсинга JSON:** Добавляем очистку от markdown-оберток ` ```json ... ``` ` в `_conductor_loop` (как уже сделано в `event_loop._next_exploration_query`).
+3. **Проверка спорных пунктов (5 минут):** Прогнать `grep -r "PlannerImpl" uni/` и проверить `config.py` на наличие `allow_camera`. Если их нет — вычеркиваем эти задачи из бэклога и не тратим время.
+
+---
+
+### Этап 1: Архитектура MVP "UNI Council" (Бэкенд)
+*Создаем модуль, который будет оркестровать общение с ИИ. В `README` указана папка `uni/council/` — туда и кладем логику.*
+
+**1. Единый интерфейс адаптеров (Adapters)**
+Создаем базовый класс для всех ИИ-участников, чтобы Council мог общаться с ними в едином формате.
+```python
+# uni/council/adapter.py
+from typing import AsyncGenerator
+
+class BaseAIAdapter:
+    name: str
+    async def generate(self, prompt: str, system: str) -> AsyncGenerator[str, None]:
+        raise NotImplementedError
+```
+*Реализации:* `LMStudioAdapter` (использует ваш `uni.brain`), `OpenAIApiAdapter`, `ClaudeApiAdapter` (чтобы подключать "внешних" участников).
+
+**2. Менеджер Совета (Council Manager)**
+Принимает задачу, делает широковещательную рассылку (broadcast) всем подключенным адаптерам асинхронно через `asyncio.gather`.
+```python
+# uni/council/manager.py
+async def run_council(self, task: str) -> list[ParticipantResponse]:
+    # Запускаем всех ИИ параллельно
+    results = await asyncio.gather(*[ai.generate(task) for ai in self.participants])
+    return results
+```
+
+**3. Сборщик данных и парсер кода (Aggregator)**
+Локальные модели часто возвращают текст вперемешку с кодом. Агрегатор должен извлечь блоки кода.
+*   **Логика:** Ищем блоки ` ```python ... ``` `. 
+*   Если блоков нет, просим "Судью" (например, самую умную модель из Council) прочитать ответы и выделить из них единый рабочий код.
+
+---
+
+### Этап 2: Веб-интерфейс (Frontend)
+*В `README` указано `uni/webui/`. Делаем минималистичный UI на FastAPI + простом HTML/JS (или React, если предпочитаете).*
+
+**1. API Эндпоинты (FastAPI):**
+*   `POST /api/council/start` — принимает промпт от пользователя (например: "Добавь в `event_loop.py` логирование всех команд в файл JSON").
+*   `WebSocket /ws/council/{task_id}` — стримит статусы в реальном времени: "Claude думает...", "LM Studio выдал код...".
+
+**2. UI Интерфейс (Браузер):**
+*   Текстовое поле для ввода задачи разработчику.
+*   Галочки выбора участников (какие модели подключать к совету).
+*   Окно вывода: слева — логи работы каждого ИИ (стрим), справа — финальный агрегированный код/отчет.
+
+---
+
+### Этап 3: Автоматическое применение кода (Autonomous Dev Loop)
+*Самая опасная и интересная часть. ИИ предлагает код, система его применяет, тестирует и откатывает, если что-то сломалось.*
+
+**1. Изоляция и Git (Safety First):**
+*   Перед применением кода система делает `git stash` или создает новую ветку `auto/council-task-{id}`.
+*   Изменения применяются **только** в эту ветку.
+
+**2. Pipeline применения (DevExecutor):**
+1. **Extract:** Извлекаем предложенный код и пути файлов из ответов Council.
+2. **Apply:** Записываем код в файлы (через стандартный Python I/O).
+3. **Test:** Запускаем через `subprocess`: `py -3 -m pytest` и `py -3 scripts/check_architecture.py`.
+4. **Analyze:** 
+   * Если тесты **зелёные** — коммитим изменения (`git commit -m "Auto-impl by Council"`).
+   * Если тесты **красные** — собираем лог ошибок pytest, отправляем обратно в Council с промптом: *"Ваш код упал с ошибкой {traceback}. Исправьте"*. (Один цикл retry).
+5. **Merge:** Если после (максимум) 2 попыток тесты проходят — делаем Merge Request или Pull в основную ветку (на усмотрение пользователя через UI галочку "Auto-merge").
+
+---
+
+### Этап 4: Интеграция с ядром UNI (EventLoop)
+*Чтобы человек мог запустить этот процесс голосом или текстом.*
+
+1. Добавляем новые прямые команды в `event_loop.py`:
+   * `"совет: разработай [задача]"` -> инициирует Council.
+2. Добавляем Capability `uni.capabilities.dev_capability`, которая связывает `EventLoop` и `CouncilManager`.
+3. **Важно (из плана v3):** Вся работа с файлами и тестами в `DevExecutor` должна использовать `async with self._tool_lock`, чтобы не конфликтовать с браузером или автономным режимом, если он запущен.
+
+---
+
+### Пошаговый план реализации (Action Plan на 1-2 недели)
+
+| Неделя | Шаг | Результат |
+| :--- | :--- | :--- |
+| **Дни 1-2** | **Бэкенд Council.** Создание `adapters` для API (OpenAI/Anthropic) и локального `Brain`. Создание `CouncilManager` с `asyncio.gather`. | Можно из консоли отправить промпт 3 моделям и получить их ответы в едином формате. |
+| **Дни 3-4** | **Парсер и UI.** Написание FastAPI сервера. Простая HTML страница с WebSockets. Реализация логики извлечения Python-кода из ответов ИИ. | Работает веб-страничка. Вводим задачу — видим, как модели стримят ответы, внизу появляется готовый блок кода. |
+| **Дни 5-6** | **DevExecutor (Гит и Тесты).** Модуль, который берет код, пишет в файлы, делает git commit, запускает `pytest`, парсит вывод. | Код применяется к локальному репозиторию, запускаются тесты. Если ошибка — генерируется отчет. |
+| **День 7** | **Сквозной цикл (Feedback Loop).** Объединяем UI, Council и DevExecutor. Если тесты падают, ошибки летят обратно в Council на доработку. | Полностью рабочий MVP автономной разработки. |
+| **Дни 8-9** | **Полировка и Безопасность.** Добавляем подтверждение перед `git commit` (чтобы ИИ не насоздавал мусора). Интеграция команды в `EventLoop`. | MVP готов к использованию. |
+
+### Главные риски этого MVP и как их обойти:
+1. **ИИ не знает структуру проекта:** Перед отправкой промпта в Council, подавайте им контекст. Простой способ: отправляйте им содержимое `ARCHITECTURE.md` и список файлов через `tree /f`.
+2. **ИИ ломает чужие файлы:** Строго ограничивайте DevExecutor. Пусть он принимает ответ только в формате JSON: `{"files_to_change": [{"path": "...", "content": "..."}]}`. Если ИИ возвращает просто кусок кода без пути — отклонять.
+3. **Бесконечный цикл исправлений:** Жестко лимитируйте количество попыток (retry = 2). Если не вышло — сбрасываем изменения (`git checkout .`) и пишем в лог: "Council не справился".
+
+## 🚀 UNI MVP — План разработки "Координатор"
+
+### Цель
+Создать рабочий интерфейс (веб + консоль), который позволяет:
+1. Отправлять задачи всем ИИ-участникам проекта (ChatGPT, Claude, DeepSeek, Qwen)
+2. Собирать их ответы в едином формате с Thread ID
+3. Автоматически применять полученный код к проекту UNI
+4. Запускать тесты и коммитить изменения
+
+---
+
+## 📋 Архитектура MVP
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      UNI COORDINATOR                              │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Interface Layer                          │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐ │  │
+│  │  │ Web UI   │  │ Console  │  │ Telegram Bot (опционально)│ │  │
+│  │  └──────────┘  └──────────┘  └────────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Orchestrator                             │  │
+│  │  ┌────────────┐  ┌────────────┐  ┌──────────────────────┐ │  │
+│  │  │  Planner   │→│  TaskQueue │→│  Thread Manager      │ │  │
+│  │  └────────────┘  └────────────┘  └──────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │               AI Team Communication                        │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐ │  │
+│  │  │ Claude   │ │ DeepSeek │ │  Qwen    │ │  ChatGPT     │ │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Code Generator                           │  │
+│  │  ┌────────────────────────────────────────────────────────┐ │  │
+│  │  │  Extract → Validate → Write → Test → Commit          │ │  │
+│  │  └────────────────────────────────────────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Компоненты и файлы
+
+### 1. Web Interface (`web_coordinator.py`)
+
+```python
+from fastapi import FastAPI, WebSocket, HTTPException
+from pydantic import BaseModel
+import uvicorn
+import asyncio
+from datetime import datetime
+from typing import List, Dict, Any
+import uuid
+
+app = FastAPI(title="UNI Coordinator", version="0.1.0")
+
+# ----- Модели данных -----
+class TaskRequest(BaseModel):
+    goal: str
+    team: List[str] = ["claude", "deepseek", "qwen", "chatgpt"]
+    priority: int = 1
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str
+    created_at: datetime
+    team: List[str]
+    responses: Dict[str, str] = {}
+
+# ----- Хранилище задач -----
+tasks: Dict[str, TaskResponse] = {}
+
+# ----- API Endpoints -----
+@app.post("/api/task")
+async def create_task(request: TaskRequest):
+    """Создаёт новую задачу и распределяет между ИИ."""
+    task_id = str(uuid.uuid4())[:8]
+    task = TaskResponse(
+        task_id=task_id,
+        status="pending",
+        created_at=datetime.now(),
+        team=request.team,
+        responses={}
+    )
+    tasks[task_id] = task
+    
+    # Запускаем обработку в фоне
+    asyncio.create_task(process_task(task_id, request.goal, request.team))
+    
+    return {"task_id": task_id, "status": "created"}
+
+@app.get("/api/task/{task_id}")
+async def get_task(task_id: str):
+    """Возвращает статус задачи."""
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return tasks[task_id]
+
+@app.get("/api/tasks")
+async def list_tasks():
+    """Возвращает список всех задач."""
+    return list(tasks.values())
+
+@app.websocket("/ws/task/{task_id}")
+async def websocket_endpoint(websocket: WebSocket, task_id: str):
+    """WebSocket для стриминга обновлений."""
+    await websocket.accept()
+    try:
+        while task_id in tasks:
+            await websocket.send_json(tasks[task_id].dict())
+            await asyncio.sleep(1)
+    except:
+        pass
+
+# ----- Обработка задач -----
+async def process_task(task_id: str, goal: str, team: List[str]):
+    """Отправляет задачу всем ИИ и собирает ответы."""
+    tasks[task_id].status = "in_progress"
+    
+    # Генерируем Thread ID
+    thread_id = f"{datetime.now().day:02d}-{datetime.now().hour:02d}-{task_id[:3].upper()}-{datetime.now().strftime('%M%S')}"
+    
+    # Отправляем каждому ИИ
+    for member in team:
+        response = await send_to_ai(member, goal, thread_id)
+        tasks[task_id].responses[member] = response
+    
+    # Применяем код
+    code_result = await apply_code(tasks[task_id].responses, goal)
+    
+    tasks[task_id].status = "complete" if code_result else "failed"
+
+async def send_to_ai(member: str, goal: str, thread_id: str) -> str:
+    """Отправляет запрос конкретному ИИ."""
+    # Здесь реальные API вызовы
+    # Пока заглушка
+    await asyncio.sleep(2)
+    return f"[{member}] Решение для: {goal[:50]}..."
+
+async def apply_code(responses: Dict[str, str], goal: str) -> bool:
+    """Применяет код из ответов."""
+    # Извлекаем код и записываем файлы
+    # Заглушка
+    return True
+
+# ----- Запуск -----
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+---
+
+### 2. Console Interface (`console_coordinator.py`)
+
+```python
+#!/usr/bin/env python3
+"""UNI Coordinator — консольный интерфейс."""
+
+import asyncio
+import aiohttp
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
+from rich.progress import Progress, SpinnerColumn, TextColumn
+import json
+
+console = Console()
+API_URL = "http://localhost:8000"
+
+async def main():
+    console.print(Panel.fit(
+        "[bold cyan]UNI Coordinator[/bold cyan]\n"
+        "[dim]Управление командой ИИ для разработки UNI[/dim]",
+        border_style="cyan"
+    ))
+    
+    while True:
+        console.print("\n[bold]Команды:[/bold]")
+        console.print("  [cyan]/task [goal][/cyan]  — создать задачу")
+        console.print("  [cyan]/status[/cyan]        — показать статус задач")
+        console.print("  [cyan]/view [id][/cyan]     — посмотреть детали задачи")
+        console.print("  [cyan]/exit[/cyan]          — выход")
+        
+        cmd = Prompt.ask("\n> ")
+        
+        if cmd.lower() == "exit":
+            break
+        elif cmd.startswith("/task"):
+            goal = cmd[6:].strip()
+            if goal:
+                await create_task(goal)
+        elif cmd == "/status":
+            await show_status()
+        elif cmd.startswith("/view"):
+            task_id = cmd[6:].strip()
+            if task_id:
+                await view_task(task_id)
+        else:
+            console.print("[red]❌ Неизвестная команда[/red]")
+
+async def create_task(goal: str):
+    """Создаёт новую задачу."""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{API_URL}/api/task", json={"goal": goal}) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                console.print(f"[green]✅ Задача создана: {data['task_id']}[/green]")
+                
+                # Следим за прогрессом
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console
+                ) as progress:
+                    task = progress.add_task("[cyan]Обработка...", total=None)
+                    while True:
+                        async with session.get(f"{API_URL}/api/task/{data['task_id']}") as status_resp:
+                            status = await status_resp.json()
+                            if status["status"] in ["complete", "failed"]:
+                                break
+                            await asyncio.sleep(1)
+                
+                console.print(f"[green]✅ Задача {data['task_id']} завершена![/green]")
+                await view_task(data['task_id'])
+            else:
+                console.print(f"[red]❌ Ошибка: {resp.status}[/red]")
+
+async def show_status():
+    """Показывает статус всех задач."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}/api/tasks") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if not data:
+                    console.print("[yellow]Нет активных задач[/yellow]")
+                    return
+                
+                table = Table(title="Активные задачи")
+                table.add_column("ID", style="cyan")
+                table.add_column("Goal", style="white")
+                table.add_column("Status", style="yellow")
+                table.add_column("Responses", style="green")
+                table.add_column("Created", style="dim")
+                
+                for task in data:
+                    table.add_row(
+                        task["task_id"],
+                        task["goal"][:40] + "...",
+                        task["status"],
+                        str(len(task.get("responses", {}))),
+                        task["created_at"][:19]
+                    )
+                console.print(table)
+
+async def view_task(task_id: str):
+    """Показывает детали задачи."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}/api/task/{task_id}") as resp:
+            if resp.status == 200:
+                task = await resp.json()
+                console.print(Panel(
+                    f"[bold]ID:[/bold] {task['task_id']}\n"
+                    f"[bold]Goal:[/bold] {task['goal']}\n"
+                    f"[bold]Status:[/bold] {task['status']}\n"
+                    f"[bold]Created:[/bold] {task['created_at']}\n"
+                    f"[bold]Team:[/bold] {', '.join(task.get('team', []))}\n"
+                    f"[bold]Responses:[/bold] {len(task.get('responses', {}))}",
+                    title="Детали задачи",
+                    border_style="cyan"
+                ))
+                
+                if task.get("responses"):
+                    table = Table(title="Ответы ИИ")
+                    table.add_column("ИИ", style="cyan")
+                    table.add_column("Ответ", style="white")
+                    for name, response in task["responses"].items():
+                        table.add_row(name, response[:200] + "..." if len(response) > 200 else response)
+                    console.print(table)
+            else:
+                console.print(f"[red]❌ Задача {task_id} не найдена[/red]")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+### 3. Thread Manager (`thread_manager.py`)
+
+```python
+"""Управление тредами сообщений."""
+
+import re
+from datetime import datetime
+from typing import Optional, Dict
+
+class ThreadManager:
+    """Управляет тредами сообщений между UNI и ИИ."""
+    
+    THREAD_PATTERN = re.compile(r'\[(\d{2}-\d{2}-[A-Z]{3}-\d{4})\](.*?)\[/end-\1\]', re.DOTALL)
+    
+    def __init__(self):
+        self.threads: Dict[str, Dict] = {}
+    
+    def parse_thread(self, text: str) -> Optional[Dict]:
+        """Парсит сообщение с Thread ID."""
+        match = self.THREAD_PATTERN.search(text)
+        if not match:
+            return None
+        
+        thread_id = match.group(1)
+        content = match.group(2).strip()
+        
+        lines = content.split('\n')
+        topic = lines[0].strip() if lines else "Без темы"
+        body = '\n'.join(lines[1:])
+        
+        return {
+            "id": thread_id,
+            "topic": topic,
+            "body": body,
+            "timestamp": datetime.now()
+        }
+    
+    def format_thread(self, topic: str, body: str) -> str:
+        """Форматирует сообщение с Thread ID."""
+        thread_id = f"{datetime.now().day:02d}-{datetime.now().hour:02d}-{topic[:3].upper()}-{datetime.now().strftime('%M%S')}"
+        return f"[{thread_id}]\n{topic}\n\n{body}\n[/end-{thread_id}]"
+```
+
+---
+
+### 4. Code Generator (`code_generator.py`)
+
+```python
+"""Применение кода к проекту."""
+
+import subprocess
+from pathlib import Path
+from typing import List, Dict
+import re
+
+class CodeGenerator:
+    """Генерирует и применяет код к проекту."""
+    
+    PROJECT_ROOT = Path("C:/llm/uni")
+    
+    async def apply_changes(self, responses: Dict[str, str], commit_message: str) -> bool:
+        """Применяет изменения из ответов ИИ."""
+        # 1. Извлекаем код
+        files = self._extract_files(responses)
+        if not files:
+            print("⚠️ Нет кода для применения")
+            return False
+        
+        # 2. Записываем файлы
+        for filepath, content in files.items():
+            full_path = self.PROJECT_ROOT / filepath
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(content, encoding="utf-8")
+            print(f"✅ Записан: {filepath}")
+        
+        # 3. Проверка синтаксиса
+        if not await self._check_syntax():
+            return False
+        
+        # 4. Запуск тестов
+        if not await self._run_tests():
+            return False
+        
+        # 5. Коммит
+        return await self._git_commit(commit_message)
+    
+    def _extract_files(self, responses: Dict[str, str]) -> Dict[str, str]:
+        """Извлекает файлы из ответов ИИ."""
+        files = {}
+        pattern = r'```(\w+)\n(.*?)\n```'
+        
+        for name, response in responses.items():
+            matches = re.findall(pattern, response, re.DOTALL)
+            for lang, code in matches:
+                # Ищем путь в комментарии
+                path_match = re.search(r'# FILE: (.*?)\n', code)
+                if path_match:
+                    path = path_match.group(1)
+                    content = code.replace(path_match.group(0), '')
+                    files[path] = content
+        
+        return files
+    
+    async def _check_syntax(self) -> bool:
+        """Проверяет синтаксис Python."""
+        result = subprocess.run(
+            ["python", "-m", "py_compile", str(self.PROJECT_ROOT / "uni")],
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"❌ Ошибка синтаксиса: {result.stderr.decode()}")
+            return False
+        return True
+    
+    async def _run_tests(self) -> bool:
+        """Запускает тесты."""
+        result = subprocess.run(
+            ["pytest", str(self.PROJECT_ROOT / "tests"), "-v", "--tb=short"],
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"❌ Тесты не прошли")
+            return False
+        print("✅ Тесты прошли")
+        return True
+    
+    async def _git_commit(self, message: str) -> bool:
+        """Создаёт коммит."""
+        subprocess.run(["git", "add", "."], cwd=self.PROJECT_ROOT)
+        result = subprocess.run(
+            ["git", "commit", "-m", f"🤖 AI: {message}"],
+            cwd=self.PROJECT_ROOT,
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"⚠️ Коммит не создан: {result.stderr.decode()}")
+            return False
+        print(f"✅ Коммит создан: {message}")
+        return True
+```
+
+---
+
+## 🚀 План реализации (5 фаз)
+
+| Фаза | Компонент | Файлы | Время |
+|------|-----------|-------|-------|
+| **1** | Web API | `web_coordinator.py` | 4 часа |
+| **2** | Console UI | `console_coordinator.py` | 3 часа |
+| **3** | Thread Manager | `thread_manager.py` | 2 часа |
+| **4** | Code Generator | `code_generator.py` | 3 часа |
+| **5** | Интеграция | `coordinator.py` (главный) | 2 часа |
+
+**Итого:** ~14 часов на рабочий MVP.
+
+---
+
+## 🧪 Тестирование
+
+```bash
+# 1. Запуск веб-сервера
+python web_coordinator.py
+
+# 2. В другом терминале — консоль
+python console_coordinator.py
+
+# 3. Тест через curl
+curl -X POST http://localhost:8000/api/task \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Исправить баг с re_search в autonomous.py", "team": ["deepseek", "qwen"]}'
+```
+
+---
+
+## ✅ Критерии готовности MVP
+
+- [ ] Веб-интерфейс показывает список задач
+- [ ] Консольный интерфейс позволяет создавать задачи
+- [ ] ИИ-участники получают задачи (заглушка)
+- [ ] Ответы собираются с Thread ID
+- [ ] Код из ответов применяется к проекту
+- [ ] Тесты запускаются автоматически
+- [ ] Коммит создаётся при успехе
+
+---
+
+Хотите, чтобы я создал все файлы координатора в одном архиве?
+
+
+
+Основываясь на вашем видении из `README.md` (раздел "UNI Council") и анализе кода из предыдущих шагов, я подготовил пошаговый план разработки MVP. 
+
+Цель этого MVP: **Создать работающий веб-интерфейс, который позволяет отправить задачу (промпт) нескольким ИИ (локальным и API), асинхронно собирать от них код/решения, объединять их и автоматически применять к кодовой базе UNI с запуском тестов.**
+
+Сначала мы реализуем "Этап A" из вашего документа v3 (исправление критических багов, чтобы ядро не упало при автогенерации), а затем перейдем к самому Council.
+
+---
+
+### Этап 0: Экспресс-фиксы (Фундамент)
+*Прежде чем доверять ИИ автоматическую правку кода, ядро должно быть стабильно. Выполняем пункты, сошедшиеся во всех обзорах.*
+
+1. **Фикс `autonomous.py`:** Заменяем `re_search` на `re.search` (строка ~208).
+2. **Фикс парсинга JSON:** Добавляем очистку от markdown-оберток ` ```json ... ``` ` в `_conductor_loop` (как уже сделано в `event_loop._next_exploration_query`).
+3. **Проверка спорных пунктов (5 минут):** Прогнать `grep -r "PlannerImpl" uni/` и проверить `config.py` на наличие `allow_camera`. Если их нет — вычеркиваем эти задачи из бэклога и не тратим время.
+
+---
+
+### Этап 1: Архитектура MVP "UNI Council" (Бэкенд)
+*Создаем модуль, который будет оркестровать общение с ИИ. В `README` указана папка `uni/council/` — туда и кладем логику.*
+
+**1. Единый интерфейс адаптеров (Adapters)**
+Создаем базовый класс для всех ИИ-участников, чтобы Council мог общаться с ними в едином формате.
+```python
+# uni/council/adapter.py
+from typing import AsyncGenerator
+
+class BaseAIAdapter:
+    name: str
+    async def generate(self, prompt: str, system: str) -> AsyncGenerator[str, None]:
+        raise NotImplementedError
+```
+*Реализации:* `LMStudioAdapter` (использует ваш `uni.brain`), `OpenAIApiAdapter`, `ClaudeApiAdapter` (чтобы подключать "внешних" участников).
+
+**2. Менеджер Совета (Council Manager)**
+Принимает задачу, делает широковещательную рассылку (broadcast) всем подключенным адаптерам асинхронно через `asyncio.gather`.
+```python
+# uni/council/manager.py
+async def run_council(self, task: str) -> list[ParticipantResponse]:
+    # Запускаем всех ИИ параллельно
+    results = await asyncio.gather(*[ai.generate(task) for ai in self.participants])
+    return results
+```
+
+**3. Сборщик данных и парсер кода (Aggregator)**
+Локальные модели часто возвращают текст вперемешку с кодом. Агрегатор должен извлечь блоки кода.
+*   **Логика:** Ищем блоки ` ```python ... ``` `. 
+*   Если блоков нет, просим "Судью" (например, самую умную модель из Council) прочитать ответы и выделить из них единый рабочий код.
+
+---
+
+### Этап 2: Веб-интерфейс (Frontend)
+*В `README` указано `uni/webui/`. Делаем минималистичный UI на FastAPI + простом HTML/JS (или React, если предпочитаете).*
+
+**1. API Эндпоинты (FastAPI):**
+*   `POST /api/council/start` — принимает промпт от пользователя (например: "Добавь в `event_loop.py` логирование всех команд в файл JSON").
+*   `WebSocket /ws/council/{task_id}` — стримит статусы в реальном времени: "Claude думает...", "LM Studio выдал код...".
+
+**2. UI Интерфейс (Браузер):**
+*   Текстовое поле для ввода задачи разработчику.
+*   Галочки выбора участников (какие модели подключать к совету).
+*   Окно вывода: слева — логи работы каждого ИИ (стрим), справа — финальный агрегированный код/отчет.
+
+---
+
+### Этап 3: Автоматическое применение кода (Autonomous Dev Loop)
+*Самая опасная и интересная часть. ИИ предлагает код, система его применяет, тестирует и откатывает, если что-то сломалось.*
+
+**1. Изоляция и Git (Safety First):**
+*   Перед применением кода система делает `git stash` или создает новую ветку `auto/council-task-{id}`.
+*   Изменения применяются **только** в эту ветку.
+
+**2. Pipeline применения (DevExecutor):**
+1. **Extract:** Извлекаем предложенный код и пути файлов из ответов Council.
+2. **Apply:** Записываем код в файлы (через стандартный Python I/O).
+3. **Test:** Запускаем через `subprocess`: `py -3 -m pytest` и `py -3 scripts/check_architecture.py`.
+4. **Analyze:** 
+   * Если тесты **зелёные** — коммитим изменения (`git commit -m "Auto-impl by Council"`).
+   * Если тесты **красные** — собираем лог ошибок pytest, отправляем обратно в Council с промптом: *"Ваш код упал с ошибкой {traceback}. Исправьте"*. (Один цикл retry).
+5. **Merge:** Если после (максимум) 2 попыток тесты проходят — делаем Merge Request или Pull в основную ветку (на усмотрение пользователя через UI галочку "Auto-merge").
+
+---
+
+### Этап 4: Интеграция с ядром UNI (EventLoop)
+*Чтобы человек мог запустить этот процесс голосом или текстом.*
+
+1. Добавляем новые прямые команды в `event_loop.py`:
+   * `"совет: разработай [задача]"` -> инициирует Council.
+2. Добавляем Capability `uni.capabilities.dev_capability`, которая связывает `EventLoop` и `CouncilManager`.
+3. **Важно (из плана v3):** Вся работа с файлами и тестами в `DevExecutor` должна использовать `async with self._tool_lock`, чтобы не конфликтовать с браузером или автономным режимом, если он запущен.
+
+---
+
+### Пошаговый план реализации (Action Plan на 1-2 недели)
+
+| Неделя | Шаг | Результат |
+| :--- | :--- | :--- |
+| **Дни 1-2** | **Бэкенд Council.** Создание `adapters` для API (OpenAI/Anthropic) и локального `Brain`. Создание `CouncilManager` с `asyncio.gather`. | Можно из консоли отправить промпт 3 моделям и получить их ответы в едином формате. |
+| **Дни 3-4** | **Парсер и UI.** Написание FastAPI сервера. Простая HTML страница с WebSockets. Реализация логики извлечения Python-кода из ответов ИИ. | Работает веб-страничка. Вводим задачу — видим, как модели стримят ответы, внизу появляется готовый блок кода. |
+| **Дни 5-6** | **DevExecutor (Гит и Тесты).** Модуль, который берет код, пишет в файлы, делает git commit, запускает `pytest`, парсит вывод. | Код применяется к локальному репозиторию, запускаются тесты. Если ошибка — генерируется отчет. |
+| **День 7** | **Сквозной цикл (Feedback Loop).** Объединяем UI, Council и DevExecutor. Если тесты падают, ошибки летят обратно в Council на доработку. | Полностью рабочий MVP автономной разработки. |
+| **Дни 8-9** | **Полировка и Безопасность.** Добавляем подтверждение перед `git commit` (чтобы ИИ не насоздавал мусора). Интеграция команды в `EventLoop`. | MVP готов к использованию. |
+
+### Главные риски этого MVP и как их обойти:
+1. **ИИ не знает структуру проекта:** Перед отправкой промпта в Council, подавайте им контекст. Простой способ: отправляйте им содержимое `ARCHITECTURE.md` и список файлов через `tree /f`.
+2. **ИИ ломает чужие файлы:** Строго ограничивайте DevExecutor. Пусть он принимает ответ только в формате JSON: `{"files_to_change": [{"path": "...", "content": "..."}]}`. Если ИИ возвращает просто кусок кода без пути — отклонять.
+3. **Бесконечный цикл исправлений:** Жестко лимитируйте количество попыток (retry = 2). Если не вышло — сбрасываем изменения (`git checkout .`) и пишем в лог: "Council не справился".
+
+
+
+Проанализировал все три версии. Сначала — короткий вывод по ним, потому что он напрямую определяет архитектуру моего плана.
+
+## 1. Что показала эволюция v1 → v2 → v3
+
+| Версия | Фокус | Главный шаг вперёд |
+|---|---|---|
+| **v1** | Подтверждённые баги (`re_search`, `_tool_lock`, `emergency_stop`, дефолты конфига) + отлов технических ошибок в самих предложениях (sha256-хеш от таймстампа, «Безье», `lru_cache` на `self`) | Научились отделять реальные баги от гипотез |
+| **v2** | Тесты-первым (P0№1), гонка `depends_on`/UUID, молчаливые fallback'и, единый контракт, гигиена репо (дубли веток, один `pyproject`) | Поняли, что правки без тестов идут вслепую |
+| **v3** | Hermes **опровергает** часть P0 из v2 конкретными строками: «`debug`/`allow_camera` в `config.py` нет», «контракты уже едины», «`planner.py` — мёртвый код, в рантайме не вызывается» | **Ключевой урок: источники дают взаимоисключающие факты о коде. Разрешается это только чтением кода (`grep`), а не выбором «авторитетного» ИИ.** |
+
+**Главный вывод, на котором я строю план:** любая система, которая «спрашивает ИИ и автоматически пишет код», обязана иметь **слой проверки фактов о коде**. ИИ противоречат друг другу — и единственный арбитр это реальный репозиторий. Без этого слоя авто-режим будет уверенно применять фиксы к несуществующим багам (ровно то, от чего предостерегает v3).
+
+---
+
+## 2. Мой план MVP: **DevCoord** — координатор ИИ-совета
+
+Цель: локальный интерфейс, который рассылает dev-задачу всем ИИ-участникам, собирает ответы, **проверяет их утверждения о коде**, синтезирует изменение и (под контролем) применяет его к `C:\LLM\UNI\uni`.
+
+Принципы (из вашего же манифеста и BUILD_PLAN):
+- **Внешние ИИ = предложения, а не команды.** Ничего не применяется без верификации и тестов.
+- **Один канонический источник** — никаких новых деревьев; артефакты сессий в `.uni-dev/sessions/`.
+- **Один билд = один проверяемый шаг.**
+- **Provenance** — фиксируем, кто что сказал; никакого «консенсуса ИИ» задним числом.
+
+### Архитектура
+
+```
+DevCoord
+├── dispatch   → рассылка задачи провайдерам (fan-out, таймауты)
+├── collect    → нормализация ответов в единую структуру
+├── verify     → проверка утверждений о коде grep'ом по репо  ← сердце, урок v3
+├── synthesize → сводка проверенных ответов в план изменения
+├── apply      → dry-run diff → одобрение → pytest → commit/rollback
+└── ui         → веб-интерфейс (FastAPI) + CLI-фолбэк
+```
+
+### Конфиг провайдеров (`config.yaml`)
+
+Реалистично: всё, что умеет OpenAI-совместимый API, goes через один клиент; Copilot — пока ручной (чистого API нет).
+
+```yaml
+repo_root: "C:/LLM/UNI/uni"
+sessions_dir: ".uni-dev/sessions"
+
+providers:
+  lmstudio: { kind: openai_compat, base_url: "http://localhost:1234/v1", model: "qwen2.5-7b-instruct", enabled: true }
+  mistral:  { kind: openai_compat, base_url: "https://api.mistral.ai/v1", api_key_env: "MISTRAL_API_KEY", model: "mistral-large-latest" }
+  deepseek: { kind: openai_compat, base_url: "https://api.deepseek.com/v1", api_key_env: "DEEPSEEK_API_KEY", model: "deepseek-chat" }
+  zai:      { kind: openai_compat, base_url: "https://api.z.ai/api/paas/v4", api_key_env: "ZAI_API_KEY", model: "glm-4.6" }
+  copilot:  { kind: manual, enabled: false }   # вставка ответа вручную
+```
+
+### Ключевой код
+
+**Модели и провайдер:**
+
+```python
+# devcoord/models.py
+from __future__ import annotations
+from dataclasses import dataclass, field
+from enum import Enum
+
+class ProviderStatus(str, Enum):
+    OK = "ok"; TIMEOUT = "timeout"; ERROR = "error"; SKIPPED = "skipped"
+
+@dataclass
+class DevTask:
+    id: str
+    title: str
+    prompt: str
+    target_files: list[str] = field(default_factory=list)
+
+@dataclass
+class Claim:
+    """Утверждение ИИ о коде, которое надо проверить."""
+    file: str
+    symbol: str | None = None      # что искать в файле
+    note: str = ""
+
+@dataclass
+class ProviderResponse:
+    provider: str
+    task_id: str
+    status: ProviderStatus
+    text: str = ""
+    claims: list[Claim] = field(default_factory=list)
+    latency_ms: float = 0.0
+    error: str | None = None
+```
+
+```python
+# devcoord/providers/openai_compat.py
+from openai import AsyncOpenAI
+from .base import AIProvider
+
+class OpenAICompatProvider:
+    def __init__(self, name: str, base_url: str, model: str,
+                 api_key: str = "not-needed", timeout: float = 120.0) -> None:
+        self.name = name
+        self.model = model
+        self._client = AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
+
+    async def generate(self, prompt: str, *, system: str | None = None) -> str:
+        messages = ([{"role": "system", "content": system}] if system else [])
+        messages.append({"role": "user", "content": prompt})
+        resp = await self._client.chat.completions.create(
+            model=self.model, messages=messages, temperature=0.2)
+        return resp.choices[0].message.content or ""
+
+    async def health(self) -> bool:
+        try:
+            await self._client.models.list(); return True
+        except Exception:
+            return False
+```
+
+**Диспетчер (fan-out + изоляция сбоев одного провайдера):**
+
+```python
+# devcoord/dispatch.py
+import asyncio
+from .models import DevTask, ProviderResponse, ProviderStatus
+from .providers.base import AIProvider
+
+async def dispatch(task: DevTask, providers: list[AIProvider],
+                   *, timeout: float = 120.0) -> list[ProviderResponse]:
+    async def _call(p: AIProvider) -> ProviderResponse:
+        loop = asyncio.get_running_loop(); t0 = loop.time()
+        try:
+            text = await asyncio.wait_for(p.generate(task.prompt), timeout)
+            return ProviderResponse(p.name, task.id, ProviderStatus.OK,
+                                    text=text, latency_ms=(loop.time() - t0) * 1000)
+        except asyncio.TimeoutError:
+            return ProviderResponse(p.name, task.id, ProviderStatus.TIMEOUT, error="timeout")
+        except Exception as exc:
+            return ProviderResponse(p.name, task.id, ProviderStatus.ERROR, error=str(exc))
+    return await asyncio.gather(*(_call(p) for p in providers))
+```
+
+**Верификатор (урок v3 — арбитр это код, а не ИИ):**
+
+```python
+# devcoord/verify.py
+from pathlib import Path
+from dataclasses import dataclass
+from .models import Claim
+
+@dataclass
+class Verdict:
+    claim: Claim
+    confirmed: bool
+    detail: str
+
+async def verify_claim(claim: Claim, repo_root: Path) -> Verdict:
+    target = (repo_root / claim.file).resolve()
+    if not str(target).startswith(str(repo_root.resolve())):   # защита от выхода за репо
+        return Verdict(claim, False, "path escapes repo")
+    if not target.exists():
+        return Verdict(claim, False, "file not found")
+    text = target.read_text(encoding="utf-8", errors="ignore")
+    if claim.symbol is None:
+        return Verdict(claim, True, "file exists")
+    present = claim.symbol in text
+    return Verdict(claim, present, f"'{claim.symbol}' {'found' if present else 'NOT found'} in {claim.file}")
+```
+
+**Авто-цикл разработки (с обязательными воротами):**
+
+```python
+# devcoord/loop.py
+async def auto_dev(task, council, verifier, synthesizer, applier, *, max_rounds=3):
+    result = None
+    for rnd in range(max_rounds):
+        responses = await dispatch(task, council)                    # 1. спросить совет
+        verdicts  = await verifier.check(responses)                  # 2. проверить о код
+        proposal  = await synthesizer.merge(verdicts)                # 3. свести в план
+        result    = await applier.apply(proposal, dry_run=(rnd == 0))# 4. dry-run → apply
+        if result.tests_passed:
+            return result                                            # pytest+check_architecture зелёные
+        task = task.with_feedback(result.test_errors)                # 5. replan по ошибкам тестов
+    return result
+```
+
+### Порядок сборки (в формате BUILD_PLAN)
+
+**Milestone A — работающий интерфейс «отправить + собрать» (~3–4 дня)**
+
+| Билд | Цель | Файлы | Проверка |
+|---|---|---|---|
+| A1 | Скелет + конфиг провайдеров | `config.py` (Pydantic), `config.yaml` | Загрузка, валидация, `enabled`-фильтр |
+| A2 | Абстракция провайдера + OpenAI-совместимый клиент + `health()` | `providers/base.py`, `providers/openai_compat.py` | LM Studio отвечает на `generate` |
+| A3 | Диспетчер: fan-out, таймауты, статус на провайдера | `dispatch.py` | 3 провайдера отвечают параллельно, падение одного не рвёт остальных |
+| A4 | Хранилище сессий | `store.py` → `.uni-dev/sessions/{task_id}.json` | Ответы переживают перезапуск |
+| A5 | **Интерфейс**: FastAPI страница (задача → dispatch → живой статус → ответы) + CLI-фолбэк | `ui/app.py`, один HTML | Открыть в браузере, разослать, увидеть ответы |
+
+**Milestone B — авто-разработка (~4–5 дня)**
+
+| Билд | Цель | Файлы |
+|---|---|---|
+| B1 | Извлечение `Claim` из текста ИИ + верификация grep'ом | `verify.py`, `extract.py` |
+| B2 | Синтез проверенных ответов в единый план изменения | `synthesize.py` |
+| B3 | Apply: dry-run diff → **одобрение человеком** → apply → `pytest` + `check_architecture.py` → commit/rollback через git | `apply.py` |
+| B4 | Очередь задач из `.uni-dev/tasks.yaml` + авто-цикл с воротами | `loop.py`, `queue.py` |
+
+**Definition of Done (MVP):**
+- Интерфейс рассылает задачу ≥3 провайдерам и показывает их ответы.
+- Каждое утверждение ИИ о коде помечено «подтверждено / не найдено» по факту чтения файлов.
+- Ни одно изменение не попадает в репо без зелёных `pytest` + `check_architecture.py`.
+- Есть `dry_run`, одобрение человеком и git-откат.
+- Провал одного провайдера не останавливает остальных.
+
+---
+
+Хочешь — начну с **Билда A1+A2**: напишу `config.py` (Pydantic-схема провайдеров) и `providers/openai_compat.py` с `health()`, чтобы уже сегодня интерфейс мог послать запрос в LM Studio и Mistral. Либо, если важнее, сначала набросаю `verify.py` — сердце авто-режима.
+
+
+## 🚀 UNI MVP — План разработки "Координатор"
+
+### Цель
+Создать рабочий интерфейс (веб + консоль), который позволяет:
+1. Отправлять задачи всем ИИ-участникам проекта (ChatGPT, Claude, DeepSeek, Qwen)
+2. Собирать их ответы в едином формате с Thread ID
+3. Автоматически применять полученный код к проекту UNI
+4. Запускать тесты и коммитить изменения
+
+---
+
+## 📋 Архитектура MVP
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      UNI COORDINATOR                              │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Interface Layer                          │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐ │  │
+│  │  │ Web UI   │  │ Console  │  │ Telegram Bot (опционально)│ │  │
+│  │  └──────────┘  └──────────┘  └────────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Orchestrator                             │  │
+│  │  ┌────────────┐  ┌────────────┐  ┌──────────────────────┐ │  │
+│  │  │  Planner   │→│  TaskQueue │→│  Thread Manager      │ │  │
+│  │  └────────────┘  └────────────┘  └──────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │               AI Team Communication                        │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐ │  │
+│  │  │ Claude   │ │ DeepSeek │ │  Qwen    │ │  ChatGPT     │ │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                              ↓                                    │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │                   Code Generator                           │  │
+│  │  ┌────────────────────────────────────────────────────────┐ │  │
+│  │  │  Extract → Validate → Write → Test → Commit          │ │  │
+│  │  └────────────────────────────────────────────────────────┘ │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Компоненты и файлы
+
+### 1. Web Interface (`web_coordinator.py`)
+
+```python
+from fastapi import FastAPI, WebSocket, HTTPException
+from pydantic import BaseModel
+import uvicorn
+import asyncio
+from datetime import datetime
+from typing import List, Dict, Any
+import uuid
+
+app = FastAPI(title="UNI Coordinator", version="0.1.0")
+
+# ----- Модели данных -----
+class TaskRequest(BaseModel):
+    goal: str
+    team: List[str] = ["claude", "deepseek", "qwen", "chatgpt"]
+    priority: int = 1
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str
+    created_at: datetime
+    team: List[str]
+    responses: Dict[str, str] = {}
+
+# ----- Хранилище задач -----
+tasks: Dict[str, TaskResponse] = {}
+
+# ----- API Endpoints -----
+@app.post("/api/task")
+async def create_task(request: TaskRequest):
+    """Создаёт новую задачу и распределяет между ИИ."""
+    task_id = str(uuid.uuid4())[:8]
+    task = TaskResponse(
+        task_id=task_id,
+        status="pending",
+        created_at=datetime.now(),
+        team=request.team,
+        responses={}
+    )
+    tasks[task_id] = task
+    
+    # Запускаем обработку в фоне
+    asyncio.create_task(process_task(task_id, request.goal, request.team))
+    
+    return {"task_id": task_id, "status": "created"}
+
+@app.get("/api/task/{task_id}")
+async def get_task(task_id: str):
+    """Возвращает статус задачи."""
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return tasks[task_id]
+
+@app.get("/api/tasks")
+async def list_tasks():
+    """Возвращает список всех задач."""
+    return list(tasks.values())
+
+@app.websocket("/ws/task/{task_id}")
+async def websocket_endpoint(websocket: WebSocket, task_id: str):
+    """WebSocket для стриминга обновлений."""
+    await websocket.accept()
+    try:
+        while task_id in tasks:
+            await websocket.send_json(tasks[task_id].dict())
+            await asyncio.sleep(1)
+    except:
+        pass
+
+# ----- Обработка задач -----
+async def process_task(task_id: str, goal: str, team: List[str]):
+    """Отправляет задачу всем ИИ и собирает ответы."""
+    tasks[task_id].status = "in_progress"
+    
+    # Генерируем Thread ID
+    thread_id = f"{datetime.now().day:02d}-{datetime.now().hour:02d}-{task_id[:3].upper()}-{datetime.now().strftime('%M%S')}"
+    
+    # Отправляем каждому ИИ
+    for member in team:
+        response = await send_to_ai(member, goal, thread_id)
+        tasks[task_id].responses[member] = response
+    
+    # Применяем код
+    code_result = await apply_code(tasks[task_id].responses, goal)
+    
+    tasks[task_id].status = "complete" if code_result else "failed"
+
+async def send_to_ai(member: str, goal: str, thread_id: str) -> str:
+    """Отправляет запрос конкретному ИИ."""
+    # Здесь реальные API вызовы
+    # Пока заглушка
+    await asyncio.sleep(2)
+    return f"[{member}] Решение для: {goal[:50]}..."
+
+async def apply_code(responses: Dict[str, str], goal: str) -> bool:
+    """Применяет код из ответов."""
+    # Извлекаем код и записываем файлы
+    # Заглушка
+    return True
+
+# ----- Запуск -----
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+---
+
+### 2. Console Interface (`console_coordinator.py`)
+
+```python
+#!/usr/bin/env python3
+"""UNI Coordinator — консольный интерфейс."""
+
+import asyncio
+import aiohttp
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
+from rich.progress import Progress, SpinnerColumn, TextColumn
+import json
+
+console = Console()
+API_URL = "http://localhost:8000"
+
+async def main():
+    console.print(Panel.fit(
+        "[bold cyan]UNI Coordinator[/bold cyan]\n"
+        "[dim]Управление командой ИИ для разработки UNI[/dim]",
+        border_style="cyan"
+    ))
+    
+    while True:
+        console.print("\n[bold]Команды:[/bold]")
+        console.print("  [cyan]/task [goal][/cyan]  — создать задачу")
+        console.print("  [cyan]/status[/cyan]        — показать статус задач")
+        console.print("  [cyan]/view [id][/cyan]     — посмотреть детали задачи")
+        console.print("  [cyan]/exit[/cyan]          — выход")
+        
+        cmd = Prompt.ask("\n> ")
+        
+        if cmd.lower() == "exit":
+            break
+        elif cmd.startswith("/task"):
+            goal = cmd[6:].strip()
+            if goal:
+                await create_task(goal)
+        elif cmd == "/status":
+            await show_status()
+        elif cmd.startswith("/view"):
+            task_id = cmd[6:].strip()
+            if task_id:
+                await view_task(task_id)
+        else:
+            console.print("[red]❌ Неизвестная команда[/red]")
+
+async def create_task(goal: str):
+    """Создаёт новую задачу."""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{API_URL}/api/task", json={"goal": goal}) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                console.print(f"[green]✅ Задача создана: {data['task_id']}[/green]")
+                
+                # Следим за прогрессом
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console
+                ) as progress:
+                    task = progress.add_task("[cyan]Обработка...", total=None)
+                    while True:
+                        async with session.get(f"{API_URL}/api/task/{data['task_id']}") as status_resp:
+                            status = await status_resp.json()
+                            if status["status"] in ["complete", "failed"]:
+                                break
+                            await asyncio.sleep(1)
+                
+                console.print(f"[green]✅ Задача {data['task_id']} завершена![/green]")
+                await view_task(data['task_id'])
+            else:
+                console.print(f"[red]❌ Ошибка: {resp.status}[/red]")
+
+async def show_status():
+    """Показывает статус всех задач."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}/api/tasks") as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                if not data:
+                    console.print("[yellow]Нет активных задач[/yellow]")
+                    return
+                
+                table = Table(title="Активные задачи")
+                table.add_column("ID", style="cyan")
+                table.add_column("Goal", style="white")
+                table.add_column("Status", style="yellow")
+                table.add_column("Responses", style="green")
+                table.add_column("Created", style="dim")
+                
+                for task in data:
+                    table.add_row(
+                        task["task_id"],
+                        task["goal"][:40] + "...",
+                        task["status"],
+                        str(len(task.get("responses", {}))),
+                        task["created_at"][:19]
+                    )
+                console.print(table)
+
+async def view_task(task_id: str):
+    """Показывает детали задачи."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}/api/task/{task_id}") as resp:
+            if resp.status == 200:
+                task = await resp.json()
+                console.print(Panel(
+                    f"[bold]ID:[/bold] {task['task_id']}\n"
+                    f"[bold]Goal:[/bold] {task['goal']}\n"
+                    f"[bold]Status:[/bold] {task['status']}\n"
+                    f"[bold]Created:[/bold] {task['created_at']}\n"
+                    f"[bold]Team:[/bold] {', '.join(task.get('team', []))}\n"
+                    f"[bold]Responses:[/bold] {len(task.get('responses', {}))}",
+                    title="Детали задачи",
+                    border_style="cyan"
+                ))
+                
+                if task.get("responses"):
+                    table = Table(title="Ответы ИИ")
+                    table.add_column("ИИ", style="cyan")
+                    table.add_column("Ответ", style="white")
+                    for name, response in task["responses"].items():
+                        table.add_row(name, response[:200] + "..." if len(response) > 200 else response)
+                    console.print(table)
+            else:
+                console.print(f"[red]❌ Задача {task_id} не найдена[/red]")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+### 3. Thread Manager (`thread_manager.py`)
+
+```python
+"""Управление тредами сообщений."""
+
+import re
+from datetime import datetime
+from typing import Optional, Dict
+
+class ThreadManager:
+    """Управляет тредами сообщений между UNI и ИИ."""
+    
+    THREAD_PATTERN = re.compile(r'\[(\d{2}-\d{2}-[A-Z]{3}-\d{4})\](.*?)\[/end-\1\]', re.DOTALL)
+    
+    def __init__(self):
+        self.threads: Dict[str, Dict] = {}
+    
+    def parse_thread(self, text: str) -> Optional[Dict]:
+        """Парсит сообщение с Thread ID."""
+        match = self.THREAD_PATTERN.search(text)
+        if not match:
+            return None
+        
+        thread_id = match.group(1)
+        content = match.group(2).strip()
+        
+        lines = content.split('\n')
+        topic = lines[0].strip() if lines else "Без темы"
+        body = '\n'.join(lines[1:])
+        
+        return {
+            "id": thread_id,
+            "topic": topic,
+            "body": body,
+            "timestamp": datetime.now()
+        }
+    
+    def format_thread(self, topic: str, body: str) -> str:
+        """Форматирует сообщение с Thread ID."""
+        thread_id = f"{datetime.now().day:02d}-{datetime.now().hour:02d}-{topic[:3].upper()}-{datetime.now().strftime('%M%S')}"
+        return f"[{thread_id}]\n{topic}\n\n{body}\n[/end-{thread_id}]"
+```
+
+---
+
+### 4. Code Generator (`code_generator.py`)
+
+```python
+"""Применение кода к проекту."""
+
+import subprocess
+from pathlib import Path
+from typing import List, Dict
+import re
+
+class CodeGenerator:
+    """Генерирует и применяет код к проекту."""
+    
+    PROJECT_ROOT = Path("C:/llm/uni")
+    
+    async def apply_changes(self, responses: Dict[str, str], commit_message: str) -> bool:
+        """Применяет изменения из ответов ИИ."""
+        # 1. Извлекаем код
+        files = self._extract_files(responses)
+        if not files:
+            print("⚠️ Нет кода для применения")
+            return False
+        
+        # 2. Записываем файлы
+        for filepath, content in files.items():
+            full_path = self.PROJECT_ROOT / filepath
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            full_path.write_text(content, encoding="utf-8")
+            print(f"✅ Записан: {filepath}")
+        
+        # 3. Проверка синтаксиса
+        if not await self._check_syntax():
+            return False
+        
+        # 4. Запуск тестов
+        if not await self._run_tests():
+            return False
+        
+        # 5. Коммит
+        return await self._git_commit(commit_message)
+    
+    def _extract_files(self, responses: Dict[str, str]) -> Dict[str, str]:
+        """Извлекает файлы из ответов ИИ."""
+        files = {}
+        pattern = r'```(\w+)\n(.*?)\n```'
+        
+        for name, response in responses.items():
+            matches = re.findall(pattern, response, re.DOTALL)
+            for lang, code in matches:
+                # Ищем путь в комментарии
+                path_match = re.search(r'# FILE: (.*?)\n', code)
+                if path_match:
+                    path = path_match.group(1)
+                    content = code.replace(path_match.group(0), '')
+                    files[path] = content
+        
+        return files
+    
+    async def _check_syntax(self) -> bool:
+        """Проверяет синтаксис Python."""
+        result = subprocess.run(
+            ["python", "-m", "py_compile", str(self.PROJECT_ROOT / "uni")],
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"❌ Ошибка синтаксиса: {result.stderr.decode()}")
+            return False
+        return True
+    
+    async def _run_tests(self) -> bool:
+        """Запускает тесты."""
+        result = subprocess.run(
+            ["pytest", str(self.PROJECT_ROOT / "tests"), "-v", "--tb=short"],
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"❌ Тесты не прошли")
+            return False
+        print("✅ Тесты прошли")
+        return True
+    
+    async def _git_commit(self, message: str) -> bool:
+        """Создаёт коммит."""
+        subprocess.run(["git", "add", "."], cwd=self.PROJECT_ROOT)
+        result = subprocess.run(
+            ["git", "commit", "-m", f"🤖 AI: {message}"],
+            cwd=self.PROJECT_ROOT,
+            capture_output=True
+        )
+        if result.returncode != 0:
+            print(f"⚠️ Коммит не создан: {result.stderr.decode()}")
+            return False
+        print(f"✅ Коммит создан: {message}")
+        return True
+```
+
+---
+
+## 🚀 План реализации (5 фаз)
+
+| Фаза | Компонент | Файлы | Время |
+|------|-----------|-------|-------|
+| **1** | Web API | `web_coordinator.py` | 4 часа |
+| **2** | Console UI | `console_coordinator.py` | 3 часа |
+| **3** | Thread Manager | `thread_manager.py` | 2 часа |
+| **4** | Code Generator | `code_generator.py` | 3 часа |
+| **5** | Интеграция | `coordinator.py` (главный) | 2 часа |
+
+**Итого:** ~14 часов на рабочий MVP.
+
+---
+
+## 🧪 Тестирование
+
+```bash
+# 1. Запуск веб-сервера
+python web_coordinator.py
+
+# 2. В другом терминале — консоль
+python console_coordinator.py
+
+# 3. Тест через curl
+curl -X POST http://localhost:8000/api/task \
+  -H "Content-Type: application/json" \
+  -d '{"goal": "Исправить баг с re_search в autonomous.py", "team": ["deepseek", "qwen"]}'
+```
+
+---
+
+## ✅ Критерии готовности MVP
+
+- [ ] Веб-интерфейс показывает список задач
+- [ ] Консольный интерфейс позволяет создавать задачи
+- [ ] ИИ-участники получают задачи (заглушка)
+- [ ] Ответы собираются с Thread ID
+- [ ] Код из ответов применяется к проекту
+- [ ] Тесты запускаются автоматически
+- [ ] Коммит создаётся при успехе
+
+---
+
+Хотите, чтобы я создал все файлы координатора в одном архиве?

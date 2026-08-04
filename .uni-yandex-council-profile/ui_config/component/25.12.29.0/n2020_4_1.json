@@ -1,0 +1,119 @@
+{
+  "style_sheet":
+  [
+    {
+      "selector": [
+        "#top_container#top_container[state=ntp]",
+        "#top_container#top_container:sly_zen",
+      ],
+      "background !imp": "#0000",
+    },
+    {
+      "selector": "#bottom_container:incognito:not([tint])",
+      "background !imp": "#D3D3D3",
+    },
+    {
+      "selector": "#bottom_container",
+      "meta_selector": [
+        "[theme=dark]:not([state=ntp], :sly_zen)",
+        ":dark_wp_top:is([state=ntp], :sly_zen)",
+      ],
+      "background !imp": "#242630",
+    },
+    {
+      "selector": "#bottom_container:incognito[tint=full]",
+      "background !imp": "#303030",
+    },
+    {
+      "selector": [
+        "#top_container#top_container[state=ntp]:incognito",
+        "#bottom_container[state=ntp]:incognito",
+      ],
+      "background !imp": "#515151",
+    },
+    {
+      "selector": [
+        "#top_container#top_container[state=ntp]:degradation",
+        "#top_container#top_container:sly_zen:degradation",
+      ],
+      "background !imp": "#0000",
+    },
+    {
+      "selector": [
+        "#top_container#top_container[state=ntp]:incognito:degradation",
+      ],
+      "background !imp": "#515151",
+    },
+    {
+      "selector": [
+        "#top_container[state=ntp]:degradation:dark_wp_top",
+        "#top_container:sly_zen:degradation:dark_wp_top",
+      ],
+      "background !imp": "#0000",
+    },
+    {
+      "selector": [
+        "#flute[state=ntp]:incognito",
+        "#flute:sly_zen:incognito",
+      ],
+      "background !imp": "#515151",
+    },
+    {
+      "selector": [
+        "#flute[state=ntp]:degradation:incognito",
+        "#flute:sly_zen:degradation:incognito",
+      ],
+      "background !imp": "#515151",
+    },
+    {
+      "selector": "#tab_label:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "foreground !imp": "color(#fff a(0.7))",
+    },
+    {
+      "selector": "#tab_close_button:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "foreground !imp": ["#F3F3F4", "#F3F3F4", "#F3F3F4", "#0000"],
+      "background !imp": ["#0000", "color(#fff a(.2))", "color(#fff a(.2))", "#0000"]
+    },
+    {
+      "selector": "#tab_icon:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "foreground !imp": "#F3F3F4",
+      "background !imp": ["#F3F3F4", "#F3F3F4 ", "#F3F3F4"]
+    },
+    {
+      "selector": "#unread_indicator:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "foreground !imp": "#F3F3F4",
+    },
+    {
+      "selector": "#media_indicator:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "foreground !imp": ["#F3F3F4", "#F3F3F4", "#F3F3F4", "#0000"],
+      "custo_hover_color !imp": "color(#fff a(.2))",
+    },
+    {
+      "selector": "#custo_tab:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "background !imp": ["#0000", "#0000", "color(#fff a(0.2))", "#0000"],
+      "border_color !imp": "color(#fff a(.1))",
+    },
+    {
+      "selector": "#custo_dock > button.active_look#flute_button:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "background !imp": ["#0000", "color(#fff a(.2))", "color(#fff a(.2))"],
+      "foreground !imp": ["color(#fff a(.7))", "color(#fff a(.9))", "color(#fff a(.9))"],
+    },
+    {
+      "selector": "#custo_dock > button#new_tab_button:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "icon !imp": "custo_exit_new_tab",
+      "foreground !imp": ["color(#fff a(.7))", "color(#fff a(.9))", "color(#fff a(.9))"],
+    },
+    {
+      "selector": "#custo_dock > button#new_tab_button:bottom_tabs:is([state=ntp], :sly_zen):dark_wp_top",
+      "icon !imp": "custo_enter_new_tab",
+      "background !imp": ["#0000", "color(#fff a(.2))", "color(#fff a(.2))"],
+      "foreground !imp": ["color(#fff a(.7))", "color(#fff a(.9))", "color(#fff a(.9))"],
+    },
+    {
+      "selector": "context_menu_panel#drop_down_menu_panel > menu_item",
+      "text_color": ["#000", "#000", "#000", "color(#000 a(.2))"],
+      "foreground": ["#000", "#000", "#000", "color(#000 a(.2))"],
+      "background": ["#0000", "color(#000 a(.1))", "color(#000 a(.1))", "#0000"],
+    },
+  ]
+}

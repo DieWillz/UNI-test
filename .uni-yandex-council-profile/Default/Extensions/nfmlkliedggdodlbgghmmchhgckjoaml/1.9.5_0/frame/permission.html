@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockify Update v1.6.5</title>
+  <link rel="stylesheet" type="text/css" href="per.css">
+</head>
+<body>
+<style id="todelete">
+    body * 
+    {
+        visibility: hidden !important;
+    }
+</style>
+  <div class="customConfirmBackdrop" id="customConfirmBackdrop"></div>
+
+  <div class="customConfirmModal" id="customConfirmModal">
+    <div class="customConfirmContent">
+
+      <div id="bigger"><span class="green">Blockify Ad Blocker</span> <br><span id="update">has been updated to v1.6.5</span>  </div>
+      <div id="grid">
+        <img src="old.png">
+        <img src="arrow650.png" id="ar">
+        <img src="icon.svg">
+      </div>
+
+      
+       <p id="firstl">Blockify now supports ad-blocking on <span class="col">all websites</span> (including Spotify).</p>
+       <p id="secondl">The update requires additional permissions to block ads, nuisances, distractions, & annoyances on <span>all websites</span> & audio/video content platforms.</p>
+       
+       
+       
+     <div id="afterclick">
+       <p class="Q">What is this update about?</p>
+       <p>Generic, older-generation adblockers are not well equipped to block audio and video ads on content platforms, and this is where Blockify comes in.
+        Blockify beats traditional adblockers by blocking audio and video ads (in addition to general website-level adblocking). 
+        Our core algorithm is (already) far more capable compared to other generic mainstream adblockers.
+       </p>
+       <p class="Q">Why is the additional permission required?</p>
+       <p>The permission to block ads on all websites is required by all multi-website ad blockers.
+
+        Apart from that, this permission is also required by our new & improved Spotify ad-blocking algorithm.
+        Spotify serves its audio ads from multiple (CDN) servers, each with a different URL (akamaized.net, scdn.co, spotifycdn.com, amillionads.com, etc).
+        Also, they keep rotating and adding new domains to serve audio ads.
+        Now because they keep using different URLs to serve ads, we cannot practically keep asking users the access to the new domains (each & every time Spotify updates their server network); and hence this permission is required.
+      </p>
+    </div>
+    <button id="confirmYes">Confirm</button>
+    <button id="knowMore">Know More</button>
+    </div>
+  </div>
+
+  <script src="permission.js"></script>
+</body>
+</html>

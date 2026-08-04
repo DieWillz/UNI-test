@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "Zatvoriti"
+   },
+   "copy": {
+      "message": "Kopiraj URL"
+   },
+   "copy_success": {
+      "message": "Uspješno kopirano."
+   },
+   "download": {
+      "message": "preuzimanje datoteka"
+   },
+   "filter_lead": {
+      "message": "Videozapis čija je veličina manja od ove vrijednosti neće biti snimljen"
+   },
+   "hour": {
+      "message": "sat"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "Profesionalni preuzimatelj videozapisa za spremanje online videozapisa poput mp4, m3u8, hls, live."
+   },
+   "manifest_name": {
+      "message": "Video Downloader Professional/Plus - MPMux"
+   },
+   "minute": {
+      "message": "minuta"
+   },
+   "more_than_one_day": {
+      "message": "Više od jednog dana"
+   },
+   "no_more_resolution": {
+      "message": "Nema više rezolucije"
+   },
+   "no_result": {
+      "message": "Nije pronađena datoteka resursa!"
+   },
+   "no_video": {
+      "message": "Video se ne može snimiti ili video ne postoji!"
+   },
+   "not_support": {
+      "message": "Ova stranica nije podržana"
+   },
+   "play": {
+      "message": "Reproduciraj video"
+   },
+   "popup_modal_body": {
+      "message": "Pokušajte odabrati fiksnu razlučivost prije snimanja (ako video ima tu opciju). Budući da automatska razlučivost može proizvesti okvire različite veličine, uzrokujući dijeljenje videozapisa."
+   },
+   "popup_modal_close": {
+      "message": "Zatvoriti"
+   },
+   "popup_modal_confirm": {
+      "message": "Potvrdi"
+   },
+   "popup_modal_title": {
+      "message": "Savjeti"
+   },
+   "recording_mode": {
+      "message": "Način snimanja"
+   },
+   "second": {
+      "message": "sekundi"
+   },
+   "size_filter": {
+      "message": "filtar"
+   },
+   "tips": {
+      "message": "Savjeti"
+   },
+   "tips_text_1": {
+      "message": "Neki videozapisi možda neće biti snimljeni dok se ne reproduciraju. Ako ciljani video nije na popisu, pokušajte ga reproducirati ili osvježite stranicu."
+   },
+   "tips_text_2": {
+      "message": "Ako i dalje ne radi nakon pokušaja, preuzmite ga prisilno s \"načinom snimanja\"."
+   },
+   "video_flush_error": {
+      "message": "Pogreška ispiranja videa"
+   }
+}

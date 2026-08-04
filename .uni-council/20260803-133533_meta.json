@@ -1,0 +1,13 @@
+{
+  "topic": "Короткая проверка реального пути совета",
+  "round_id": "20260803-133533",
+  "participants": [
+    "Groq"
+  ],
+  "signatures": {},
+  "errors": {},
+  "artifacts": {
+    "Groq": ".uni-council\\20260803-133533_Groq.md",
+    "report": ".uni-council\\20260803-133533_report.md"
+  }
+}

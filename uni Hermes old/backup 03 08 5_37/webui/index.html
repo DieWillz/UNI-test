@@ -1,0 +1,224 @@
+<content><!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>UNI · Консоль разработки v2.7</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk/500.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk/600.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk/700.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter/400.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter/500.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter/600.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/400.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/500.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/600.css" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" id="themeLink" />
+</head>
+<body>
+
+<!-- ================= TOPBAR ================= -->
+<div class="topbar">
+<button class="btn sm menu-btn" id="menuBtn">☰ Участники</button>
+<div class="brand"><span class="mark"></span> UNI <small>консоль разработки · v2.7</small></div>
+<span class="pill"><span class="led"></span> раунд: <b id="roundId">—</b></span>
+<span class="pill"><span class="led"></span> подписей: <b id="sigCount">0/0</b></span>
+<span class="pill" id="backendPill" title="Локальный бэкенд Юни"><span class="led" id="backendLed"></span> <span id="backendText">бэкенд: проверка…</span></span>
+<span class="gate-chip" title="Бесплатный уровень · отдельный профиль браузера · ToS · секреты не в промпт. Это политика безопасности, не ошибка.">Политика безопасности</span>
+<div class="spacer"></div>
+<button class="btn" id="historyBtn">🕘 История</button>
+<button class="btn" id="settingsBtn">⚙ Настройки</button>
+<button class="btn primary" id="runBtn">▶ Запустить раунд</button>
+</div>
+
+<!-- ================= LAYOUT ================= -->
+<div class="layout">
+
+<!-- левая панель: участники -->
+<div class="col left" id="leftCol">
+<div class="col-head">
+<span>Участники <span class="hint" id="agentCount"></span></span>
+<button class="link-btn" id="deselectAll" title="Снять выделение со всех участников">✕ снять всех</button>
+</div>
+<div class="mini-readiness" id="miniReadiness">загрузка…</div>
+<div class="col-body" id="agents"><div class="empty" style="padding:12px">загрузка…</div></div>
+</div>
+
+<!-- центр -->
+<div class="col center">
+<div class="briefwrap">
+<div class="field-row">
+<div class="field fixed"><label>Шаблон раунда</label>
+<select class="topic-input" id="template">
+<option value="">— выбрать шаблон —</option>
+<option value="status">Проверка статуса ИИ</option>
+<option value="concept">Согласование концепции</option>
+<option value="audit">Аудит кода</option>
+<option value="feature">Разработка функции</option>
+<option value="bug">Поиск ошибки</option>
+<option value="free">Свободное задание</option>
+</select>
+</div>
+<div class="field"><label>Тема раунда</label>
+<input class="topic-input" id="topic" value="" placeholder="Тема раунда" />
+</div>
+</div>
+<div class="field"><label>Бриф для всех участников (идеи / задания)</label>
+<textarea class="brief" id="brief" placeholder="Бриф для участников…"></textarea>
+</div>
+  <!-- файлы: компактный сворачиваемый блок -->
+  <div class="field">
+    <div class="files-mini" id="filesMini">
+      <button type="button" class="files-toggle" id="filesToggle">📎 Файлы проекта <span id="filesCount">(0)</span> <span class="caret">▸</span></button>
+      <span class="files-hint">синхронизируются между всеми участниками</span>
+    </div>
+    <div class="files-panel" id="filesPanel" style="display:none">
+      <div class="drop" id="drop"> Перетащите файлы сюда или нажмите</div>
+      <input type="file" id="fileInput" multiple hidden />
+      <div class="files" id="files"></div>
+    </div>
+  </div>
+
+  <div class="actions-bar">
+    <button class="btn primary" id="runBtn2">▶ Запустить раунд</button>
+    <button class="btn ghost-amber" id="runApiBtn" title="Пропустить браузерных участников">⚡ Только API</button>
+    <div class="progress" id="progress"><i></i></div>
+    <span class="hint" id="runHint"></span>
+  </div>
+</div>
+
+<div class="autobar">
+  <span class="state">Автоматизация: <b id="autoState">выключена</b></span>
+  <span class="state">Текущая задача: <b id="autoTask">—</b></span>
+  <span class="cycle">Цикл: анализ → реализация → тестирование → ревью</span>
+  <div class="spacer"></div>
+  <button class="btn sm" id="autoOn">Включить</button>
+  <button class="btn sm" id="autoPause">Пауза</button>
+  <button class="btn sm" id="autoStop">Остановить</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="current">Текущий раунд</div>
+  <div class="tab" data-tab="summary">Итог <span class="badge-dot" id="summaryDot"></span></div>
+  <div class="tab" data-tab="log">Журнал</div>
+</div>
+
+<!-- текущий раунд: только план и сетка ответов -->
+<div class="tabpane active" id="paneCurrent">
+  <div class="preround" id="preRound">
+    <h3>План раунда</h3>
+    <div class="plan" id="planText">Заполните тему и бриф (или выберите шаблон), затем нажмите «Запустить раунд».</div>
+    <div class="hint">Совет: используйте «⚡ Только API», чтобы пропустить браузерных участников и получить ответ быстрее.</div>
+  </div>
+  <div class="gridwrap" id="gridWrap" style="display:none"><div class="msgrid" id="grid"></div></div>
+</div>
+
+<!-- итог: синтез текстом + ссылка на отчёт -->
+<div class="tabpane" id="paneSummary" style="padding:16px 18px">
+  <div class="summary-text" id="summaryFull"><div class="empty">Запустите раунд — здесь появится краткий синтез. Полный отчёт открывается отдельно.</div></div>
+  <a class="rlink" id="reportLink" style="display:none"></a>
+  <div class="summary-actions">
+    <button class="btn sm" id="copySummary">Копировать</button>
+    <button class="btn sm ghost-amber" id="openReport">📄 Открыть полный отчёт</button>
+  </div>
+</div>
+
+<div class="tabpane" id="paneLog" style="padding:14px">
+  <div class="log" id="logFull" style="max-height:none;flex:1"></div>
+</div>
+</div>
+</div>
+
+<!-- ================= DRAWER: полный отчёт ================= -->
+<div class="drawer" id="reportDrawer">
+<div class="drawer-head">
+<button class="back" id="reportBack">← Назад к текущему раунду</button>
+<h3 id="reportTitle">Полный отчёт</h3>
+<button class="btn sm ghost-amber" id="reportCopyClose" title="Скопировать текст отчёта и закрыть">📋 Скопировать и закрыть</button>
+<span class="close" id="reportClose">✕</span>
+</div>
+<div class="drawer-body"><div class="report-body" id="reportBody"></div></div>
+</div>
+
+<!-- ================= DRAWER: история ================= -->
+<div class="drawer" id="historyDrawer" style="width:min(430px,92vw)">
+<div class="drawer-head">
+<h3>История раундов</h3>
+<span class="close" id="historyClose">✕</span>
+</div>
+<div class="history-tools">
+<input type="text" id="histSearch" placeholder="поиск по теме…" style="flex:1;min-width:120px" />
+<select id="histFilter">
+<option value="all">Все</option>
+<option value="ok">Только успешные</option>
+<option value="err">Только с ошибками</option>
+</select>
+<button class="btn sm" id="histClear" title="Удалить все раунды">🗑 Очистить</button>
+</div>
+<div class="drawer-body" style="padding:0"><div class="history" id="history"><div class="empty" style="padding:14px">загрузка…</div></div></div>
+</div>
+
+<!-- ================= уведомление ================= -->
+<div class="notification" id="notify"><span id="notifyText"></span>
+<button class="btn sm" id="notifyGo">Показать</button>
+</div>
+
+<!-- ================= модалка настроек ================= -->
+<div class="modal" id="settingsModal">
+<div class="modal-box">
+<h3> Настройки совета (CouncilConfig)</h3>
+<div class="sub">Сохраняется в локальный config.yaml (не коммитится). Изменения применяются к следующему раунду.</div>
+<div class="modal-tabs">
+<div class="modal-tab active" data-mtab="general">Общие</div>
+<div class="modal-tab" data-mtab="browser">Браузерные ИИ</div>
+<div class="modal-tab" data-mtab="api">API</div>
+<div class="modal-tab" data-mtab="auto">Автоматизация</div>
+<div class="modal-tab" data-mtab="security">Безопасность</div>
+<div class="modal-tab" data-mtab="themes">Темы</div>
+</div>
+<div class="modal-body">
+<div class="mtab" data-mtab="general">
+<div class="opt"><div><label>Параллельность</label><div class="hint">сколько ИИ опрашивать одновременно</div></div><input type="number" id="i_concurrency" min="1" max="8" step="1" /></div>
+<div class="opt"><div><label>Тайм-аут ответа, сек</label><div class="hint">макс. время ожидания одного ИИ</div></div><input type="number" id="i_timeout" min="5" step="5" /></div>
+<div class="opt"><div><label>Пауза между запросами, сек</label><div class="hint">rate-limit / добросовестное использование</div></div><input type="number" id="i_min_interval" min="0.5" step="0.5" /></div>
+</div>
+<div class="mtab" data-mtab="browser" style="display:none">
+<div class="opt"><div><label>Браузерный адаптер включён</label><div class="hint">участники через бесплатные веб-чаты (DeepSeek/QWEN/Claude/Grok)</div></div><div class="toggle" id="t_browser_enabled"></div></div>
+<div class="opt"><div><label>Только бесплатный уровень</label><div class="hint">никогда не автоматизировать платные подписки</div></div><div class="toggle" id="t_free_tier_only"></div></div>
+<div class="gate"><span class="gled ok"></span><div class="gtext"><b>Отдельный браузерный профиль</b><span>не смешивается с банком/почтой/интим</span></div></div>
+<div class="gate"><span class="gled warn"></span><div class="gtext"><b>ToS-информирование</b><span>подтвердите перед первым запуском браузерных участников</span></div></div>
+</div>
+<div class="mtab" data-mtab="api" style="display:none"><div id="endpoints"></div></div>
+<div class="mtab" data-mtab="auto" style="display:none">
+<div class="opt"><div><label>Автономный режим</label><div class="hint">UNI действует без команд (требует явного включения)</div></div><div class="toggle" id="t_autonomous"></div></div>
+<div class="opt"><div><label>Авто-старт сессии</label><div class="hint">запускать hands-free сразу после старта</div></div><div class="toggle" id="t_auto_start"></div></div>
+<div class="gate"><span class="gled warn"></span><div class="gtext"><b>Движение устройства</b><span>требует отдельного подтверждения в config.capabilities.xtoys.autonomous_physical</span></div></div>
+</div>
+<div class="mtab" data-mtab="security" style="display:none">
+<div class="gate"><span class="gled ok"></span><div class="gtext"><b>Бесплатный уровень только</b><span>платные подписки не автоматизируются</span></div></div>
+<div class="gate"><span class="gled ok"></span><div class="gtext"><b>Секреты не передаются</b><span>API-ключи исключаются из контекста участников и не попадают в отчёты</span></div></div>
+<div class="gate"><span class="gled ok"></span><div class="gtext"><b>Отдельный браузерный профиль</b><span>не смешивается с банком/почтой/интим</span></div></div>
+<div class="opt"><div><label>Проверка URL эндпоинтов</label><div class="hint">запрещает передачу ключей в query-параметрах Base URL</div></div><div class="toggle on" id="t_url_check"></div></div>
+</div>
+<div class="mtab" data-mtab="themes" style="display:none">
+<div class="sub2">Темы автоматически подгружаются из папки <b>css/themes</b> (и из <b>/api/themes</b>, если бэкенд её отдаёт). Выбранная тема запоминается в браузере.</div>
+<div class="theme-list" id="themeList"></div>
+<div class="opt" style="border-top:1px solid var(--line-soft)">
+<div><label>Загрузить свой файл темы</label><div class="hint">файл .css сохранится локально и появится в списке</div></div>
+<button class="btn sm" id="themeUploadBtn">⬆ Загрузить CSS</button>
+<input type="file" id="themeUpload" accept=".css,text/css" hidden />
+</div>
+</div>
+</div>
+<div class="modal-actions">
+<button class="btn" id="settingsCancel">Отмена</button>
+<button class="btn primary" id="settingsSave">💾 Сохранить</button>
+</div>
+</div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

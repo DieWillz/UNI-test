@@ -1,0 +1,23 @@
+{
+    "model": {
+        "frontend": {
+            "relpath": "vgg_frontend_fp32_76frames.tflite.ytxt",
+            "input_frame_size": 80,
+            "logits_per_frame": 640,
+            "time_striding": 4,
+            "invalid_input_frames": 16,
+            "return_frames": 125
+        },
+
+        "type": "TfliteStreamingCtcTransformer",
+        "relpath": "subword_ctc_transformer_body_fp32_500frames.tflite.ytxt",
+        "input_frame_size": 640,
+        "logits_per_frame": 1000,
+        "time_striding": 1
+    },
+
+    "fail_on_overflow": false,
+    "streaming": true,
+    "threads": 2,
+    "use_xnnpack": false
+}

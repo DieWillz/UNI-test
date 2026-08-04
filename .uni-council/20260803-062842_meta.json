@@ -1,0 +1,15 @@
+{
+  "topic": "Свободное задание",
+  "round_id": "20260803-062842",
+  "participants": [
+    "DeepSeek"
+  ],
+  "signatures": {},
+  "errors": {
+    "DeepSeek": "TimeoutError: the message was sent, but no completed answer appeared"
+  },
+  "artifacts": {
+    "DeepSeek": ".uni-council\\20260803-062842_DeepSeek.md",
+    "report": ".uni-council\\20260803-062842_report.md"
+  }
+}

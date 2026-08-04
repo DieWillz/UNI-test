@@ -1,0 +1,81 @@
+2026/08/02-22:07:56.643 8d80 File C:\LLM\UNI\.uni-yandex-council-profile\Default\Sync Data\LevelDB is locked for recovering successfully
+2026/08/02-22:07:56.645 8d80 Creating DB C:\LLM\UNI\.uni-yandex-council-profile\Default\Sync Data\LevelDB since it was missing.
+2026/08/02-22:07:56.664 8d80 Reusing MANIFEST C:\LLM\UNI\.uni-yandex-council-profile\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/08/02-22:10:05.904 8db0 Level-0 table #5: started
+2026/08/02-22:10:06.027 8db0 Level-0 table #5: 338980 bytes OK
+2026/08/02-22:10:06.031 8db0 Delete type=0 #3
+2026/08/03-00:25:12.219 8d74 Level-0 table #7: started
+2026/08/03-00:25:12.225 8d74 Level-0 table #7: 198939 bytes OK
+2026/08/03-00:25:12.228 8d74 Delete type=0 #4
+2026/08/03-03:54:21.374 8d80 Level-0 table #9: started
+2026/08/03-03:54:21.398 8d80 Level-0 table #9: 125616 bytes OK
+2026/08/03-03:54:21.403 8d80 Delete type=0 #6
+2026/08/03-11:29:46.922 8da4 Level-0 table #11: started
+2026/08/03-11:29:46.929 8da4 Level-0 table #11: 105508 bytes OK
+2026/08/03-11:29:46.932 8da4 Delete type=0 #8
+2026/08/03-12:24:32.642 8d74 Level-0 table #13: started
+2026/08/03-12:24:32.651 8d74 Level-0 table #13: 179960 bytes OK
+2026/08/03-12:24:32.654 8d74 Delete type=0 #10
+2026/08/03-15:15:12.245 8da4 Level-0 table #15: started
+2026/08/03-15:15:12.253 8da4 Level-0 table #15: 159272 bytes OK
+2026/08/03-15:15:12.257 8da4 Delete type=0 #12
+2026/08/03-15:15:12.258 8da4 Compacting 4@0 + 1@1 files
+2026/08/03-15:15:12.267 8da4 Generated table #16@0: 309 keys, 65933 bytes
+2026/08/03-15:15:12.267 8da4 Compacted 4@0 + 1@1 files => 65933 bytes
+2026/08/03-15:15:12.269 8da4 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-15:15:12.270 8da4 Delete type=2 #7
+2026/08/03-15:15:12.270 8da4 Delete type=2 #9
+2026/08/03-15:15:12.270 8da4 Delete type=2 #11
+2026/08/03-15:15:12.270 8da4 Delete type=2 #13
+2026/08/03-15:15:12.270 8da4 Delete type=2 #15
+2026/08/03-17:35:45.194 8d80 Level-0 table #18: started
+2026/08/03-17:35:45.200 8d80 Level-0 table #18: 140745 bytes OK
+2026/08/03-17:35:45.201 8d80 Delete type=0 #14
+2026/08/03-21:22:55.744 8d74 Level-0 table #20: started
+2026/08/03-21:22:55.751 8d74 Level-0 table #20: 101886 bytes OK
+2026/08/03-21:22:55.753 8d74 Delete type=0 #17
+2026/08/03-22:27:04.878 8da4 Level-0 table #22: started
+2026/08/03-22:27:04.885 8da4 Level-0 table #22: 149650 bytes OK
+2026/08/03-22:27:04.887 8da4 Delete type=0 #19
+2026/08/03-22:54:25.759 8d74 Level-0 table #24: started
+2026/08/03-22:54:25.765 8d74 Level-0 table #24: 133667 bytes OK
+2026/08/03-22:54:25.766 8d74 Delete type=0 #21
+2026/08/03-22:54:25.767 8d74 Compacting 4@0 + 1@1 files
+2026/08/03-22:54:25.774 8d74 Generated table #25@0: 1574 keys, 146547 bytes
+2026/08/03-22:54:25.775 8d74 Compacted 4@0 + 1@1 files => 146547 bytes
+2026/08/03-22:54:25.775 8d74 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-22:54:25.776 8d74 Delete type=2 #16
+2026/08/03-22:54:25.776 8d74 Delete type=2 #18
+2026/08/03-22:54:25.776 8d74 Delete type=2 #20
+2026/08/03-22:54:25.776 8d74 Delete type=2 #22
+2026/08/03-22:54:25.776 8d74 Delete type=2 #24
+2026/08/03-23:04:13.063 8da4 Level-0 table #27: started
+2026/08/03-23:04:13.070 8da4 Level-0 table #27: 126955 bytes OK
+2026/08/03-23:04:13.075 8da4 Delete type=0 #23
+2026/08/03-23:49:11.422 8d74 Level-0 table #29: started
+2026/08/03-23:49:11.426 8d74 Level-0 table #29: 128019 bytes OK
+2026/08/03-23:49:11.427 8d74 Delete type=0 #26
+2026/08/04-00:51:09.781 8dac Level-0 table #31: started
+2026/08/04-00:51:09.791 8dac Level-0 table #31: 159078 bytes OK
+2026/08/04-00:51:09.794 8dac Delete type=0 #28
+2026/08/04-01:02:17.635 8d74 Level-0 table #33: started
+2026/08/04-01:02:17.639 8d74 Level-0 table #33: 254144 bytes OK
+2026/08/04-01:02:17.640 8d74 Delete type=0 #30
+2026/08/04-01:02:17.641 8d74 Compacting 4@0 + 1@1 files
+2026/08/04-01:02:17.649 8d74 Generated table #34@0: 1807 keys, 315861 bytes
+2026/08/04-01:02:17.649 8d74 Compacted 4@0 + 1@1 files => 315861 bytes
+2026/08/04-01:02:17.650 8d74 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/04-01:02:17.650 8d74 Delete type=2 #25
+2026/08/04-01:02:17.650 8d74 Delete type=2 #27
+2026/08/04-01:02:17.651 8d74 Delete type=2 #29
+2026/08/04-01:02:17.651 8d74 Delete type=2 #31
+2026/08/04-01:02:17.651 8d74 Delete type=2 #33
+2026/08/04-01:50:38.134 8d74 Level-0 table #36: started
+2026/08/04-01:50:38.139 8d74 Level-0 table #36: 173915 bytes OK
+2026/08/04-01:50:38.140 8d74 Delete type=0 #32
+2026/08/04-02:22:29.458 8d74 Level-0 table #38: started
+2026/08/04-02:22:29.463 8d74 Level-0 table #38: 191050 bytes OK
+2026/08/04-02:22:29.464 8d74 Delete type=0 #35
+2026/08/04-03:30:53.881 8d74 Level-0 table #40: started
+2026/08/04-03:30:53.886 8d74 Level-0 table #40: 207055 bytes OK
+2026/08/04-03:30:53.887 8d74 Delete type=0 #37

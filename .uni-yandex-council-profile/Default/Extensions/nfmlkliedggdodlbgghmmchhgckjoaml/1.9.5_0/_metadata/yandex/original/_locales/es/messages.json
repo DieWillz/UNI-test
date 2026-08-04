@@ -1,0 +1,10 @@
+{
+    "name": {
+      "description": "Extension's name",
+      "message": "Bloqueador de anuncios de Spotify - Blockify"
+    },
+    "description": {
+        "description": "Extension's description",
+        "message": "Disfrute de Spotify sin anuncios, utilizando Blockify, un bloqueador de anuncios para Spotify."
+      }
+}

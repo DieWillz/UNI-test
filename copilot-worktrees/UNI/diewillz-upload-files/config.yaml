@@ -1,0 +1,106 @@
+# UNI — конфигурация для голосового управления XToys
+
+brain:
+  base_url: "http://localhost:1234/v1"
+  api_key: "lm-studio"
+  model: "qwen2.5-7b-instruct-1m"
+  vision_model: "mistralai/ministral-3-3b"
+  # null = тот же LM Studio, что и для текста. Для отдельного Vision-сервера:
+  # vision_base_url: "http://localhost:1235/v1"
+  vision_base_url: null
+  vision_api_key: null
+  temperature: 0.8                     # пошло и жёстко, не сухо
+  max_tokens: 2000
+  timeout_seconds: 20
+
+capabilities:
+  browser:
+    headless: false
+    viewport_width: 1280
+    viewport_height: 720
+    channel: "chrome"
+    cdp_url: "http://127.0.0.1:9222"
+    user_data_dir: ".uni-browser-profile"
+    search_engine: "https://www.bing.com/search?q={query}"
+    image_search_engine: "https://yandex.ru/images/search?text={query}"
+  computer:
+    use_uia: true
+    failsafe: true
+    mouse_move_duration: 0.35         # движение курсора видно перед кликом
+  camera:
+    enabled: true
+    device_index: 1                   # рабочая Wed Camera через DirectShow
+    backend: "dshow"
+    width: 1280
+    height: 720
+    min_brightness: 15              # ниже этого Vision не строит догадки
+    sample_interval_seconds: 60
+    reminder_interval_seconds: 1800   # каждые 30 минут при долгом наблюдении
+    default_watch_seconds: 600
+    max_watch_seconds: 28800
+  speech:
+    stt_model: "small"               # точнее base для русской речи
+    stt_device: "cuda"               # RTX 3060
+    stt_compute_type: "float16"
+    stt_beam_size: 5                  # точнее beam=1, на GPU задержка остаётся небольшой
+    microphone_gain: 7.0              # программное усиление тихого микрофона с ограничителем
+    voice_activation_threshold: 0.004 # игнорировать тишину и слабый фон
+    voice_silence_seconds: 0.8         # конец фразы после паузы
+    max_utterance_seconds: 8.0         # не обрезать длинную команду на 2,5 секунде
+    tts_provider: "silero"           # silero | piper
+    tts_voice: "ru_RU-irina-medium.onnx"  # Piper
+    silero_model: "v5_5_ru"
+    silero_speaker: "xenia"          # варианты: xenia, kseniya, baya, aidar, eugene
+    silero_sample_rate: 48000
+    sample_rate: 16000
+    listen_duration: 2.5              # сколько ждать начала речи перед новым циклом
+    input_device: 1                   # Микрофон PH-H02B (MME)
+    output_device: 4                  # Наушники PH-H02B (MME)
+  vision:
+    enabled: true
+    provider: "gradio"               # gradio | openai
+    model: "qwen3.5-9b"
+    gradio_url: "http://127.0.0.1:7860/"
+    gradio_api_name: "/answer_question"
+    gradio_fallback_api_name: "/answer_question_1"
+    resize_width: 960
+    resize_height: 540
+    save_screenshots: false
+  xtoys:
+    url: "https://xtoys.app"
+    max_intensity: 90                 # предохранительный максимум (хочешь 100 — поставь 100)
+    # ДВА гейта для автономного движения без команд. Оба должны быть true.
+    # Устройство НЕ двинется, пока не разрешишь осознанно. У тебя есть физический пульт — аварийный стоп.
+    autonomous_physical: true
+
+agent:
+  default_role: "xtoys_mistress"
+  cycle_interval: 2.0
+  max_retries: 3
+  verification_enabled: false
+  input_mode: "mixed"
+  speak_responses: true
+  max_parallel_tasks: 3
+  max_pending_tasks: 6
+  task_timeout_seconds: 120
+  exploration_steps: 3
+  visual_ui_max_steps: 20
+  response_max_chars: 700
+  spoken_response_max_chars: 320      # длинный текст остаётся в консоли, голос говорит кратко
+  autonomous:
+    enabled: true                      # АВТОНОМНЫЙ режим: сама говорит и крутит, без команд
+    auto_start_session: true           # сразу после `python -m uni` начинает сессию
+    vision_interval_seconds: 15
+    speech_interval_seconds: 7         # раз в 7 секунд новая пошлая фраза
+    device_interval_seconds: 2         # тикает Speed каждые 2 секунды
+    conductor_interval_seconds: 25     # LLM подсказывает фразы/интенсивность (опц.)
+    require_connect: false             # true = не крутить, пока XToys не подключен
+
+logging:
+  enabled: true
+  directory: ".uni-logs"
+
+memory:
+  path: "memory/working.json"
+  max_context_tokens: 4000
+  max_dialogue_turns: 50

@@ -1,0 +1,15 @@
+{
+  "topic": "тест",
+  "round_id": "20260802-213204",
+  "participants": [
+    "Groq"
+  ],
+  "signatures": {},
+  "errors": {
+    "Groq": "HTTP 401: {\"error\":{\"message\":\"Invalid API Key\",\"type\":\"invalid_request_error\",\"code\":\"invalid_api_key\"}}\n"
+  },
+  "artifacts": {
+    "Groq": ".uni-council\\20260802-213204_Groq.md",
+    "report": ".uni-council\\20260802-213204_report.md"
+  }
+}

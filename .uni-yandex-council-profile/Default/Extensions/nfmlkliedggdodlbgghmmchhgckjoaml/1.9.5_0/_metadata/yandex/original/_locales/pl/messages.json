@@ -1,0 +1,10 @@
+{
+    "name": {
+      "description": "Extension's name",
+      "message": "Spotify Bloker Reklam – Blockify"
+    },
+    "description": {
+        "description": "Extension's description",
+        "message": "Blockify to bloker reklam Spotify, zapewnia Spotify bez reklam, blokując i usuwając reklamy audio za pomocą technologii adblock."
+      }
+}

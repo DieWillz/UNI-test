@@ -1,0 +1,83 @@
+{
+   "close": {
+      "message": "닫다"
+   },
+   "copy": {
+      "message": "URL 복사"
+   },
+   "copy_success": {
+      "message": "성공적으로 복사되었습니다."
+   },
+   "download": {
+      "message": "다운로드"
+   },
+   "filter_lead": {
+      "message": "이 값보다 작은 크기의 동영상은 캡처되지 않습니다."
+   },
+   "hour": {
+      "message": "시"
+   },
+   "manifest_browser_action": {
+      "message": "MPMux"
+   },
+   "manifest_description": {
+      "message": "MP4, m3u8, hls, live와 같은 온라인 비디오를 저장하는 전문 비디오 다운로더."
+   },
+   "manifest_name": {
+      "message": "범용 비디오 다운로더 - MPMux"
+   },
+   "minute": {
+      "message": "분"
+   },
+   "more_than_one_day": {
+      "message": "하루 이상"
+   },
+   "no_more_resolution": {
+      "message": "더 이상 해상도가 없습니다."
+   },
+   "no_result": {
+      "message": "리소스 파일을 찾을 수 없습니다!"
+   },
+   "no_video": {
+      "message": "비디오를 녹화할 수 없거나 비디오가 존재하지 않습니다!"
+   },
+   "not_support": {
+      "message": "이 사이트는 지원되지 않습니다"
+   },
+   "play": {
+      "message": "동영상 재생"
+   },
+   "popup_modal_body": {
+      "message": "녹화하기 전에 고정 해상도를 선택하십시오(비디오에 이 옵션이 있는 경우). 자동 해상도는 다른 크기의 프레임을 생성하여 비디오가 분할될 수 있기 때문입니다."
+   },
+   "popup_modal_close": {
+      "message": "닫다"
+   },
+   "popup_modal_confirm": {
+      "message": "확인하다"
+   },
+   "popup_modal_title": {
+      "message": "팁"
+   },
+   "recording_mode": {
+      "message": "녹화 모드"
+   },
+   "second": {
+      "message": "초"
+   },
+   "size_filter": {
+      "message": "필터"
+   },
+   "tips": {
+      "message": "팁"
+   },
+   "tips_text_1": {
+      "message": "일부 동영상은 재생될 때까지 캡처되지 않을 수 있습니다. 대상 동영상이 목록에 없으면 재생하거나 페이지를 새로고침하세요."
+   },
+   "tips_text_2": {
+      "message": "시도 후에도 여전히 작동하지 않으면 \"녹화 모드\"로 강제 다운로드하십시오."
+   },
+   "video_flush_error": {
+      "message": "비디오 플러시 오류"
+   }
+}

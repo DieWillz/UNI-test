@@ -198,6 +198,8 @@ def test_browser_provider_rate_limits_with_pause(monkeypatch, tmp_path):
 
 def test_runner_drops_browser_when_no_browser_flag():
     # Smoke: _maybe_start_browser with --no-browser returns no session and only api parts.
+    # DeepSeek/QWEN are BROWSER participants (no free API), so they are dropped when
+    # browser is off; Hermes is an API participant and remains.
     import asyncio
     from types import SimpleNamespace
     from uni.council import run as run_mod
@@ -213,4 +215,4 @@ def test_runner_drops_browser_when_no_browser_flag():
     session, parts = asyncio.run(run_mod._maybe_start_browser(args, cfg))
     assert session is None
     assert all(p.transport == "api" for p in parts)
-    assert {p.name for p in parts} == {"DeepSeek", "QWEN", "Hermes"}
+    assert {p.name for p in parts} == {"Hermes"}

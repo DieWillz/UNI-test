@@ -1,106 +1,147 @@
-# UNI — конфигурация для голосового управления XToys
-
 brain:
-  base_url: "http://localhost:1234/v1"
-  api_key: "lm-studio"
-  model: "qwen2.5-7b-instruct-1m"
-  vision_model: "mistralai/ministral-3-3b"
-  # null = тот же LM Studio, что и для текста. Для отдельного Vision-сервера:
-  # vision_base_url: "http://localhost:1235/v1"
+  base_url: http://localhost:1234/v1
+  api_key: lm-studio
+  model: auto
+  vision_model: auto
   vision_base_url: null
   vision_api_key: null
-  temperature: 0.8                     # пошло и жёстко, не сухо
+  temperature: 0.8
   max_tokens: 2000
-  timeout_seconds: 20
-
+  timeout_seconds: 20.0
 capabilities:
   browser:
     headless: false
     viewport_width: 1280
     viewport_height: 720
-    channel: "chrome"
-    cdp_url: "http://127.0.0.1:9222"
-    user_data_dir: ".uni-browser-profile"
-    search_engine: "https://www.bing.com/search?q={query}"
-    image_search_engine: "https://yandex.ru/images/search?text={query}"
+    channel: chrome
+    user_data_dir: .uni-browser-profile
+    search_engine: https://yandex.ru/search/?text={query}
+    image_search_engine: https://yandex.ru/images/search?text={query}
+    cdp_url: http://127.0.0.1:9222
+    agent_cursor:
+      enabled: true
+      label: UNI
+      move_ms: 220
+      hide_after_ms: 1200
   computer:
     use_uia: true
     failsafe: true
-    mouse_move_duration: 0.35         # движение курсора видно перед кликом
+    mouse_move_duration: 0.35
+    action_badge: true
+    action_badge_label: UNI
   camera:
     enabled: true
-    device_index: 1                   # рабочая Wed Camera через DirectShow
-    backend: "dshow"
+    device_index: 1
+    backend: dshow
     width: 1280
     height: 720
-    min_brightness: 15              # ниже этого Vision не строит догадки
-    sample_interval_seconds: 60
-    reminder_interval_seconds: 1800   # каждые 30 минут при долгом наблюдении
-    default_watch_seconds: 600
-    max_watch_seconds: 28800
+    min_brightness: 15.0
+    sample_interval_seconds: 60.0
+    reminder_interval_seconds: 1800.0
+    default_watch_seconds: 600.0
+    max_watch_seconds: 28800.0
   speech:
-    stt_model: "small"               # точнее base для русской речи
-    stt_device: "cuda"               # RTX 3060
-    stt_compute_type: "float16"
-    stt_beam_size: 5                  # точнее beam=1, на GPU задержка остаётся небольшой
-    microphone_gain: 7.0              # программное усиление тихого микрофона с ограничителем
-    voice_activation_threshold: 0.004 # игнорировать тишину и слабый фон
-    voice_silence_seconds: 0.8         # конец фразы после паузы
-    max_utterance_seconds: 8.0         # не обрезать длинную команду на 2,5 секунде
-    tts_provider: "silero"           # silero | piper
-    tts_voice: "ru_RU-irina-medium.onnx"  # Piper
-    silero_model: "v5_5_ru"
-    silero_speaker: "xenia"          # варианты: xenia, kseniya, baya, aidar, eugene
+    stt_model: small
+    stt_device: cuda
+    stt_compute_type: float16
+    stt_beam_size: 5
+    microphone_gain: 7.0
+    voice_activation_threshold: 0.004
+    voice_silence_seconds: 0.8
+    max_utterance_seconds: 8.0
+    tts_provider: silero
+    tts_voice: ru_RU-irina-medium.onnx
+    silero_model: v5_5_ru
+    silero_speaker: xenia
     silero_sample_rate: 48000
     sample_rate: 16000
-    listen_duration: 2.5              # сколько ждать начала речи перед новым циклом
-    input_device: 1                   # Микрофон PH-H02B (MME)
-    output_device: 4                  # Наушники PH-H02B (MME)
+    listen_duration: 2.5
+    input_device: 1
+    output_device: 4
   vision:
     enabled: true
-    provider: "gradio"               # gradio | openai
-    model: "qwen3.5-9b"
-    gradio_url: "http://127.0.0.1:7860/"
-    gradio_api_name: "/answer_question"
-    gradio_fallback_api_name: "/answer_question_1"
+    provider: gradio
+    model: qwen3.5-9b
+    gradio_url: http://127.0.0.1:7860/
+    gradio_api_name: /answer_question
+    gradio_fallback_api_name: /answer_question_1
     resize_width: 960
     resize_height: 540
     save_screenshots: false
   xtoys:
-    url: "https://xtoys.app"
-    max_intensity: 90                 # предохранительный максимум (хочешь 100 — поставь 100)
-    # ДВА гейта для автономного движения без команд. Оба должны быть true.
-    # Устройство НЕ двинется, пока не разрешишь осознанно. У тебя есть физический пульт — аварийный стоп.
+    url: https://xtoys.app
+    max_intensity: 90
     autonomous_physical: true
-
 agent:
-  default_role: "xtoys_mistress"
+  default_role: mistress2
   cycle_interval: 2.0
   max_retries: 3
   verification_enabled: false
-  input_mode: "mixed"
+  input_mode: mixed
   speak_responses: true
   max_parallel_tasks: 3
   max_pending_tasks: 6
-  task_timeout_seconds: 120
+  task_timeout_seconds: 120.0
   exploration_steps: 3
   visual_ui_max_steps: 20
   response_max_chars: 700
-  spoken_response_max_chars: 320      # длинный текст остаётся в консоли, голос говорит кратко
+  spoken_response_max_chars: 320
   autonomous:
-    enabled: true                      # АВТОНОМНЫЙ режим: сама говорит и крутит, без команд
-    auto_start_session: true           # сразу после `python -m uni` начинает сессию
-    vision_interval_seconds: 15
-    speech_interval_seconds: 7         # раз в 7 секунд новая пошлая фраза
-    device_interval_seconds: 2         # тикает Speed каждые 2 секунды
-    conductor_interval_seconds: 25     # LLM подсказывает фразы/интенсивность (опц.)
-    require_connect: false             # true = не крутить, пока XToys не подключен
-
-logging:
-  enabled: true
-  directory: ".uni-logs"
-
+    enabled: true
+    auto_start_session: true
+    vision_interval_seconds: 15.0
+    speech_interval_seconds: 7.0
+    device_interval_seconds: 2.0
+    conductor_interval_seconds: 25.0
+    enable_device_motion: false
+    require_connect: false
 memory:
-  path: "memory/working.json"
+  path: memory/working.json
   max_context_tokens: 4000
   max_dialogue_turns: 50
+logging:
+  enabled: true
+  directory: .uni-logs
+autonomous:
+  enabled: false
+  auto_start_session: false
+  vision_interval_seconds: 15.0
+  speech_interval_seconds: 7.0
+  device_interval_seconds: 2.0
+  conductor_interval_seconds: 25.0
+  enable_device_motion: false
+  require_connect: false
+safety:
+  autonomy_level: "off"
+council:
+  enabled: true
+  artifacts_dir: .uni-council
+  concurrency: 3
+  timeout_seconds: 90.0
+  collect_signatures: true
+  browser_enabled: true
+  inform_tos: true
+  free_tier_only: true
+  min_interval_seconds: 8.0
+  browser_profile: .uni-council-browser-profile
+  api_endpoints:
+    openrouter:
+      base_url: https://openrouter.ai/api/v1
+      model: deepseek/deepseek-chat-v3.1:free
+      api_key: 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
+    groq:
+      base_url: https://api.groq.com/openai/v1
+      api_key: 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
+    gemini:
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+      api_key: AQ.Ab8RN6JxjEj5J5MkLK63Yaz9X8FTaxJ_MysG3t-mOAa8IL9BPQ
+    huggingface:
+      base_url: https://router.huggingface.co/v1
+      api_key: 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
+    codex:
+      base_url: http://localhost:1240/v1
+      api_key: ''
+    hermes:
+      base_url: http://127.0.0.1:1234/v1
+      api_key: lm-studio
+      model: qwen3.5-9b
