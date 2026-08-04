@@ -373,6 +373,22 @@ class _Handler(BaseHTTPRequestHandler):
             }
             self._json(200, data)
             return
+        # --- гибридный слой «отправка заданий участникам» (поверх DEFAULT_PARTICIPANTS) ---
+        if parsed.path == "/api/members":
+            from uni.webui.council_api import list_members
+
+            self._json(200, {"members": list_members()})
+            return
+        m = re.match(r"^/api/round/(\d+)$", parsed.path)
+        if m:
+            from uni.webui.council_api import get_round
+
+            rec = get_round(int(m.group(1)))
+            if rec is None:
+                self._json(404, {"error": "round not found"})
+            else:
+                self._json(200, rec)
+            return
         if parsed.path == "/api/history/delete":
             self.send_response(405, "Method Not Allowed")
             self.send_header("Allow", "POST")
@@ -485,6 +501,35 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/xtoys":
             self._handle_xtoys()
+            return
+        # --- гибридный слой «отправка заданий участникам» ---
+        if self.path == "/api/round":
+            from uni.webui.council_api import create_round
+
+            body = self._read_json_body()
+            task = str(body.get("task", "")).strip()
+            members = body.get("members")
+            if not task:
+                self._json(400, {"error": "task обязателен"})
+                return
+            try:
+                result = asyncio.run(create_round(task, members))
+                self._json(200, result)
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        mp = re.match(r"^/api/round/(\d+)/paste$", self.path)
+        if mp:
+            from uni.webui.council_api import paste_response
+
+            body = self._read_json_body()
+            member = str(body.get("member", "")).strip()
+            text = str(body.get("text", ""))
+            rec = paste_response(int(mp.group(1)), member, text)
+            if rec is None:
+                self._json(404, {"error": "round или участник не найден"})
+            else:
+                self._json(200, {"ok": True, "round_id": rec["round_id"]})
             return
         # ====================== конец Chat Hub ======================
         self._send(404, b"not found", "text/plain")

@@ -85,6 +85,7 @@ class Agent:
             mouse_move_duration=cc.mouse_move_duration,
             action_badge_enabled=getattr(cc, "action_badge", True),
             action_badge_label=getattr(cc, "action_badge_label", "UNI"),
+            human_mouse_config=getattr(cc, "human_mouse", None),
         )
         camera_config = config.capabilities.camera
         camera = CameraCapability(

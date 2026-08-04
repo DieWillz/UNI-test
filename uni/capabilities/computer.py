@@ -34,9 +34,11 @@ class ComputerCapability(Capability):
         telegram_user_path: str | Path | None = None,
         action_badge_enabled: bool = True,
         action_badge_label: str = "UNI",
+        human_mouse_config: dict | None = None,
     ):
         self.use_uia = use_uia
         self.mouse_move_duration = max(0.0, min(float(mouse_move_duration), 2.0))
+        self._hm_cfg = human_mouse_config or {}
         project_root = Path(__file__).resolve().parents[2]
         appdata = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
         self.telegram_uni_path = Path(telegram_uni_path or project_root / "Telegram" / "Telegram.exe")
@@ -52,6 +54,20 @@ class ComputerCapability(Capability):
                 self._badge = UniActionBadge(enabled=True, label=action_badge_label)
             except Exception:
                 self._badge = None
+        # Человеко-подобный исполнитель мыши (minimum-jerk, Безье, overshoot).
+        # Старый click() (линейный pyautogui) остаётся для скорости; новый —
+        # отдельный путь click_human / drag_human.
+        try:
+            from uni.human_mouse import HumanMouseController, HumanMouseSettings
+
+            hm_cfg = getattr(self, "_hm_cfg", None)
+            _move = float((hm_cfg or {}).get("move_duration", self.mouse_move_duration))
+            _badge = bool((hm_cfg or {}).get("show_badge", True))
+            self._human_mouse = HumanMouseController(
+                HumanMouseSettings(move_duration=_move, show_badge=_badge)
+            )
+        except Exception:
+            self._human_mouse = None
 
     def _flash_badge(self, x: int, y: int, action: str = "click") -> None:
         if self._badge is not None:
@@ -186,6 +202,28 @@ class ComputerCapability(Capability):
             )
             await asyncio.to_thread(pyautogui.click, x, y, button=button)
             return ToolResult(success=True, message=f"Клик ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    async def click_human(self, x: int, y: int, button: str = "left") -> ToolResult:
+        """Человеко-подобный клик: Безье + minimum-jerk + overshoot + бейдж."""
+        if self._human_mouse is None:
+            return ToolResult(success=False, message="human_mouse недоступен (нет win32)")
+        try:
+            await self._human_mouse.click(int(x), int(y), button)
+            return ToolResult(success=True, message=f"Клик (человеко-подобный) ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    async def drag_human(
+        self, x1: int, y1: int, x2: int, y2: int, button: str = "left"
+    ) -> ToolResult:
+        """Человеко-подобный drag: зажать в (x1,y1), вести траекторию до (x2,y2)."""
+        if self._human_mouse is None:
+            return ToolResult(success=False, message="human_mouse недоступен (нет win32)")
+        try:
+            await self._human_mouse.drag(int(x1), int(y1), int(x2), int(y2), button)
+            return ToolResult(success=True, message=f"Drag ({x1},{y1})->({x2},{y2})")
         except Exception as e:
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
@@ -1050,4 +1088,15 @@ class ComputerCapability(Capability):
             return await self.list_visible_windows()
         elif action == "press":
             return await self.press_key(kwargs.get("key", ""))
+        elif action == "click_human":
+            return await self.click_human(
+                int(kwargs.get("x", 0)), int(kwargs.get("y", 0)),
+                str(kwargs.get("button", "left")),
+            )
+        elif action == "drag_human":
+            return await self.drag_human(
+                int(kwargs.get("x1", 0)), int(kwargs.get("y1", 0)),
+                int(kwargs.get("x2", 0)), int(kwargs.get("y2", 0)),
+                str(kwargs.get("button", "left")),
+            )
         return ToolResult(success=False, message=f"Неизвестное действие: {action}")

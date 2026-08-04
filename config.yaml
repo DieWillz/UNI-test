@@ -29,6 +29,9 @@ capabilities:
     mouse_move_duration: 0.35
     action_badge: true
     action_badge_label: UNI
+    human_mouse:
+      move_duration: 0.35
+      show_badge: true
   camera:
     enabled: true
     device_index: 1

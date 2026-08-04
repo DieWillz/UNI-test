@@ -46,7 +46,46 @@
 
 ---
 
-### 2026-08-03 20:15 · Hermes · SafetyGuard → заглушка (физический пульт = контроль у пользователя) + XToys-панель
+### 2026-08-03 21:40 · Hermes · Модуль мыши как у человека (финал: ядро Claude + фасад + интеграция)
+
+**Задача:** Юни управляет ПК как обычный человек — плавное, живое движение курсора.
+Аудит совета (DeepSeek/Claude/прежний вариант): ядро движения — файлы Claude
+(minimum-jerk Flash&Hogan, Безье-дуга, overshoot+коррекция, jitter с масштабом под
+дистанцию, win32-слой с dwell между down/up), мой слой — фасад/верификация/cancel/шоу/табличка.
+
+**КРИТИЧЕСКИЙ БАГ (найден и исправлен):** в `human_mouse.py` `win32api.mouse_event(down_evt, x, y, 0, 0)`
+передавал АБСОЛЮТНЫЕ координаты в `mouse_event` (dx/dy — относительные!) → клик/драг
+телепортировал курсор на (x,y) px мимо цели. Исправлено: после `SetCursorPos` шлём `(evt, 0, 0, 0, 0)`
+во всех 4 местах (`_click_sync`, `_drag_sync` down/up). Подтверждено тестом `test_click_uses_relative_zero_coords`.
+
+**Изменённые/созданные файлы:**
+| Файл | Что сделано |
+|------|-------------|
+| `uni/human_motion.py` | УЖЕ был (Claude): minimum-jerk + Безье + overshoot + jitter. **ДОБАВЛЕНО**: `build_circle_path`, `build_wander_path` (spiral/heart уже были). |
+| `uni/human_mouse.py` | УЖЕ был (Claude): HumanMouseController. **ИСПРАВЛЕНО**: `mouse_event` → 0,0; `asyncio.Event`→`threading.Event` (cancel из любого потока); добавлен `play_points`/`_play_sync` (шоу-фигуры); cancel-логика сделана стиккой (без `.clear()`, иначе `_move_sync` сбрасывал флаг для `_drag_sync`); импорт бейджа `from .action_badge` с фолбэком на `uni_action_badge`. |
+| `uni/motion/driver.py` | **ПЕРЕПИСАН** как фасад поверх `HumanMouseController` (сохранён публичный API: `move_to/click/drag_to/wander/circle/draw/wiggle/cancel`) — `scenarios/xtoys.py` и `label` работают без правок. |
+| `uni/motion/label.py` | Добавлен `flash(text, ms)` — вспышка текста таблички (вместо отдельного окна-бейджа) + обработка команды `flash` в цикле `tick()`. |
+| `uni/capabilities/computer.py` | `__init__`: параметр `human_mouse_config`, создаёт `self._human_mouse` (HumanMouseController). Добавлены `click_human`/`drag_human` РЯДОМ со старым `click` (обратная совместимость). В `execute`: ветки `click_human`/`drag_human`. |
+| `uni/tools/executors.py` | Роутинг `computer.click_human`/`computer.drag_human` → capability. |
+| `uni/agent.py` | `ComputerCapability(..., human_mouse_config=cc.human_mouse)`. |
+| `uni/config.py` | `ComputerConfig.human_mouse: dict` (move_duration, show_badge). |
+| `config.yaml` | `computer.human_mouse: {move_duration: 0.35, show_badge: true}`. |
+| `uni/__main__.py` | `--demo` choices + `mouse`; ветка `if args.demo == "mouse": run_mouse_demo(...)`. |
+| `uni/scenarios/mouse_show.py` | **СОЗДАН**: демо wiggle→wander→спираль→♥ с табличкой `CursorLabelOverlay`. |
+| `tests/test_human_mouse.py` | **СОЗДАН**: 10 тестов (минимум-джерк профиль, сумма delays, фигуры t∈[0,1], мок win32api: клик/драг 0,0, move→цель, cancel прерывает). |
+
+**Проверено:**
+```
+py_compile uni/human_motion.py uni/human_mouse.py uni/motion/driver.py uni/motion/label.py \
+  uni/capabilities/computer.py uni/agent.py uni/__main__.py uni/config.py \
+  uni/tools/executors.py uni/scenarios/mouse_show.py → OK
+scripts/check_architecture.py --strict → 0 error(s), 0 warning(s)
+pytest tests/test_human_mouse.py → 10 passed
+pytest tests/ → 170 passed + 7 subtests (1 pre-existing council deselected: не моя зона)
+```
+🤖 AI-правка. Hermes = модуль мыши (человеко-подобный) от 2026-08-03 21:40
+
+---
 
 **Задача (1):** ПОЛНАЯ зачистка `uni/safety.py` — убрать всю «защиту от самого себя».
 Пользователь подтвердил: есть физический пульт → нет аварийных стопов, лимитов,

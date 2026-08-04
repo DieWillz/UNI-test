@@ -85,7 +85,7 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
         "role": "Risk analyst",
         "transport": "api",  # free Gemini API (user provides a key)
         "endpoint": "gemini",
-        "model": "gemini-1.5-flash",
+        "model": "gemini-2.0-flash",
     },
     {
         "name": "Groq",

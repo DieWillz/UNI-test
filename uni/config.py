@@ -39,6 +39,7 @@ class ComputerConfig(BaseModel):
     mouse_move_duration: float = Field(default=0.35, ge=0.0, le=2.0)
     action_badge: bool = True  # desktop «UNI» badge near pyautogui clicks
     action_badge_label: str = "UNI"
+    human_mouse: dict = Field(default_factory=lambda: {"move_duration": 0.35, "show_badge": True})
 
 class CameraConfig(BaseModel):
     enabled: bool = True

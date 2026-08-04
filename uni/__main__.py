@@ -35,7 +35,7 @@ async def async_main() -> int:
     parser.add_argument("--webui", action="store_true", help="Запустить веб-консоль разработки (UNI Council GUI)")
     parser.add_argument(
         "--demo",
-        choices=("xtoys",),
+        choices=("xtoys", "mouse"),
         default=None,
         help="Запустить демо-сценарий вместо основного цикла агента",
     )
@@ -51,6 +51,12 @@ async def async_main() -> int:
         from uni.scenarios.xtoys import run_xtoys_demo
 
         await run_xtoys_demo(config)
+        return 0
+
+    if args.demo == "mouse":
+        from uni.scenarios.mouse_show import run_mouse_demo
+
+        await run_mouse_demo(load_config(args.config))
         return 0
 
     config = load_config(args.config)
