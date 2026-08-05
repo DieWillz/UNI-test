@@ -332,53 +332,83 @@ class _Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, value: Any) -> None:
         self._send(code, json.dumps(value, ensure_ascii=False).encode("utf-8"))
 
+    def _redirect(self, location: str, code: int = 301) -> None:
+        body = b""
+        self.send_response(code)
+        self.send_header("Location", location)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_file_with_cache(self, path: Path, ctype: str, *, no_cache: bool = False) -> None:
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        if no_cache:
+            self.send_header("Cache-Control", "no-cache")
+        else:
+            self.send_header("Cache-Control", "public, max-age=300")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _send_204(self) -> None:
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path in ("/favicon.ico",):
+            # B-04: заглушка, чтобы не было 404 в консоли браузера
+            self._send_204()
+            return
         if parsed.path in ("/", "/index.html"):
             if _FRONTEND.exists():
-                self._send(200, _FRONTEND.read_bytes(), "text/html; charset=utf-8")
+                self._send_file_with_cache(_FRONTEND, "text/html; charset=utf-8", no_cache=True)
             else:
                 self._send(404, b"frontend missing", "text/plain")
             return
         if parsed.path in ("/chat", "/chat.html"):
-            chat_html = (_HERE / "chat.html")
-            if chat_html.exists():
-                self._send(200, chat_html.read_bytes(), "text/html; charset=utf-8")
-            else:
-                self._send(404, b"chat frontend missing", "text/plain")
+            # B-01: 301 редирект на единый SPA-интерфейс
+            self._redirect("/", code=301)
             return
+
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
             return
-        # --- локальная статика (style.css, app.js, theme_*.css, иконки) ---
-        # UNI-UI-STAB: после разделения index.html на 3 файла браузер запрашивает
-        # style.css/app.js по отдельным URL; кастомный do_GET ранее отдавал на них 404.
-        # Белый список расширений (_STATIC_TYPES): отдаём ТОЛЬКО браузерные ассеты.
-        # Любой другой суффикс (.py/.yaml/.txt/...) — 404, даже если файл лежит в папке.
-        # urlparse уже нормализует "..", поэтому доп. защита — только разрешённые типы.
-        # Алиасы старых путей -> новая структура (js/ и css/), чтобы интерфейс работал
-        # независимо от того, обновлён index.html или нет.
+
+        # B-03: статика кешируется (max-age); браузер добавляет ?v= для инвалидации.
+        # Отсекаем query-строку, чтобы /js/app.js?v=123 находил тот же файл.
+        clean_path = parsed.path.split("?", 1)[0]
         _STATIC_ALIASES = {
             "/style.css": "css/style.css",
             "/app.js": "js/app.js",
             "/chat.js": "chat.js",
             "/chat.css": "css/chat.css",
             "/index.html": "index.html",
+            # Фронтенд (Gemini) ссылается на static/*; физически файлы в js/ и css/.
+            "/static/app.js": "js/app.js",
+            "/static/style.css": "css/style.css",
         }
-        if parsed.path in _STATIC_ALIASES:
-            rel = _STATIC_ALIASES[parsed.path]
-            candidate = (_HERE / rel).resolve()
+
+        if clean_path in _STATIC_ALIASES:
+            candidate = (_HERE / _STATIC_ALIASES[clean_path]).resolve()
             if candidate.is_relative_to(_HERE.resolve()) and candidate.is_file():
-                self._send(200, candidate.read_bytes(), _STATIC_TYPES[candidate.suffix.lower()])
+                self._send_file_with_cache(candidate, _STATIC_TYPES[candidate.suffix.lower()])
                 return
-        if parsed.path and not parsed.path.startswith("/api/"):
-            suffix = Path(parsed.path).suffix.lower()
+        if clean_path and not clean_path.startswith("/api/"):
+            suffix = Path(clean_path).suffix.lower()
             if suffix in _STATIC_TYPES:
-                rel = parsed.path.lstrip("/")
+                rel = clean_path.lstrip("/")
                 candidate = (_HERE / rel).resolve()
                 if candidate.is_relative_to(_HERE.resolve()) and candidate.is_file():
-                    self._send(200, candidate.read_bytes(), _STATIC_TYPES[suffix])
+                    self._send_file_with_cache(candidate, _STATIC_TYPES[suffix])
                     return
+
         if parsed.path == "/api/participants":
             cfg = load_config()
             self._json(200, _participant_statuses(cfg))
@@ -387,18 +417,21 @@ class _Handler(BaseHTTPRequestHandler):
             cfg = load_config()
             self._json(200, _history(cfg.council.artifacts_dir))
             return
+
         if parsed.path == "/api/report":
             cfg = load_config()
             round_id = (parse_qs(parsed.query).get("id") or [""])[0]
             if not round_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for ch in round_id):
                 self._json(400, {"error": "invalid round id"})
                 return
+
             report_path = (_ROOT / cfg.council.artifacts_dir / f"{round_id}_report.md").resolve()
             if not report_path.is_relative_to(_ROOT.resolve()) or not report_path.exists():
                 self._json(404, {"error": "report not found"})
                 return
             self._json(200, {"round_id": round_id, "markdown": report_path.read_text(encoding="utf-8")})
             return
+
         if parsed.path == "/api/config":
             cfg = load_config()
             data = {
@@ -419,7 +452,7 @@ class _Handler(BaseHTTPRequestHandler):
             }
             self._json(200, data)
             return
-        # --- гибридный слой «отправка заданий участникам» (поверх DEFAULT_PARTICIPANTS) ---
+
         if parsed.path == "/api/members":
             from uni.webui.council_api import list_members
 
@@ -470,6 +503,12 @@ class _Handler(BaseHTTPRequestHandler):
                 "mode": "live" if xtoys is not None else "emulated",
             })
             return
+        # B-02: SPA fallback — любой non-API путь (например, deep-link вкладки)
+        # отдаёт index.html, чтобы фронтенд восстановил состояние из location.hash.
+        if parsed.path and not parsed.path.startswith("/api/"):
+            if _FRONTEND.exists():
+                self._send_file_with_cache(_FRONTEND, "text/html; charset=utf-8", no_cache=True)
+                return
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
