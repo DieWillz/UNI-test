@@ -95,7 +95,13 @@ class ApiProvider(CouncilProvider):
                 },
             )
             if resp.status_code != 200:
-                error = f"HTTP {resp.status_code}: {resp.text[:300]}"
+                if resp.status_code in (401, 403):
+                    error = (
+                        f"HTTP {resp.status_code}: доступ запрещён — проверьте API-ключ "
+                        f"(OpenRouter/Hermes-local) и квоту. Ответ: {resp.text[:200]}"
+                    )
+                else:
+                    error = f"HTTP {resp.status_code}: {resp.text[:300]}"
             else:
                 data = resp.json()
                 text = _strip_thinking(

@@ -99,7 +99,7 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
         "role": "Open model router (free tier)",
         "transport": "api",  # OpenRouter free models
         "endpoint": "openrouter",
-        "model": "deepseek/deepseek-chat",
+        "model": "deepseek/deepseek-chat:free",
     },
     {
         "name": "HuggingFace",
