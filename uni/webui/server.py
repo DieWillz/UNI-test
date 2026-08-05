@@ -407,6 +407,8 @@ class _Handler(BaseHTTPRequestHandler):
                 "min_interval_seconds": cfg.council.min_interval_seconds,
                 "timeout_seconds": cfg.council.timeout_seconds,
                 "concurrency": cfg.council.concurrency,
+                "autonomous_enabled": cfg.autonomous.enabled,
+                "auto_start_session": cfg.autonomous.auto_start_session,
                 "endpoints": {
                     name: {
                         "base_url": ep.get("base_url", ""),

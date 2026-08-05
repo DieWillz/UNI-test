@@ -383,6 +383,7 @@
         <div class="mtab" data-mtab="auto" style="display:none">
           <div class="opt"><div><label>Автономный режим</label><div class="hint">UNI действует без команд (требует явного включения)</div></div><div class="toggle" id="t_autonomous"></div></div>
           <div class="opt"><div><label>Авто-старт сессии</label><div class="hint">запускать hands-free сразу после старта</div></div><div class="toggle" id="t_auto_start"></div></div>
+          <div class="opt"><div><label>Согласие на автономный режим</label><div class="hint">обязательно для включения: подтверждает, что устройство под вашим физическим контролем</div></div><input type="checkbox" id="autonomyConsent" /></div>
         </div>
         <div class="mtab" data-mtab="security" style="display:none">
           <div class="gate"><span class="gled ok"></span><div class="gtext"><b>Бесплатный уровень только</b><span>платные подписки не автоматизируются</span></div></div>
@@ -781,6 +782,71 @@ setInterval(async()=>{
   }catch(e){}
 },4000);
 
+function setupToggle(id, initial){
+  const t=$(id);if(!t)return;
+  if(initial)t.classList.add("on");
+  t.onclick=()=>t.classList.toggle("on");
+}
+async function openSettings(){
+  const m=$("#settingsModal");if(!m)return;
+  try{
+    const r=await fetch("/api/config");const c=await r.json();
+    $("#i_concurrency").value=c.concurrency??3;
+    $("#i_timeout").value=c.timeout_seconds??90;
+    $("#i_min_interval").value=c.min_interval_seconds??8;
+    setupToggle("#t_browser_enabled",!!c.browser_enabled);
+    setupToggle("#t_free_tier_only",!!c.free_tier_only);
+    setupToggle("#t_autonomous",!!c.autonomous_enabled);
+    setupToggle("#t_auto_start",!!c.auto_start_session);
+    setupToggle("#t_url_check",true);
+    const eps=c.endpoints||{};
+    const box=$("#endpoints");if(box){box.innerHTML="";
+      Object.entries(eps).forEach(([name,ep])=>{
+        const row=el("div","opt");row.innerHTML=
+          `<div><label>${esc(name)}</label><div class="hint">${esc(ep.base_url||"")}</div></div>`+
+          `<input type="text" id="ep_${esc(name)}" placeholder="API key" value="" style="width:180px"/>`;
+        box.append(row);
+      });
+    }
+  }catch(e){log("Не удалось загрузить настройки: "+e.message,"warn");}
+  m.classList.add("show");
+}
+async function saveSettings(){
+  const m=$("#settingsModal");
+  const consent=$("#autonomyConsent");
+  const autonOn=$("#t_autonomous").classList.contains("on");
+  if(autonOn && consent && !consent.checked){
+    flash("Включите согласие на автономный режим");return;
+  }
+  const payload={
+    concurrency:Number($("#i_concurrency").value),
+    timeout_seconds:Number($("#i_timeout").value),
+    min_interval_seconds:Number($("#i_min_interval").value),
+    browser_enabled:$("#t_browser_enabled").classList.contains("on"),
+    free_tier_only:$("#t_free_tier_only").classList.contains("on"),
+    autonomous_enabled:autonOn,
+    auto_start_session:$("#t_auto_start").classList.contains("on"),
+    endpoints:{}
+  };
+  if(consent)consent.checked=false;
+  try{
+    const r=await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);
+    log("Настройки сохранены","ok");
+    m.classList.remove("show");
+  }catch(e){log("Ошибка сохранения: "+e.message,"warn");}
+}
+$("#settingsBtn").onclick=openSettings;
+$("#settingsSave").onclick=saveSettings;
+$("#settingsCancel").onclick=()=>$("#settingsModal").classList.remove("show");
+$("#settingsModal").addEventListener("click",e=>{if(e.target.id==="settingsModal")$("#settingsModal").classList.remove("show");});
+document.querySelectorAll("#settingsModal .modal-tab").forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll("#settingsModal .modal-tab").forEach(t=>t.classList.toggle("active",t===tab));
+    document.querySelectorAll("#settingsModal .mtab").forEach(p=>p.style.display=(p.dataset.mtab===tab.dataset.mtab)?"block":"none");
+  };
+});
 loadParticipants();log("Консоль UNI загружена");
 </script>
 </body>
