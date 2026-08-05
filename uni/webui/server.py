@@ -38,7 +38,48 @@ _FRONTEND = _HERE / "index.html"
 _CHAT_AGENT = None
 _CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво)
 
-# MIME map for locally served static assets (style.css, app.js, theme_*.css, favicon, ...).
+# ===== Единый event-loop агента (T-04) =====
+# Агент живёт в своём постоянном loop (фоновый поток). Все обращения из
+# синхронных HTTP-обработчиков идут через asyncio.run_coroutine_threadsafe
+# к этому loop — так исчезает ошибка "bound to a different event loop",
+# которая возникала при asyncio.run() внутри каждого обработчика.
+_AGENT_LOOP = None
+_AGENT_THREAD = None
+
+
+def _ensure_agent_loop() -> asyncio.AbstractEventLoop | None:
+    """Запускает (один раз) отдельный поток с постоянным event-loop агента.
+
+    Возвращает loop или None, если агент ещё не инициализирован.
+    """
+    global _AGENT_LOOP, _AGENT_THREAD
+    if _AGENT_LOOP is not None and not _AGENT_LOOP.is_closed():
+        return _AGENT_LOOP
+    agent = _CHAT_AGENT
+    if agent is None:
+        return None
+    loop = getattr(agent, "_loop", None)
+    if loop is None or loop.is_closed():
+        return None
+    _AGENT_LOOP = loop
+    return _AGENT_LOOP
+
+
+def _run_async(coro, timeout: float | None = 90.0):
+    """Выполняет корутину в loop-е агента из синхронного обработчика.
+
+    Если постоянный loop агента недоступен (агент не инициализирован как
+    фоновый), откатывается к asyncio.run — поведение как раньше, но без
+    утечки "different event loop" при наличии живого loop.
+    """
+    loop = _ensure_agent_loop()
+    if loop is None:
+        return asyncio.run(coro)
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    return future.result(timeout=timeout)
+
+
+
 # Kept deliberately small: the WebUI ships only a handful of asset types. Anything
 # unknown falls through to application/octet-stream.
 _STATIC_TYPES: dict[str, str] = {
@@ -516,7 +557,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "task обязателен"})
                 return
             try:
-                result = asyncio.run(create_round(task, members))
+                result = _run_async(create_round(task, members))
                 self._json(200, result)
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -551,15 +592,43 @@ class _Handler(BaseHTTPRequestHandler):
 
             cfg = load_config()
             agent = Agent(cfg)
-            try:
-                # Инициализация может тянуть браузер/камеру/модель — ограничиваем.
-                asyncio.run(asyncio.wait_for(agent.initialize(), timeout=20.0))
-            except Exception as exc:
-                # агент без тяжёлых capability всё ещё может отвечать текстом;
-                # запоминаем ошибку, чтобы /api/chat вернул внятный ответ.
-                agent._init_error = f"{type(exc).__name__}: {exc}"
+            # T-04: инициализируем агента в отдельном потоке с постоянным
+            # event-loop, чтобы все последующие вызовы (run_cycle, camera.*)
+            # шли в ОДИН loop — убирает "bound to a different event loop".
+            self._start_agent_runtime(agent, cfg)
             _CHAT_AGENT = agent
         return _CHAT_AGENT
+
+    def _start_agent_runtime(self, agent, cfg) -> None:
+        """Запускает initialize() агента в фоновом потоке с живым loop.
+
+        loop сохраняется в agent._loop и переиспользуется всеми HTTP-
+        обработчиками через _run_async(). Если initialize падает (нет
+        LM Studio / браузера) — loop всё равно жив, агент помечается
+        _init_error и продолжает отвечать текстом.
+        """
+        import threading
+
+        init_error = {}
+
+        def _bootstrap():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            agent._loop = loop
+            try:
+                loop.run_until_complete(
+                    asyncio.wait_for(agent.initialize(), timeout=20.0)
+                )
+            except Exception as exc:  # агент без тяжёлых capability отвечает текстом
+                agent._init_error = f"{type(exc).__name__}: {exc}"
+                init_error["err"] = agent._init_error
+            # loop остаётся живым для последующих _run_async вызовов
+
+        t = threading.Thread(target=_bootstrap, name="uni-agent-loop", daemon=True)
+        t.start()
+        t.join(timeout=10.0)  # ждём initialize, но не блокируем вечно
+        # если initialize ещё идёт — loop уже жив, дальше доинициализируется
+
 
     def _get_feed(self):
         global _CHAT_FEED
@@ -590,7 +659,7 @@ class _Handler(BaseHTTPRequestHandler):
         style_hint = ""
         if cfg.context.enabled and cfg.context.injection_rate > 0:
             try:
-                style_hint = asyncio.run(
+                style_hint = _run_async(
                     self._get_feed().fetch_style_hints(cfg.context.injection_rate)
                 )
             except Exception:
@@ -599,7 +668,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             # run_cycle сам озвучивает ответ через Silero (внутренний _speak),
             # поэтому двойного проговаривания не делаем; audio_url не формируем.
-            reply = asyncio.run(
+            reply = _run_async(
                 asyncio.wait_for(agent.event_loop.run_cycle(effective_input), timeout=90.0)
             )
             if reply is None:
@@ -616,7 +685,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "camera capability unavailable"})
             return
         try:
-            res = asyncio.run(camera.start(notice_ack=True))
+            res = _run_async(camera.start(notice_ack=True))
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -629,7 +698,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "camera capability unavailable"})
             return
         try:
-            asyncio.run(camera.stop())
+            _run_async(camera.stop())
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -642,7 +711,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "camera capability unavailable"})
             return
         try:
-            res = asyncio.run(camera.capture_base64_frame())
+            res = _run_async(camera.capture_base64_frame())
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -665,12 +734,12 @@ class _Handler(BaseHTTPRequestHandler):
             if ctrl is not None:
                 if level == "off":
                     try:
-                        asyncio.run(ctrl.stop())
+                        _run_async(ctrl.stop())
                     except Exception:
                         pass
                 elif not getattr(ctrl, "_tasks", set()):
                     try:
-                        asyncio.run(ctrl.start())
+                        _run_async(ctrl.start())
                     except Exception:
                         pass
         self._json(200, {"ok": True})
@@ -703,17 +772,17 @@ class _Handler(BaseHTTPRequestHandler):
                 intensity = float(data.get("intensity", 0.5))
                 # intensity 0..1 -> процент; для плавного разгона используем ramp.
                 pct = max(0, min(100, int(round(intensity * 100))))
-                res = asyncio.run(xtoys.ramp_intensity("", pct, steps=max(1, int(duration / 400))))
+                res = _run_async(xtoys.ramp_intensity("", pct, steps=max(1, int(duration / 400))))
                 self._json(200, {"ok": bool(getattr(res, "success", False)),
                                  "message": f"oscillate {duration}ms @ {pct}%"})
             elif cmd == "stop":
-                res = asyncio.run(xtoys.set_intensity("", 0))
+                res = _run_async(xtoys.set_intensity("", 0))
                 self._json(200, {"ok": bool(getattr(res, "success", False)), "message": "stopped"})
             elif cmd == "macro":
                 name = str(data.get("name", ""))
                 allowed = {"pulse", "wave", "tease", "punish"}
                 if name in allowed:
-                    res = asyncio.run(xtoys.select_pattern(name))
+                    res = _run_async(xtoys.select_pattern(name))
                     self._json(200, {"ok": bool(getattr(res, "success", False)), "message": f"macro {name}"})
                 else:
                     self._json(400, {"error": f"unknown macro: {name}"})

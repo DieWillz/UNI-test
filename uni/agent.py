@@ -123,6 +123,9 @@ class Agent:
         self.autonomous = AutonomousController(self, config)
 
     async def initialize(self) -> None:
+        # T-04: сохраняем ссылку на текущий event-loop, чтобы внешние
+        # вызовы (WebUI-сервер) могли обращаться через run_coroutine_threadsafe.
+        self._loop = asyncio.get_running_loop()
         healthcheck, speech_warmup = await asyncio.gather(
             self.brain.healthcheck(),
             self.speech.warmup(),
