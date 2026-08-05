@@ -495,7 +495,21 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             self._json(200, {"roles": roles, "current": get_current_role()})
             return
-        if parsed.path == "/api/xtoys/status":
+        if parsed.path == "/api/role/prompt":
+            # Просмотр system-prompt выбранной роли (для админ-панели).
+            from uni.roles.loader import RoleLoader
+
+            name = (parse_qs(parsed.query).get("role") or [""])[0].strip()
+            if not name:
+                self._json(400, {"error": "role required"})
+                return
+            try:
+                role = RoleLoader().load(name)
+                self._json(200, {"role": name, "prompt": role.system_prompt})
+            except Exception as exc:
+                self._json(404, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+
             agent = self._get_chat_agent()
             xtoys = agent.capabilities.get("xtoys") if agent is not None else None
             self._json(200, {
