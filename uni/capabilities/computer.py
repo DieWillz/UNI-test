@@ -227,6 +227,17 @@ class ComputerCapability(Capability):
         except Exception as e:
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
+    async def move_human(self, x: int, y: int) -> ToolResult:
+        """Только провести мышью к (x,y) без клика — «проведи мышкой вдоль экрана»."""
+        if self._human_mouse is None:
+            return ToolResult(success=False, message="human_mouse недоступен (нет win32)")
+        try:
+            await self._human_mouse.move_to(int(x), int(y))
+            return ToolResult(success=True, message=f"Мышь проведена к ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+
     async def type_text(self, text: str, interval: float = 0.05) -> ToolResult:
         try:
             await asyncio.to_thread(pyautogui.typewrite, text, interval=interval)
@@ -1098,5 +1109,9 @@ class ComputerCapability(Capability):
                 int(kwargs.get("x1", 0)), int(kwargs.get("y1", 0)),
                 int(kwargs.get("x2", 0)), int(kwargs.get("y2", 0)),
                 str(kwargs.get("button", "left")),
+            )
+        elif action == "move_human":
+            return await self.move_human(
+                int(kwargs.get("x", 0)), int(kwargs.get("y", 0)),
             )
         return ToolResult(success=False, message=f"Неизвестное действие: {action}")

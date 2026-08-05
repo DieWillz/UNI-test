@@ -33,6 +33,9 @@ def get_all_tool_definitions(enabled_capabilities: set[str] | None = None) -> li
         ("browser", _tool("browser_current_tab", "Получить адрес и заголовок активной вкладки", {})),
         ("vision", _tool("vision_analyze_screen", "Описать содержимое активной вкладки с помощью Vision", {"prompt": {"type": "string"}})),
         ("vision", _tool("vision_analyze_desktop", "Описать видимый рабочий стол Windows", {"prompt": {"type": "string"}})),
+        ("computer", _tool("computer_click_human", "Кликнуть мышью по координатам экрана человеко-подобным движением (Безье + minimum-jerk)", {"x": {"type": "integer"}, "y": {"type": "integer"}, "button": {"type": "string"}}, ["x", "y"])),
+        ("computer", _tool("computer_drag_human", "Перетащить мышью от (x1,y1) до (x2,y2) человеко-подобной траекторией", {"x1": {"type": "integer"}, "y1": {"type": "integer"}, "x2": {"type": "integer"}, "y2": {"type": "integer"}, "button": {"type": "string"}}, ["x1", "y1", "x2", "y2"])),
+        ("computer", _tool("computer_move_human", "Провести мышью к координатам (x,y) без клика — «проведи мышкой вдоль экрана»", {"x": {"type": "integer"}, "y": {"type": "integer"}}, ["x", "y"])),
     ]
     if enabled_capabilities is None:
         return [definition for _, definition in definitions]

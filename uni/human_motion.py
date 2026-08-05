@@ -1,6 +1,8 @@
 """
 uni/capabilities/human_motion.py
 
+from __future__ import annotations
+
 Чистая математика "человеческого" движения мыши — без зависимости от Windows API,
 чтобы её можно было протестировать где угодно (включая CI на Linux).
 Реальный вызов win32api/pyautogui — в human_mouse.py, который использует
