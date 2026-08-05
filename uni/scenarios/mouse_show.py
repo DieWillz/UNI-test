@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from uni.config import AppConfig
+from uni.config import Config
 from uni.motion import CursorLabelConfig, CursorLabelOverlay, SmoothMouseDriver
 from uni.human_motion import build_heart_path, build_spiral_path
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class MouseShow:
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(self, config: Config) -> None:
         label_cfg = CursorLabelConfig(text="🖱️ Uni")
         self.overlay = CursorLabelOverlay(label_cfg)
         # SmoothMouseDriver теперь фасад над HumanMouseController; label для вспышек.
@@ -54,6 +54,6 @@ class MouseShow:
             self.overlay.stop()
 
 
-async def run_mouse_demo(config: AppConfig) -> None:
+async def run_mouse_demo(config: Config) -> None:
     scenario = MouseShow(config)
     await scenario.run()
