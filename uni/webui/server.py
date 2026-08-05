@@ -744,7 +744,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "camera capability unavailable"})
             return
         try:
-            res = _run_async(camera.capture_base64_frame())
+            res = _run_async(camera.capture_atomic())
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return

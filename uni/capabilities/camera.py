@@ -145,6 +145,28 @@ class CameraCapability(Capability):
                 self._capture = None
             return was_open
 
+    async def capture_atomic(self, label: str = "camera") -> ToolResult:
+        """Атомарный захват: start + snapshot + stop в одном вызове.
+
+        Гарантирует, что снаружи никогда не появится ошибка
+        «камера не включена» — устройство открывается и закрывается внутри.
+        """
+        try:
+            await self.start(notice_ack=False)
+            data = await asyncio.to_thread(self._capture_base64_sync)
+            await self.stop()
+            return ToolResult(
+                success=True,
+                data=data,
+                message="Кадр с камеры получен (атомарно)",
+            )
+        except Exception as exc:
+            try:
+                await self.stop()
+            except Exception:
+                pass
+            return ToolResult(success=False, message=f"Ошибка атомарного кадра: {exc}")
+
     async def stop(self) -> ToolResult:
         try:
             was_open = await asyncio.to_thread(self._stop_sync)
