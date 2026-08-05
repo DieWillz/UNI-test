@@ -176,6 +176,13 @@ tr:hover td{background:var(--bg3)}
     <div class="side-foot">
       <div>Статус: <b id="footStatus">…</b></div>
       <div>Версия: <b id="footVer">—</b></div>
+      <!-- NIGHTLY_MARKER:theme_picker -->
+<div class="mt"><span class="muted">Акцент:</span> <span id="accentPick" style="display:inline-flex;gap:6px;margin-left:6px">
+  <button data-acc="#7c3aed" style="width:18px;height:18px;border-radius:50%;border:0;background:#7c3aed;cursor:pointer"></button>
+  <button data-acc="#22d3ee" style="width:18px;height:18px;border-radius:50%;border:0;background:#22d3ee;cursor:pointer"></button>
+  <button data-acc="#f472b6" style="width:18px;height:18px;border-radius:50%;border:0;background:#f472b6;cursor:pointer"></button>
+  <button data-acc="#34d399" style="width:18px;height:18px;border-radius:50%;border:0;background:#34d399;cursor:pointer"></button>
+</span></div>
       <div class="mt"><a href="#" id="openRoot">Открыть консоль ↗</a></div>
     </div>
   </aside>
@@ -269,6 +276,7 @@ tr:hover td{background:var(--bg3)}
           <label class="field"><span>Файлы (пути, через запятую)</span><input type="text" id="councilFiles" placeholder="C:\path\a.md, C:\path\b.txt"></label>
           <label class="field"><span>Только участники (через запятую)</span><input type="text" id="councilOnly" placeholder="оставьте пустым — все"></label>
         </div>
+        <!-- NIGHTLY_MARKER:council_presets -->
         <div class="two">
           <button class="btn primary" id="councilRun">▶ Запустить раунд</button>
           <button class="btn danger" id="councilStop">■ Стоп</button>
@@ -314,6 +322,7 @@ tr:hover td{background:var(--bg3)}
           </div>
           <h3 class="mt">Макросы</h3>
           <div class="microgrid" id="macroGrid"></div>
+          <!-- NIGHTLY_MARKER:device_presets -->
         </div>
         <div class="card">
           <h3>Состояние</h3>
@@ -560,9 +569,6 @@ const UNI = (function(){
       files:$("#councilFiles").value.split(",").map(s=>s.trim()).filter(Boolean),
       only:$("#councilOnly").value.trim()};
     const log=$("#councilLog"); log.textContent="";
-    es=new EventSource("/api/round/start?_="+Date.now());
-    // SSE через POST невозможен через EventSource — используем fetch-stream
-    es.close(); es=null;
     fetchStream(body);
   }
   async function fetchStream(body){
@@ -702,6 +708,8 @@ const UNI = (function(){
     $("#camStart").onclick=camStart; $("#camStop").onclick=camStop; $("#camShot").onclick=camShot;
     // context
     $("#ctxSave").onclick=ctxSave; $("#ctxAddBtn").onclick=ctxAdd; $("#ctxHintsBtn").onclick=ctxHints;
+    // nightly hooks
+    // NIGHTLY_MARKER:js_hooks
     // log
     $("#logClear").onclick=()=>log.box.innerHTML=""; $("#logPause").onclick=()=>{ state.paused=!state.paused;
       $("#logPause").textContent=state.paused?"Продолжить":"Пауза"; };
@@ -716,7 +724,10 @@ const UNI = (function(){
     log("backend: 8d15010 · check_architecture 0/0","ok");
   }
   document.addEventListener("DOMContentLoaded", init);
-  return { api, log, state, goto };
+  // Обратная совместимость: runRollCall — публичный алиас запуска совета
+  // (старый контракт из test_frontend_roll_call_has_no_removed_notice_dependency).
+  function runRollCall(topic, opts){ $("#councilTopic").value = topic || ""; startCouncil(); return true; }
+  return { api, log, state, goto, runRollCall };
 })();
 </script>
 </body>
