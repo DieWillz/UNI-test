@@ -78,7 +78,23 @@ class EventLoop:
         self._screen_watch_stop = asyncio.Event()
         self._screen_observations: list[dict[str, Any]] = []
 
-    def _log(self, event: str, message: object) -> None:
+    def _load_role_prompt(self, role_name: str) -> bool:
+        """Загружает system-prompt роли из файла uni/roles/<name>.md и обновляет self.role_prompt.
+
+        Механическая интеграция: берётся ТОЛЬКО имя файла (без чтения содержимого
+        в чате), через RoleLoader. Возвращает True при успехе.
+        """
+        try:
+            from uni.roles.loader import RoleLoader
+
+            role = RoleLoader().load(role_name)
+            self.role_prompt = role.system_prompt
+            return True
+        except Exception as exc:
+            logger.warning("Не удалось загрузить роль %s: %s", role_name, exc)
+            return False
+
+
         if self.session_logger is not None:
             self.session_logger.log(event, message)
 

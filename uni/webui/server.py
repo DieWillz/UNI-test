@@ -451,18 +451,14 @@ class _Handler(BaseHTTPRequestHandler):
             })
             return
         if parsed.path == "/api/roles":
-            from uni.roles.loader import list_roles
+            from uni.roles.loader import list_roles, get_current_role
 
             try:
                 roles = list_roles()
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
                 return
-            current = "assistant"
-            agent = self._get_chat_agent()
-            if agent is not None:
-                current = getattr(getattr(agent, "event_loop", None), "_current_role", current)
-            self._json(200, {"roles": roles, "current": current})
+            self._json(200, {"roles": roles, "current": get_current_role()})
             return
         if parsed.path == "/api/xtoys/status":
             agent = self._get_chat_agent()
@@ -575,7 +571,11 @@ class _Handler(BaseHTTPRequestHandler):
                 from uni.roles.loader import set_current_role
 
                 set_current_role(name)
-                self._json(200, {"ok": True, "role": name})
+                agent = self._get_chat_agent()
+                loaded = False
+                if agent is not None:
+                    loaded = agent.event_loop._load_role_prompt(name)
+                self._json(200, {"ok": True, "role": name, "prompt_loaded": loaded})
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
