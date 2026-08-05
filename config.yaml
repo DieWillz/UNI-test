@@ -1,11 +1,11 @@
 brain:
   base_url: http://localhost:1234/v1
   api_key: lm-studio
-  model: auto
+  model: qwen2.5-7b-instruct-1m
   vision_model: auto
   vision_base_url: null
   vision_api_key: null
-  temperature: 0.8
+  temperature: 0.85
   max_tokens: 2000
   timeout_seconds: 20.0
 capabilities:
@@ -50,8 +50,8 @@ capabilities:
     stt_beam_size: 5
     microphone_gain: 7.0
     voice_activation_threshold: 0.004
-    voice_silence_seconds: 0.8
-    max_utterance_seconds: 8.0
+    voice_silence_seconds: 2.5
+    max_utterance_seconds: 20.0
     tts_provider: silero
     tts_voice: ru_RU-irina-medium.onnx
     silero_model: v5_5_ru
@@ -90,8 +90,8 @@ agent:
   response_max_chars: 700
   spoken_response_max_chars: 320
   autonomous:
-    enabled: true
-    auto_start_session: true
+    enabled: false
+    auto_start_session: false
     vision_interval_seconds: 15.0
     speech_interval_seconds: 7.0
     device_interval_seconds: 2.0
