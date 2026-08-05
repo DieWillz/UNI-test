@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import threading
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from rich.console import Console
+
+logger = logging.getLogger(__name__)
 
 from uni.brain import Brain
 from uni.capabilities.registry import CapabilityRegistry
@@ -95,6 +98,7 @@ class EventLoop:
             return False
 
 
+    def _log(self, event: str, message: object) -> None:
         if self.session_logger is not None:
             self.session_logger.log(event, message)
 
