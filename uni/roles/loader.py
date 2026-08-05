@@ -122,3 +122,32 @@ voice: default
 - Уважай приватность пользователя
 - Не уходи в бесконечные циклы — проверяй результат и корректируйся
 """
+
+# ===== WebUI-интеграция (U-01/T-09): список и текущая роль =====
+import threading
+
+_CURRENT_ROLE = "assistant"
+_ROLE_LOCK = threading.Lock()
+
+
+def list_roles() -> list[str]:
+    """Возвращает список имён ролей (без .md) из папки roles/."""
+    roles_dir = Path(__file__).resolve().parent
+    return sorted(p.stem for p in roles_dir.glob("*.md"))
+
+
+def get_current_role() -> str:
+    return _CURRENT_ROLE
+
+
+def set_current_role(name: str) -> None:
+    """Сохраняет выбранную роль (в памяти процесса).
+
+    Реальная загрузка system-prompt в event_loop — в задаче T-09.
+    """
+    global _CURRENT_ROLE
+    with _ROLE_LOCK:
+        if name not in list_roles():
+            raise ValueError(f"Роль не найдена: {name}")
+        _CURRENT_ROLE = name
+

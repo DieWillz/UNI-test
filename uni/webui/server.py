@@ -450,6 +450,28 @@ class _Handler(BaseHTTPRequestHandler):
                 "autonomy_active": bool(getattr(getattr(agent, "autonomous", None), "_tasks", set())),
             })
             return
+        if parsed.path == "/api/roles":
+            from uni.roles.loader import list_roles
+
+            try:
+                roles = list_roles()
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+                return
+            current = "assistant"
+            agent = self._get_chat_agent()
+            if agent is not None:
+                current = getattr(getattr(agent, "event_loop", None), "_current_role", current)
+            self._json(200, {"roles": roles, "current": current})
+            return
+        if parsed.path == "/api/xtoys/status":
+            agent = self._get_chat_agent()
+            xtoys = agent.capabilities.get("xtoys") if agent is not None else None
+            self._json(200, {
+                "connected": xtoys is not None,
+                "mode": "live" if xtoys is not None else "emulated",
+            })
+            return
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
@@ -545,6 +567,17 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/xtoys":
             self._handle_xtoys()
+            return
+        if self.path == "/api/role/switch":
+            try:
+                body = self._read_json_body()
+                name = str(body.get("role", "")).strip()
+                from uni.roles.loader import set_current_role
+
+                set_current_role(name)
+                self._json(200, {"ok": True, "role": name})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
         # --- гибридный слой «отправка заданий участникам» ---
         if self.path == "/api/round":
