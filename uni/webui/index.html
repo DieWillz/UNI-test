@@ -138,6 +138,21 @@ tr:hover td{background:var(--bg3)}
 .badge.off{color:var(--mut)}
 .badge.emu{color:var(--warn);border-color:rgba(251,191,36,.4)}
 
+/* Совет — live статусы участников */
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{display:flex;align-items:center;gap:9px;background:var(--bg3);border:1px solid var(--line);
+  border-radius:10px;padding:9px 13px;min-width:150px}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--mut);flex:none;
+  box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.chip.ready .dot{background:var(--ok);box-shadow:0 0 0 3px rgba(52,211,153,.18)}
+.chip.configured .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+.chip.disabled .dot{background:var(--mut)}
+.chip.error .dot{background:var(--err);box-shadow:0 0 0 3px rgba(248,113,113,.18)}
+.chip .nm{font-weight:700;font-size:13px}
+.chip .dt{color:var(--mut);font-size:11px;margin-top:1px}
+.chip.ready{border-color:rgba(52,211,153,.35)}
+.chip.error{border-color:rgba(248,113,113,.35)}
+
 .microgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
 .tile{background:var(--bg3);border:1px solid var(--line);border-radius:var(--radius2);padding:13px}
 .tile .lab{color:var(--mut);font-size:11px}
@@ -283,6 +298,11 @@ tr:hover td{background:var(--bg3)}
   <button class="btn sm ghost" data-t="Найди узкие места в коде и риски">риски</button>
   <button class="btn sm ghost" data-t="Сформулируй план рефакторинга">рефактор</button>
 </div>
+        <div class="card mb">
+          <h3>Участники — live статусы <span class="muted" id="partTick">·</span></h3>
+          <div id="participantBox" class="chips"></div>
+          <div class="muted mt">Статус берётся из /api/participants (реальная готовность адаптеров: открытая вкладка браузера, наличие CLI, ключ и т.д.).</div>
+        </div>
         <div class="two">
           <button class="btn primary" id="councilRun">▶ Запустить раунд</button>
           <button class="btn danger" id="councilStop">■ Стоп</button>
@@ -686,9 +706,21 @@ const UNI = (function(){
     api("/api/context/feed",{method:"POST",body:JSON.stringify({hints})}).then(()=>toast("Подсказки сохранены","ok")); }
   // ============ POLL ============
   function poll(){
-    api("/api/participants").then(r=>{ if(r.ok) $("#ovParts").textContent=Array.isArray(r.data)?r.data.length:"—"; });
+    api("/api/participants").then(r=>{ if(r.ok){ const a=Array.isArray(r.data)?r.data:[];
+      $("#ovParts").textContent=a.length; renderParticipants(a); } });
     api("/api/xtoys/status").then(r=>{ if(r.ok){ $("#ovDevice").textContent=r.data?.connected?"подключено":"эмуляция"; } });
     api("/api/safety").then(r=>{ if(r.ok){ $("#ovAuto").textContent=r.data?.autonomy_level||"off"; } });
+  }
+  function renderParticipants(list){
+    const box=$("#participantBox"); if(!box) return;
+    if(!list.length){ box.innerHTML='<span class="muted">нет участников</span>'; return; }
+    box.innerHTML=list.map(p=>{
+      const st=(p.status||"configured").toLowerCase();
+      const nm=p.name||p.participant||"?";
+      const dt=p.detail||p.transport||"";
+      return `<div class="chip ${st}"><span class="dot"></span><div><div class="nm">${nm}</div><div class="dt">${dt}</div></div></div>`;
+    }).join("");
+    const t=$("#partTick"); if(t) t.textContent="· "+new Date().toLocaleTimeString();
   }
   // ============ BIND ============
   function bind(){
@@ -724,6 +756,8 @@ const UNI = (function(){
     $("#ctxSave").onclick=ctxSave; $("#ctxAddBtn").onclick=ctxAdd; $("#ctxHintsBtn").onclick=ctxHints;
     // nightly hooks
     // NIGHTLY_MARKER:js_hooks
+    // NIGHTLY_MARKER:files_section  (заглушка: будущая секция «Файлы проекта»
+    //   использует server.py:_safe_project_path для защиты от path-traversal)
     // log
     $("#logClear").onclick=()=>log.box.innerHTML=""; $("#logPause").onclick=()=>{ state.paused=!state.paused;
       $("#logPause").textContent=state.paused?"Продолжить":"Пауза"; };
