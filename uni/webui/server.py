@@ -33,6 +33,20 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
 _FRONTEND = _HERE / "index.html"
 
+
+def _safe_project_path(rel: str) -> Path:
+    """Зарезервировано для будущей секции «Файлы проекта» в панели.
+
+    Возвращает абсолютный путь внутри _ROOT, блокируя выход за пределы
+    проекта (path-traversal, как ../). Паттерн адаптирован из сервера
+    моста (server.js: safePath). Пока не используется фронтендом.
+    """
+    rel = (rel or "").replace("\\", "/").lstrip("/")
+    full = (_ROOT / rel).resolve()
+    if full != _ROOT and _ROOT not in full.parents:
+        raise PermissionError(f"path escape blocked: {rel!r}")
+    return full
+
 # ===== Состояние чат-хаба (мультимодальный режим) =====
 # Один Agent на процесс сервера; собирается лениво при первом чат-запросе.
 _CHAT_AGENT = None
