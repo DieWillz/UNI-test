@@ -745,7 +745,8 @@ class _Handler(BaseHTTPRequestHandler):
         return _CHAT_FEED
 
     def _handle_chat(self, body: dict) -> None:
-        text = (body.get("text") or "").strip()
+        # Принимаем text ИЛИ message (обратно совместимо с фронтендом панели)
+        text = (body.get("text") or body.get("message") or "").strip()
         if not text:
             self._json(400, {"error": "empty text"})
             return
@@ -756,6 +757,13 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(503, {"error": "agent init failed", "detail": init_error,
                              "hint": "проверь config.yaml (модель/браузер) на машине запуска"})
             return
+        # подстановка роли, если фронтенд передал role и агент её поддерживает
+        role = (body.get("role") or "").strip()
+        if role and hasattr(agent, "event_loop") and hasattr(agent.event_loop, "_load_role_prompt"):
+            try:
+                agent.event_loop._load_role_prompt(role)
+            except Exception:
+                pass  # некритично — продолжаем с текущей ролью
         # Стиль из внешних фидов (только как подсказка тона), если включено.
         # В реальном EventLoop.run_cycle нет отдельного параметра style_hint —
         # подмешиваем как инструкцию в начало сообщения (как в ТЗ «подсказка стиля»).
@@ -856,7 +864,8 @@ class _Handler(BaseHTTPRequestHandler):
         """
         try:
             data = self._read_json_body()
-            cmd = data.get("command")
+            # принимаем command ИЛИ action (обратно совместимо с фронтендом)
+            cmd = (data.get("command") or data.get("action") or "").strip().lower()
             agent = self._get_chat_agent()
             xtoys = agent.capabilities.get("xtoys")
             if xtoys is None:
@@ -870,9 +879,21 @@ class _Handler(BaseHTTPRequestHandler):
                     "message": f"emulated: {cmd} принято (устройство не подключено — управление за физическим пультом)",
                 })
                 return
-            if cmd == "oscillate":
+            if cmd in ("oscillate",):
                 duration = int(data.get("duration", 2000))
                 intensity = float(data.get("intensity", 0.5))
+            elif cmd in ("set_intensity", "intensity"):
+                # фронтенд шлёт intensity в процентах (0..100)
+                pct = max(0, min(100, int(round(float(data.get("intensity", 0))))))
+                res = _run_async(xtoys.set_intensity("", pct))
+                self._json(200, {"ok": bool(getattr(res, "success", False)),
+                                 "message": f"intensity {pct}%"})
+                return
+            elif cmd == "stop":
+                res = _run_async(xtoys.set_intensity("", 0))
+                self._json(200, {"ok": bool(getattr(res, "success", False)), "message": "stopped"})
+                return
+            elif cmd == "macro":
                 # intensity 0..1 -> процент; для плавного разгона используем ramp.
                 pct = max(0, min(100, int(round(intensity * 100))))
                 res = _run_async(xtoys.ramp_intensity("", pct, steps=max(1, int(duration / 400))))
