@@ -77,8 +77,10 @@
         .btn-primary:hover { background: var(--primary-hover); }
 
         /* Sidebar Branding & Menu */
-        .brand { display: flex; align-items: center; gap: 12px; padding: 0 24px 24px; font-weight: 600; font-size: 18px; color: var(--primary); border-bottom: 1px solid var(--border-light); margin-bottom: 16px; }
-        .brand img { width: 28px; }
+        .brand { display: flex; align-items: center; gap: 10px; padding: 0 24px 24px; font-weight: 600; font-size: 18px; color: var(--primary); border-bottom: 1px solid var(--border-light); margin-bottom: 16px; }
+        .brand-logo { height: 30px; width: auto; max-width: 140px; object-fit: contain; display: block; flex-shrink: 0; border-radius: 6px; }
+        .brand-name { font-weight: 700; letter-spacing: -0.2px; white-space: nowrap; }
+        .brand-ver { font-size: 11px; font-weight: 400; color: var(--text-muted); background: var(--bg-body); padding: 2px 7px; border-radius: 6px; }
         .menu-group { display: flex; flex-direction: column; gap: 4px; padding: 0 12px; margin-bottom: 24px; }
         .menu-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding: 8px 12px; margin-top: 12px; }
         .menu-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; transition: 0.2s; }
@@ -89,10 +91,10 @@
         .avatar { width: 36px; height: 36px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
 
         /* Dashboard Content Area */
-        .dashboard-pad { padding: 24px; display: flex; flex-direction: column; gap: 24px; flex: 1; }
-        
+        .dashboard-pad { padding: 14px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+
         /* Stats Cards */
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .stat-card { background: var(--bg-panel); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); }
         .stat-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
         .stat-info h4 { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 2px; }
@@ -100,8 +102,8 @@
         .stat-info p { font-size: 11px; color: var(--text-muted); }
 
         /* Middle Section: AI Participants & Workflows */
-        .middle-grid { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
-        .card { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
+        .middle-grid { display: grid; grid-template-columns: 350px 1fr; gap: 12px; }
+        .card { background: var(--bg-panel); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .card-title { font-size: 15px; font-weight: 600; }
         
@@ -137,18 +139,71 @@
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* Quick Controls (Bottom Bar) */
-        .quick-controls { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px 20px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-sm); margin-top: auto; }
-        .control-group { display: flex; align-items: center; gap: 12px; border-right: 1px solid var(--border-light); padding-right: 16px; }
+        /* QWN Пульт (интеграция qwen.html) */
+        .qwn-grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 12px; }
+        .qwn-ok { color: #3fb950; } .qwn-bad { color: #f85149; } .qwn-warn { color: #d29922; }
+        .qwn-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #21262d; font-size: 12px; }
+        .qwn-label { display: flex; gap: 6px; align-items: center; padding: 3px 0; font-size: 12px; }
+        .qwn-msg { margin: 0 0 6px; padding: 4px 6px; border-radius: 6px; background: #0d1117; font-size: 12px; }
+        .qwn-msg.me { background: #1f2a3d; }
+
+        /* Pipeline */
+        .pipeline { display: flex; gap: 0; align-items: flex-start; }
+        .pipe-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; padding: 8px 4px; border-radius: 8px; cursor: pointer; color: var(--text-muted); }
+        .pipe-step:not(:last-child)::after { content: ''; position: absolute; top: 20px; left: 60%; right: -40%; height: 2px; background: var(--border-light); }
+        .pipe-num { width: 30px; height: 30px; border-radius: 50%; background: var(--bg-body); border: 2px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+        .pipe-step.active { color: var(--primary); }
+        .pipe-step.active .pipe-num { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .pipe-step.done .pipe-num { background: var(--success); color: #fff; border-color: var(--success); }
+        .pipe-label { font-size: 12px; font-weight: 600; }
+
+        /* Browser + мышка Uni */
+        .b-toolbar { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: var(--bg-body); border-bottom: 1px solid var(--border-light); }
+        .b-addr { flex: 1; border: 1px solid var(--border-light); background: var(--bg-panel); border-radius: 6px; padding: 5px 10px; font-size: 12px; }
+        .b-content { position: relative; flex: 1; min-height: 360px; background: linear-gradient(135deg,#f1f5f9 25%,#e2e8f0 25%,#e2e8f0 50%,#f1f5f9 50%,#f1f5f9 75%,#e2e8f0 75%); background-size: 28px 28px; overflow: hidden; }
+        .b-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(15,23,42,.08); }
+        .b-line.l { top: 20%; } .b-line.m { top: 45%; } .b-line.s { top: 65%; }
+        .m-overlay { position: absolute; inset: 0; }
+        .u-cursor { position: absolute; width: 22px; height: 22px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.3)); transition: left 1.2s cubic-bezier(.4,0,.2,1), top 1.2s cubic-bezier(.4,0,.2,1); }
+        .c-label { position: absolute; left: 16px; top: 10px; font-size: 10px; font-weight: 700; color: #fff; background: var(--primary); padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+
+        /* Логи */
+        .log-filters { display: flex; gap: 6px; padding: 10px 12px; flex-wrap: wrap; }
+        .log-filters button { border: 1px solid var(--border-light); background: var(--bg-panel); color: var(--text-muted); padding: 5px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; }
+        .log-filters button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .log-box { font-family: var(--mono, monospace); font-size: 12px; padding: 8px 12px; max-height: 420px; overflow: auto; }
+        .log-line { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--border-light); }
+        .log-time { color: var(--text-muted); }
+        .log-tag { padding: 0 6px; border-radius: 4px; font-weight: 700; }
+        .log-tag.info { background: #e0e7ff; color: var(--info); }
+        .log-tag.ok { background: #dcfce7; color: var(--success); }
+        .log-tag.warn { background: #fef3c7; color: var(--warning); }
+        .log-tag.error { background: #fee2e2; color: var(--danger); }
+        .log-msg { color: var(--text-main); }
+
+        /* Настройки */
+        .set-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        .set-group { border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; }
+        .set-group h3 { margin: 0 0 10px; font-size: 13px; }
+        .set-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--border-light); font-size: 13px; }
+        .set-row label { color: var(--text-muted); }
+        .set-inp { border: 1px solid var(--border-light); background: var(--bg-body); border-radius: 6px; padding: 4px 8px; font-size: 12px; width: 150px; }
+        .tsw2 { width: 38px; height: 20px; border-radius: 20px; background: var(--border-light); position: relative; cursor: pointer; transition: .2s; }
+        .tsw2::before { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .2s; }
+        .tsw2.on { background: var(--primary); }
+        .tsw2.on::before { left: 20px; }
+        .quick-controls { background: var(--bg-panel); border-radius: var(--radius-md); padding: 8px 12px; display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; overflow-x: auto; margin-top: auto; }
+        .quick-controls .icon { font-size: 16px; }
+        .control-group { display: flex; align-items: center; gap: 6px; border-right: 1px solid var(--border-light); padding-right: 10px; flex-shrink: 0; }
         .control-group:last-child { border-right: none; }
-        .btn-control { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-light); background: var(--bg-panel); transition: 0.2s; }
+        .btn-control { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 7px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-light); background: var(--bg-panel); white-space: nowrap; transition: 0.2s; }
         .btn-control:hover { background: var(--bg-body); }
         .btn-start { background: var(--primary); color: white; border-color: var(--primary); }
         .btn-start:hover { background: var(--primary-hover); }
         .btn-pause { color: var(--warning); border-color: #fde68a; }
         .btn-stop { color: var(--danger); border-color: #fecaca; }
-        .select-control { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--text-muted); }
-        .select-control select { border: 1px solid var(--border-light); padding: 6px 10px; border-radius: 6px; font-size: 13px; outline: none; background: var(--bg-panel); }
+        .select-control { display: flex; flex-direction: row; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+        .select-control select { border: 1px solid var(--border-light); padding: 4px 8px; border-radius: 6px; font-size: 11px; outline: none; background: var(--bg-panel); }
 
         /* Chat Panel */
         .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; }
@@ -168,7 +223,12 @@
         .chat-suggestions { display: flex; gap: 8px; padding: 0 20px; margin-bottom: 12px; }
         .suggestion-chip { background: #fff; border: 1px solid var(--border-light); padding: 6px 12px; border-radius: 16px; font-size: 11px; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
         .suggestion-chip:hover { background: var(--bg-body); color: var(--text-main); }
-        
+
+        .msg-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px 12px; }
+        .chat-voicebar { display: flex; align-items: center; gap: 12px; padding: 8px 20px; border-top: 1px solid var(--border-light); background: var(--bg-panel); }
+        .voice-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+        .voice-state { font-size: 11px; color: var(--primary); min-width: 0; }
+
         .chat-input-area { padding: 16px 20px; background: var(--bg-panel); border-top: 1px solid var(--border-light); }
         .chat-input-wrapper { display: flex; align-items: center; background: var(--bg-body); border: 1px solid var(--border-light); border-radius: 24px; padding: 4px 4px 4px 16px; }
         .chat-input-wrapper input { flex: 1; border: none; background: transparent; outline: none; font-size: 13px; }
@@ -191,42 +251,43 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="brand">
-            <span class="icon" style="font-size: 28px;">psychology</span>
-            <img src="img/logo.png" alt="UNI" class="uni-logo" onerror="this.style.display='none'">
-            UNI Platform <span style="font-size: 12px; font-weight: 400; color: var(--text-muted);">v2.7</span>
+            <img src="img/logo.png" alt="UNI" class="brand-logo" onerror="this.style.display='none'">
+            <span class="brand-ver">Platform v3.0</span>
         </div>
         
         <div class="menu-group">
-            <a href="#" class="menu-item active" data-sec="dashboard"><span class="icon">home</span> Dashboard</a>
-            <a href="#" class="menu-item" data-sec="participants"><span class="icon">group</span> Participants</a>
-            <a href="#" class="menu-item" data-sec="chathub"><span class="icon">forum</span> Chat Hub <span class="badge-new">New</span></a>
-            <a href="#" class="menu-item" data-sec="tasks"><span class="icon">account_tree</span> Tasks & Workflow</a>
-            <a href="#" class="menu-item" data-sec="consensus"><span class="icon">history_edu</span> Consensus Log</a>
-            <a href="#" class="menu-item" data-sec="documents"><span class="icon">folder</span> Documents</a>
-            <a href="#" class="menu-item" data-sec="analytics"><span class="icon">bar_chart</span> Analytics</a>
-            <a href="#" class="menu-item" data-sec="integrations"><span class="icon">extension</span> Integrations</a>
-            <a href="#" class="menu-item" data-sec="safety"><span class="icon">settings</span> Settings</a>
+            <a href="#" class="menu-item active" data-sec="dashboard"><span class="icon">home</span> Обзор</a>
+            <a href="#" class="menu-item" data-sec="participants"><span class="icon">group</span> Участники</a>
+            <a href="#" class="menu-item" data-sec="chathub"><span class="icon">forum</span> Чат с ЮНИ <span class="badge-new">New</span></a>
+            <a href="#" class="menu-item" data-sec="qwn"><span class="icon">hub</span> Пульт QWN</a>
+            <a href="#" class="menu-item" data-sec="browser"><span class="icon">language</span> Браузер</a>
+            <a href="#" class="menu-item" data-sec="logs"><span class="icon">receipt_long</span> Логи сервера</a>
+            <a href="#" class="menu-item" data-sec="settings"><span class="icon">settings</span> Настройки</a>
+            <a href="#" class="menu-item" data-sec="tasks"><span class="icon">account_tree</span> Задачи и процессы</a>
+            <a href="#" class="menu-item" data-sec="consensus"><span class="icon">history_edu</span> Журнал консенсуса</a>
+            <a href="#" class="menu-item" data-sec="documents"><span class="icon">folder</span> Документы</a>
+            <a href="#" class="menu-item" data-sec="analytics"><span class="icon">bar_chart</span> Аналитика</a>
+            <a href="#" class="menu-item" data-sec="integrations"><span class="icon">extension</span> Интеграции</a>
+            <a href="#" class="menu-item" data-sec="safety"><span class="icon">settings</span> Настройки</a>
         </div>
 
-        <div class="menu-label">Automation</div>
+        <div class="menu-label">Автоматизация</div>
         <div class="menu-group">
-            <a href="#" class="menu-item" data-sec="workflows"><span class="icon">schedule</span> Workflows</a>
-            <a href="#" class="menu-item" data-sec="schedules"><span class="icon">event</span> Schedules</a>
-            <a href="#" class="menu-item" data-sec="triggers"><span class="icon">bolt</span> Triggers</a>
-            <a href="#" class="menu-item" data-sec="rules"><span class="icon">gavel</span> Rules</a>
+            <a href="#" class="menu-item" data-sec="workflows"><span class="icon">schedule</span> Процессы</a>
+            <a href="#" class="menu-item" data-sec="schedules"><span class="icon">event</span> Расписания</a>
+            <a href="#" class="menu-item" data-sec="triggers"><span class="icon">bolt</span> Триггеры</a>
+            <a href="#" class="menu-item" data-sec="rules"><span class="icon">gavel</span> Правила</a>
         </div>
 
         <div class="menu-group" style="margin-top: auto;">
-            <a href="#legacy-ui" class="menu-item" style="color: var(--danger); background: #fef2f2;"><span class="icon">download</span> Legacy UI (Old)</a>
-        </div>
-
-        <div class="user-profile">
-            <div class="avatar">JD</div>
-            <div>
-                <div style="font-size: 13px; font-weight: 600;">John Doe</div>
-                <div style="font-size: 11px; color: var(--text-muted);">Administrator</div>
+            <div class="user-profile">
+                <div class="avatar">Я</div>
+                <div>
+                    <div style="font-size: 13px; font-weight: 600;">Администратор</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Вы</div>
+                </div>
+                <span class="icon" style="margin-left: auto; color: var(--text-muted);">more_vert</span>
             </div>
-            <span class="icon" style="margin-left: auto; color: var(--text-muted);">more_vert</span>
         </div>
     </aside>
 
@@ -236,12 +297,7 @@
         <header class="topbar">
             <div class="topbar-left">
                 <div class="status-badge">
-                    <span class="dot"></span> Online <span style="color: #cbd5e1;">|</span> Run <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">v2.7 Cons</span>
-                </div>
-                <div class="search-bar">
-                    <span class="icon">search</span>
-                    <input type="text" placeholder="Search console...">
-                    <span style="font-size: 12px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">Ctrl+K</span>
+                    <span class="dot"></span> Онлайн <span style="color: #cbd5e1;">|</span> Запуск <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">v3.0</span>
                 </div>
             </div>
             <div class="topbar-right">
@@ -251,9 +307,9 @@
                     <span class="icon">notifications</span>
                     <span style="position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; border: 2px solid #fff;"></span>
                 </button>
-                <button class="icon-btn"><span class="icon">settings</span></button>
-                <div class="avatar" style="width: 32px; height: 32px; font-size: 12px; cursor: pointer;">JD</div>
-                <button class="btn-primary"><span class="icon">play_arrow</span> Run <span style="font-weight: 400; opacity: 0.8; font-size: 12px; margin-left: 4px;">Ctrl+L</span></button>
+                <button class="icon-btn" onclick="openSettings()" title="Настройки"><span class="icon">settings</span></button>
+                <div class="avatar" style="width: 32px; height: 32px; font-size: 12px; cursor: pointer;">Я</div>
+                <button class="btn-primary" onclick="runRound()"><span class="icon">play_arrow</span> Запустить <span style="font-weight: 400; opacity: 0.8; font-size: 12px; margin-left: 4px;">Ctrl+L</span></button>
             </div>
         </header>
 
@@ -263,33 +319,33 @@
                 <div class="stat-card">
                     <div class="stat-icon" style="background: #ecfdf5; color: var(--success);"><span class="icon">show_chart</span></div>
                     <div class="stat-info">
-                        <h4>Round Status</h4>
-                        <h2>run - v2.7 Cons</h2>
-                        <p>runRollCall Chain Confirmed</p>
+                        <h4>Статус раунда</h4>
+                        <h2>запущен</h2>
+                        <p>цепочка runRollCall подтверждена</p>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon" style="background: #eff6ff; color: var(--info);"><span class="icon">groups</span></div>
                     <div class="stat-info">
-                        <h4>Active Agents</h4>
+                        <h4>Активные агенты</h4>
                         <h2>9 / 11</h2>
-                        <p>Participants Active</p>
+                        <p>Участники активны</p>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon" style="background: #f5f3ff; color: #8b5cf6;"><span class="icon">sync_alt</span></div>
                     <div class="stat-info">
-                        <h4>Consensus</h4>
+                        <h4>Консенсус</h4>
                         <h2>35%</h2>
-                        <p>15 megs Hgt • free_tier_only: yes</p>
+                        <p>15 сообщ. • только free_tier</p>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon" style="background: #fff7ed; color: var(--warning);"><span class="icon">bolt</span></div>
                     <div class="stat-info">
-                        <h4>Latency</h4>
-                        <h2>651 ms</h2>
-                        <p>API Status OK • 88 signatures</p>
+                        <h4>Задержка</h4>
+                        <h2>651 мс</h2>
+                        <p>API в порядке • 88 подписей</p>
                     </div>
                 </div>
             </div>
@@ -299,14 +355,14 @@
                 <!-- AI Participants -->
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">AI Participants (Compact)</div>
+                        <div class="card-title">Участники ИИ (компактно)</div>
                         <div style="display: flex; gap: 8px;">
                             <span class="icon" style="color: var(--text-muted); cursor: pointer; font-size: 16px;">chevron_right</span>
                             <span class="icon" style="color: var(--text-muted); cursor: pointer; font-size: 16px;">close</span>
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light);">
-                        <div>Agent</div><div>Status</div><div>Mode</div><div>Source</div>
+                        <div>Агент</div><div>Статус</div><div>Режим</div><div>Источник</div>
                     </div>
                     <div class="participant-list">
                         <!-- Роутеровский макет (заполняем как на картинке) -->
@@ -442,33 +498,26 @@
                     <span class="icon">tune</span> Quick Controls
                 </div>
                 <div class="control-group">
-                    <button class="btn-control btn-start" onclick="alert('Start command sent to agents')"><span class="icon">play_arrow</span> Start Round</button>
-                    <button class="btn-control btn-pause"><span class="icon">pause</span> Pause</button>
-                    <button class="btn-control btn-stop"><span class="icon">stop</span> Stop</button>
+                    <button class="btn-control btn-start" onclick="runRound()"><span class="icon">play_arrow</span> Запустить раунд</button>
+                    <button class="btn-control btn-pause"><span class="icon">pause</span> Пауза</button>
+                    <button class="btn-control btn-stop"><span class="icon">stop</span> Стоп</button>
                 </div>
                 <div class="control-group">
-                    <button class="btn-control"><span class="icon" style="color:var(--info);">sync</span> Sync All Agents</button>
-                    <button class="btn-control"><span class="icon">science</span> Run Tests</button>
-                    <button class="btn-control"><span class="icon">rocket_launch</span> Deploy Preview</button>
+                    <button class="btn-control"><span class="icon" style="color:var(--info);">sync</span> Синхронизировать</button>
+                    <button class="btn-control"><span class="icon">science</span> Тесты</button>
+                    <button class="btn-control"><span class="icon">rocket_launch</span> Развернуть</button>
                 </div>
                 <div class="select-control">
-                    <label>Workflow Mode</label>
-                    <select><option>🟢 Continuous</option><option>🟡 Manual Step</option></select>
+                    <label>Режим:</label>
+                    <select><option>🟢 Непрерывный</option><option>🟡 Пошаговый</option></select>
                 </div>
                 <div class="select-control">
-                    <label>Log Level</label>
-                    <select><option>Info</option><option>Debug</option><option>Verbose</option></select>
+                    <label>Логи:</label>
+                    <select><option>Инфо</option><option>Отладка</option><option>Подробно</option></select>
                 </div>
             </div>
 
-            <!-- ЛЕГАСИ БЛОК -->
-            <div id="legacy-ui" class="legacy-wrapper">
-                <h2 class="legacy-title">Старая версия интерфейса (Легаси)</h2>
-                <div style="padding: 24px; font-family: monospace; background: white; border: 1px solid #cbd5e1; border-radius: 8px;">
-                    [ORIGINAL HTML CONTENT FROM IMAGE 2.PNG IS WRAPPED HERE] <br><br>
-                    <!-- Сюда вставляется старый код системы -->
-                </div>
-            </div>
+            <!-- ЛЕГАСИ БЛОК УДАЛЕН (по ТЗ координатора) -->
 
             <!-- ===== ДОПОЛНИТЕЛЬНЫЕ СЕКЦИИ (Hermes): оживлённые views ===== -->
             <div class="view" id="view-chathub" style="display:none;">
@@ -541,6 +590,118 @@
                 </div>
             </div>
         </div>
+
+        <!-- ===== СЕКЦИЯ: Пульт QWN (интеграция qwen.html) ===== -->
+        <div class="view" id="view-qwn" style="display:none;">
+            <div class="card">
+                <div class="card-header"><div class="card-title">Пульт QWN</div><span id="qwSrv" style="font-size:12px;color:#f85149;">сервер …</span></div>
+                <div class="qwn-grid">
+                    <div class="card" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;">
+                        <h3 style="margin:0 0 8px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;">Участники</h3>
+                        <div id="qwParts"></div>
+                        <h3 style="margin:14px 0 8px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;">Автоматизация</h3>
+                        <div id="qwAuto"></div>
+                    </div>
+                    <div class="card" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;">
+                        <h3 style="margin:0 0 8px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;">Раунд</h3>
+                        <input id="qwTheme" placeholder="Тема раунда" value="Проверка связи и статуса" style="width:100%;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:6px;font-size:12px;margin-bottom:6px;box-sizing:border-box;">
+                        <textarea id="qwBrief" rows="4" style="width:100%;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:6px;font:12px/1.4 monospace;box-sizing:border-box;">Ответь одной фразой: доступен, готов. Затем отметься heartbeat.</textarea>
+                        <div style="margin:8px 0;"><button onclick="qwStartRound()" style="background:#238636;border:0;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;">Запустить раунд</button></div>
+                        <h3 style="margin:0 0 8px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;">Журнал</h3>
+                        <pre id="qwJournal" style="white-space:pre-wrap;margin:0;font:11px/1.4 monospace;color:#8b949e;max-height:200px;overflow:auto;"></pre>
+                    </div>
+                    <div class="card" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;">
+                        <h3 style="margin:0 0 8px;font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;">Чат с Qwen</h3>
+                        <div id="qwChat" style="height:240px;overflow-y:auto;border:1px solid #21262d;border-radius:6px;padding:6px;margin-bottom:6px;"></div>
+                        <input id="qwCin" placeholder="Сообщение…" onkeypress="if(event.key==='Enter')qwSendChat()" style="width:100%;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:6px;font-size:12px;box-sizing:border-box;">
+                        <div style="margin-top:6px;"><button onclick="qwSendChat()" style="background:#238636;border:0;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;">Отправить</button></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== СЕКЦИЯ: Процесс (Pipeline) ===== -->
+        <div class="view" id="view-pipeline" style="display:none;">
+            <div class="card">
+                <div class="card-header"><div class="card-title">Процесс разработки</div><button class="btn-primary" onclick="runRound()">Запустить раунд</button></div>
+                <div class="pipeline" id="pipeline">
+                    <div class="pipe-step active" data-step="0"><div class="pipe-num">1</div><div class="pipe-label">Анализ</div></div>
+                    <div class="pipe-step" data-step="1"><div class="pipe-num">2</div><div class="pipe-label">Реализация</div></div>
+                    <div class="pipe-step" data-step="2"><div class="pipe-num">3</div><div class="pipe-label">Тестирование</div></div>
+                    <div class="pipe-step" data-step="3"><div class="pipe-num">4</div><div class="pipe-label">Ревью</div></div>
+                </div>
+                <div id="pipeLog" class="muted" style="margin-top:12px;font-size:13px;">Раунд не запущен. Нажми «Запустить раунд» — прогресс пойдёт по SSE.</div>
+            </div>
+        </div>
+
+        <!-- ===== СЕКЦИЯ: Браузер + мышка Uni ===== -->
+        <div class="view" id="view-browser" style="display:none;">
+            <div class="card" style="height:100%;">
+                <div class="card-header"><div class="card-title">Браузер · мышка Uni</div></div>
+                <div class="b-toolbar">
+                    <button class="icon-btn" onclick="showToast('Назад')" title="Назад">arrow_back</button>
+                    <button class="icon-btn" onclick="showToast('Вперёд')" title="Вперёд">arrow_forward</button>
+                    <button class="icon-btn" onclick="showToast('Обновить')" title="Обновить">refresh</button>
+                    <input id="bAddr" class="b-addr" value="https://chat.deepseek.com" readonly>
+                    <button class="icon-btn" onclick="bSnap()" title="Скриншот">photo_camera</button>
+                </div>
+                <div class="b-content" id="bContent">
+                    <div class="b-line l"></div><div class="b-line m"></div><div class="b-line s"></div><div class="b-line m"></div><div class="b-line l"></div>
+                    <div class="m-overlay">
+                        <div class="u-cursor" id="uniCursor" style="left:30%;top:40%">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 01.35-.15h6.87a.5.5 0 00.35-.85L6.35 2.85a.5.5 0 00-.85.35z" fill="var(--primary)" stroke="#fff" stroke-width="1.5"/></svg>
+                            <div class="c-label">мышка Uni</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== СЕКЦИЯ: Логи сервера ===== -->
+        <div class="view" id="view-logs" style="display:none;">
+            <div class="card">
+                <div class="card-header"><div class="card-title">Логи сервера</div></div>
+                <div class="log-filters">
+                    <button class="on" onclick="filterLogs('all',this)">Все</button>
+                    <button onclick="filterLogs('HEARTBEAT',this)">Heartbeat</button>
+                    <button onclick="filterLogs('READ',this)">Read</button>
+                    <button onclick="filterLogs('WRITE',this)">Write</button>
+                    <button onclick="filterLogs('ERROR',this)">Errors</button>
+                </div>
+                <div class="log-box" id="logBox">
+                    <div class="log-line" data-tag="INFO"><span class="log-time">—</span><span class="log-tag info">[INFO]</span><span class="log-msg">загрузка логов…</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== СЕКЦИЯ: Настройки ===== -->
+        <div class="view" id="view-settings" style="display:none;">
+            <div class="card">
+                <div class="card-header"><div class="card-title">Настройки</div></div>
+                <div class="set-grid">
+                    <div class="set-group"><h3>🔒 Безопасность</h3>
+                        <div class="set-row"><label>XToys требует подтверждения</label><div class="tsw2 on" onclick="this.classList.toggle('on')"></div></div>
+                        <div class="set-row"><label>Камера требует подтверждения</label><div class="tsw2 on" onclick="this.classList.toggle('on')"></div></div>
+                        <div class="set-row"><label>Redact secrets в логах</label><div class="tsw2 on" onclick="this.classList.toggle('on')"></div></div>
+                    </div>
+                    <div class="set-group"><h3>🤖 Автономия</h3>
+                        <div class="set-row"><label>Режим автономии</label><select><option>Только подтверждённые</option><option>Ограниченный</option><option>Полный</option></select></div>
+                        <div class="set-row"><label>Max LLM calls / мин</label><select><option>10</option><option>30</option><option>60</option><option>∞</option></select></div>
+                        <div class="set-row"><label>Auto-save контекста</label><div class="tsw2 on" onclick="this.classList.toggle('on')"></div></div>
+                    </div>
+                    <div class="set-group"><h3>🌐 Провайдеры</h3>
+                        <div class="set-row"><label>LM Studio URL</label><input value="http://localhost:1234" class="set-inp"></div>
+                        <div class="set-row"><label>OpenRouter API</label><input value="sk-or-..." class="set-inp"></div>
+                        <div class="set-row"><label>Groq API</label><input value="gsk_..." class="set-inp"></div>
+                    </div>
+                    <div class="set-group"><h3>🎨 Интерфейс</h3>
+                        <div class="set-row"><label>Тема</label><select onchange="document.documentElement.setAttribute('data-theme',this.value)"><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div>
+                        <div class="set-row"><label>Язык</label><select><option>Русский</option><option>English</option></select></div>
+                        <div class="set-row"><label>Компактный режим</label><div class="tsw2 on" onclick="this.classList.toggle('on')"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- RIGHT CHAT PANEL -->
@@ -557,44 +718,13 @@
         </div>
         
         <div class="chat-messages" id="chatMessages">
-            <div class="msg-container">
-                <div class="msg-avatar" style="background: #8b5cf6;"><span class="icon" style="font-size: 16px;">psychology</span></div>
-                <div>
-                    <div class="msg-bubble">
-                        <strong>Привет, John! 👋</strong><br><br>
-                        Я ЮНИ – твой AI-ассистент и координатор всех агентов. Сейчас система работает стабильно.<br><br>
-                        Текущий статус:<br>
-                        • Активных агентов: 9 из 11<br>
-                        • Консенсус: 35%<br>
-                        • Текущая задача: Проверка статуса ИИ<br><br>
-                        Чем могу помочь?
-                    </div>
-                    <div class="msg-time">11:32</div>
-                </div>
-            </div>
+            <div class="msg-empty" id="chatEmpty">Чат готов. Напишите ЮНИ или нажмите микрофон для голосового сообщения.</div>
+        </div>
 
-            <div class="msg-container user">
-                <div>
-                    <div class="msg-bubble">
-                        Добавь новую функцию: экспорт отчета в PDF и отправь на ревью всем агентам.
-                    </div>
-                    <div class="msg-time">11:33 ✓✓</div>
-                </div>
-            </div>
-
-            <div class="msg-container">
-                <div class="msg-avatar" style="background: #8b5cf6;"><span class="icon" style="font-size: 16px;">psychology</span></div>
-                <div>
-                    <div class="msg-bubble">
-                        Принято! Создаю задачу и отправляю всем агентам на анализ и реализацию.<br><br>
-                        <strong>Задача #UNI-1287 создана ✅</strong><br>
-                        Приоритет: High<br>
-                        Срок: Сегодня 23:59<br><br>
-                        Начинаю распределение...
-                    </div>
-                    <div class="msg-time">11:33</div>
-                </div>
-            </div>
+        <div class="chat-voicebar">
+            <label class="voice-toggle"><input type="checkbox" id="voiceSpeak"> <span>Озвучивать ответ</span></label>
+            <button class="icon-btn" id="micBtn" title="Голосовой ввод"><span class="icon">mic</span></button>
+            <span id="voiceState" class="voice-state"></span>
         </div>
 
         <div class="chat-suggestions">
@@ -674,7 +804,9 @@
                     </div>
                 </div>`;
                 if (w) w.outerHTML = html; else chatMessages.insertAdjacentHTML('beforeend', html);
+                const empty = document.getElementById('chatEmpty'); if (empty) empty.style.display = 'none';
                 scrollToBottom();
+                if (document.getElementById('voiceSpeak') && document.getElementById('voiceSpeak').checked) speakReply(String(reply));
             })
             .catch(err => {
                 const w = document.getElementById('uniWaiting');
@@ -687,12 +819,56 @@
                     </div>
                 </div>`;
                 if (w) w.outerHTML = html; else chatMessages.insertAdjacentHTML('beforeend', html);
+                const empty = document.getElementById('chatEmpty'); if (empty) empty.style.display = 'none';
                 scrollToBottom();
             });
         }
 
         function scrollToBottom() {
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Настройки: открыть секцию безопасности/настроек
+        function openSettings() {
+            document.querySelectorAll('.menu-item').forEach(x => x.classList.remove('active'));
+            const m = document.querySelector('.menu-item[data-sec="safety"]');
+            if (m) m.classList.add('active');
+            document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+            const el = document.getElementById('view-safety');
+            if (el) el.style.display = '';
+            if (window.toast) toast('Открыты настройки');
+        }
+
+        // Озвучка ответа браузерным TTS (Web Speech API)
+        function speakReply(text) {
+            try {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'ru-RU';
+                u.rate = 1.0;
+                window.speechSynthesis.speak(u);
+            } catch (e) { /* TTS недоступен — молча */ }
+        }
+
+        // Голосовой ввод (Web Speech API, распознавание)
+        let _rec = null;
+        function startVoiceInput() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const st = document.getElementById('voiceState');
+            if (!SR) { if (st) st.textContent = 'распознавание не поддерживается'; return; }
+            if (_rec) { _rec.stop(); _rec = null; if (st) st.textContent = ''; return; }
+            const rec = new SR();
+            rec.lang = 'ru-RU'; rec.interimResults = false; rec.continuous = false;
+            rec.onstart = () => { if (st) st.textContent = 'слушаю…'; };
+            rec.onend = () => { _rec = null; if (st) st.textContent = ''; };
+            rec.onerror = (e) => { _rec = null; if (st) st.textContent = 'ошибка: ' + e.error; };
+            rec.onresult = (e) => {
+                const txt = e.results[0][0].transcript;
+                const inp = document.getElementById('chatInput');
+                if (inp) { inp.value = txt; sendMessage(); }
+            };
+            _rec = rec; rec.start();
         }
 
         // ===== ОЖИВЛЕНИЕ ПАНЕЛИ (Hermes): реальные данные из API UNI =====
@@ -781,6 +957,12 @@
                                 try {
                                     const ev = JSON.parse(t.slice(5).trim());
                                     if (window.console) console.log('[round]', ev);
+                                    // продвижение Pipeline по этапам совета
+                                    const ph = (ev && (ev.phase || ev.step || ev.type || '')).toString().toLowerCase();
+                                    const stepMap = { analyze: 0, analysis: 0, implement: 1, realize: 1, test: 2, testing: 2, review: 3 };
+                                    for (const k in stepMap) {
+                                        if (ph.indexOf(k) >= 0) { setStep(stepMap[k]); const pl = document.getElementById('pipeLog'); if (pl) pl.textContent = 'Этап: ' + (ev.phase || ev.step || ev.type || ''); break; }
+                                    }
                                 } catch (e) { /* ignore非-JSON */ }
                             }
                         }
@@ -817,6 +999,10 @@
                         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
                         const el = document.getElementById('view-' + sec);
                         if (el) el.style.display = '';
+                        if (sec === 'qwn') qwBoot();
+                        if (sec === 'logs') loadLogs();
+                        if (sec === 'browser') startCursor();
+                        if (sec === 'pipeline') setStep(0);
                     }
                 });
             });
@@ -854,6 +1040,10 @@
                 const tr = document.querySelector('.topbar-right');
                 if (tr) tr.insertBefore(b, tr.firstChild);
             }
+
+            // Голосовой ввод — микрофон в чате
+            const mic = document.getElementById('micBtn');
+            if (mic) mic.onclick = startVoiceInput;
         });
 
         // совместимость с именами из макета
@@ -952,7 +1142,141 @@
                 document.getElementById('hubMessages').dataset.boot = '1';
                 document.getElementById('hubMessages').innerHTML = '<div class="muted">Чат готов. Выберите роль и пишите.</div>';
             }
+            if (sec === 'qwn') qwBoot();
         });
+
+        // ===== ПУЛЬТ QWN (интеграция qwen.html; сервер на :8000) =====
+        const QW_API = 'http://127.0.0.1:8000';
+        const QW_PARTS = ['qwen','deepseek','gemini','mistral','grok'];
+        let qw_auto = { worker: true, dispatcher: true, macros: false };
+        let qw_seen = {};
+        let qw_booted = false;
+
+        async function qw_rd(p){ try { const r = await fetch(QW_API + '/read?path=' + encodeURIComponent(p)); const j = await r.json(); return j.ok ? j.content : null; } catch(e){ return null; } }
+        async function qw_wr(p, c){ try { const r = await fetch(QW_API + '/write', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path:p, content:c, participant:'qwen' }) }); return (await r.json()).ok; } catch(e){ return false; } }
+        async function qw_ls(p){ try { const r = await fetch(QW_API + '/list?path=' + encodeURIComponent(p)); const j = await r.json(); return j.ok ? j.items : []; } catch(e){ return []; } }
+        function qw_age(line){ try { const t = Date.parse(line.split(' | ')[0]); return Math.round((Date.now() - t) / 60000); } catch(e){ return -1; } }
+
+        async function qw_ping(){
+            const el = document.getElementById('qwSrv'); if (!el) return;
+            try { const j = await (await fetch(QW_API + '/ping')).json();
+                el.textContent = j.ok ? 'онлайн' : 'офлайн'; el.style.color = j.ok ? '#3fb950' : '#f85149';
+            } catch(e){ el.textContent = 'офлайн'; el.style.color = '#f85149'; }
+        }
+        async function qw_parts(){
+            const el = document.getElementById('qwParts'); if (!el) return;
+            let h = '';
+            for (const p of QW_PARTS){
+                const t = await qw_rd('uni-' + p + '/heartbeat.log');
+                if (!t){ h += '<div class="qwn-row"><span>' + p + '</span><span class="qwn-bad">нет данных</span></div>'; continue; }
+                const lines = t.split('\n').filter(x => x.trim());
+                const m = qw_age(lines[lines.length - 1] || '');
+                h += '<div class="qwn-row"><span>' + p + '</span><span class="' + (m >= 0 && m <= 12 ? 'qwn-ok' : m >= 0 ? 'qwn-warn' : 'qwn-bad') + '">' + (m >= 0 ? m + ' мин назад' : '?') + '</span></div>';
+            }
+            el.innerHTML = h;
+        }
+        function qw_drawAuto(){
+            const el = document.getElementById('qwAuto'); if (!el) return;
+            el.innerHTML = Object.keys(qw_auto).map(k => '<label class="qwn-label"><input type="checkbox" ' + (qw_auto[k] ? 'checked' : '') + ' onchange="qw_setAuto(\'' + k + '\',this.checked)"> ' + k + '</label>').join('');
+        }
+        async function qw_setAuto(k, v){ qw_auto[k] = v; await qw_wr('uni-qwen/state/automation.json', JSON.stringify(qw_auto, null, 1)); qw_drawAuto(); }
+        async function qw_loadAuto(){ const t = await qw_rd('uni-qwen/state/automation.json'); if (t){ try { qw_auto = JSON.parse(t); } catch(e){} } qw_drawAuto(); }
+        async function qw_startRound(){
+            const th = document.getElementById('qwTheme').value || 'Раунд';
+            const br = document.getElementById('qwBrief').value;
+            const ts = Date.now(); let ok = 0;
+            for (const p of QW_PARTS){ if (p === 'qwen') continue; if (await qw_wr('uni-qwen/outbox/round_' + ts + '_' + p + '.md', 'from: qwen\nto: ' + p + '\ntitle: ' + th + '\n\n' + br + '\n')) ok++; }
+            if (window.toast) toast('Письма разосланы: ' + ok + ' из ' + (QW_PARTS.length - 1));
+        }
+        function qw_addMsg(w, t, me){
+            const c = document.getElementById('qwChat'); if (!c) return;
+            const d = document.createElement('div'); d.className = 'qwn-msg' + (me ? ' me' : '');
+            d.textContent = w + ': ' + t; c.appendChild(d); c.scrollTop = c.scrollHeight;
+        }
+        async function qw_sendChat(){
+            const inp = document.getElementById('qwCin'); if (!inp) return;
+            const v = inp.value.trim(); if (!v) return; inp.value = '';
+            qw_addMsg('Вы', v, true);
+            await qw_wr('uni-qwen/outbox/chat_' + Date.now() + '.md', 'from: user\nto: qwen\ntitle: Чат панели\n\n' + v + '\n');
+        }
+        async function qw_pollChat(){
+            const items = await qw_ls('uni-qwen/outbox');
+            for (const f of items){
+                if (f.indexOf('panel_reply_') !== 0 || qw_seen[f]) continue;
+                qw_seen[f] = 1;
+                const t = await qw_rd('uni-qwen/outbox/' + f);
+                if (t && t.indexOf('to: panel') === 0) qw_addMsg('Qwen', t.split('\n\n').slice(1).join('\n\n').trim(), false);
+            }
+        }
+        async function qw_journal(){
+            const el = document.getElementById('qwJournal'); if (!el) return;
+            const t = await qw_rd('uni-qwen/supervisor_status.md');
+            const d = await qw_rd('uni-qwen/dispatcher.log');
+            let s = (t || '— статус пуст —') + '\n\n';
+            if (d) s += d.split('\n').slice(-12).join('\n');
+            el.textContent = s;
+        }
+        function qwBoot(){
+            if (qw_booted) return; qw_booted = true;
+            qw_ping(); qw_parts(); qw_loadAuto(); qw_journal();
+            setInterval(function(){ qw_ping(); qw_parts(); qw_pollChat(); qw_journal(); }, 7000);
+        }
+
+        // ===== PIPELINE (Процесс разработки) =====
+        function setStep(n){
+            document.querySelectorAll('#pipeline .pipe-step').forEach(s => {
+                const i = +s.dataset.step;
+                s.classList.toggle('active', i === n);
+                s.classList.toggle('done', i < n);
+            });
+        }
+
+        // ===== БРАУЗЕР · мышка Uni =====
+        let curTimer = null;
+        function startCursor(){
+            if (curTimer) return;
+            moveCursor();
+            curTimer = setInterval(moveCursor, 4500);
+        }
+        function moveCursor(){
+            const c = document.getElementById('uniCursor'); if (!c) return;
+            const x = 12 + Math.random() * 70, y = 12 + Math.random() * 70;
+            c.style.left = x + '%'; c.style.top = y + '%';
+        }
+        async function bSnap(){
+            try {
+                const r = await fetch('/api/vision/capture', { method: 'POST' });
+                const d = await r.json();
+                showToast(d.ok ? 'Скриншот сохранён' : 'Скриншот недоступен');
+            } catch(e){ showToast('Скриншот недоступен'); }
+        }
+
+        // ===== ЛОГИ СЕРВЕРА =====
+        function filterLogs(tag, btn){
+            document.querySelectorAll('.log-filters button').forEach(b => b.classList.remove('on'));
+            if (btn) btn.classList.add('on');
+            document.querySelectorAll('#logBox .log-line').forEach(l => {
+                l.style.display = (tag === 'all' || l.dataset.tag === tag) ? '' : 'none';
+            });
+        }
+        async function loadLogs(){
+            const box = document.getElementById('logBox'); if (!box) return;
+            try {
+                const r = await fetch('/api/context/feed');
+                if (!r.ok) throw 0;
+                const j = await r.json();
+                const items = Array.isArray(j) ? j : (j.items || []);
+                if (!items.length){ box.innerHTML = '<div class="log-line" data-tag="INFO"><span class="log-time">—</span><span class="log-tag info">[INFO]</span><span class="log-msg">логи пусты</span></div>'; return; }
+                box.innerHTML = items.slice(-60).reverse().map(it => {
+                    const tag = String(it.type || it.tag || 'INFO').toUpperCase();
+                    const tm = it.time ? it.time.split('T').pop().slice(0,8) : '—';
+                    const cls = tag.indexOf('ERR') >= 0 ? 'error' : tag.indexOf('OK') >= 0 ? 'ok' : tag.indexOf('WARN') >= 0 ? 'warn' : 'info';
+                    return `<div class="log-line" data-tag="${tag}"><span class="log-time">${tm}</span><span class="log-tag ${cls}">[${tag}]</span><span class="log-msg">${String(it.msg || it.message || '').replace(/</g,'&lt;')}</span></div>`;
+                }).join('');
+            } catch(e){
+                box.innerHTML = '<div class="log-line" data-tag="INFO"><span class="log-time">—</span><span class="log-tag info">[INFO]</span><span class="log-msg">логи недоступны (нет /api/context/feed)</span></div>';
+            }
+        }
     </script>
 </body>
 </html>
