@@ -173,23 +173,23 @@
         </div>
         
         <div class="menu-group">
-            <a href="#" class="menu-item active"><span class="icon">home</span> Dashboard</a>
-            <a href="#" class="menu-item"><span class="icon">group</span> Participants</a>
-            <a href="#" class="menu-item"><span class="icon">forum</span> Chat Hub <span class="badge-new">New</span></a>
-            <a href="#" class="menu-item"><span class="icon">account_tree</span> Tasks & Workflow</a>
-            <a href="#" class="menu-item"><span class="icon">history_edu</span> Consensus Log</a>
-            <a href="#" class="menu-item"><span class="icon">folder</span> Documents</a>
-            <a href="#" class="menu-item"><span class="icon">bar_chart</span> Analytics</a>
-            <a href="#" class="menu-item"><span class="icon">extension</span> Integrations</a>
-            <a href="#" class="menu-item"><span class="icon">settings</span> Settings</a>
+            <a href="#" class="menu-item active" data-sec="dashboard"><span class="icon">home</span> Dashboard</a>
+            <a href="#" class="menu-item" data-sec="participants"><span class="icon">group</span> Participants</a>
+            <a href="#" class="menu-item" data-sec="chathub"><span class="icon">forum</span> Chat Hub <span class="badge-new">New</span></a>
+            <a href="#" class="menu-item" data-sec="tasks"><span class="icon">account_tree</span> Tasks & Workflow</a>
+            <a href="#" class="menu-item" data-sec="consensus"><span class="icon">history_edu</span> Consensus Log</a>
+            <a href="#" class="menu-item" data-sec="documents"><span class="icon">folder</span> Documents</a>
+            <a href="#" class="menu-item" data-sec="analytics"><span class="icon">bar_chart</span> Analytics</a>
+            <a href="#" class="menu-item" data-sec="integrations"><span class="icon">extension</span> Integrations</a>
+            <a href="#" class="menu-item" data-sec="safety"><span class="icon">settings</span> Settings</a>
         </div>
 
         <div class="menu-label">Automation</div>
         <div class="menu-group">
-            <a href="#" class="menu-item"><span class="icon">schedule</span> Workflows</a>
-            <a href="#" class="menu-item"><span class="icon">event</span> Schedules</a>
-            <a href="#" class="menu-item"><span class="icon">bolt</span> Triggers</a>
-            <a href="#" class="menu-item"><span class="icon">gavel</span> Rules</a>
+            <a href="#" class="menu-item" data-sec="workflows"><span class="icon">schedule</span> Workflows</a>
+            <a href="#" class="menu-item" data-sec="schedules"><span class="icon">event</span> Schedules</a>
+            <a href="#" class="menu-item" data-sec="triggers"><span class="icon">bolt</span> Triggers</a>
+            <a href="#" class="menu-item" data-sec="rules"><span class="icon">gavel</span> Rules</a>
         </div>
 
         <div class="menu-group" style="margin-top: auto;">
@@ -444,6 +444,77 @@
                     <!-- Сюда вставляется старый код системы -->
                 </div>
             </div>
+
+            <!-- ===== ДОПОЛНИТЕЛЬНЫЕ СЕКЦИИ (Hermes): оживлённые views ===== -->
+            <div class="view" id="view-chathub" style="display:none;">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Chat Hub — чат с ЮНИ</div>
+                        <select id="uniRole" onchange="window.__uniRole=this.value">
+                            <option value="assistant">assistant</option>
+                            <option value="domina">domina</option>
+                            <option value="mistress2">mistress2</option>
+                            <option value="xtoys_mistress">xtoys_mistress</option>
+                        </select>
+                    </div>
+                    <div id="hubMessages" style="min-height:300px;max-height:55vh;overflow:auto;border:1px solid var(--border-light);border-radius:8px;padding:12px;margin-bottom:12px;"></div>
+                    <div style="display:flex;gap:8px;">
+                        <input id="hubInput" class="search-bar" style="flex:1;" placeholder="Сообщение ЮНИ…" onkeypress="if(event.key==='Enter')hubSend()">
+                        <button class="btn-primary" onclick="hubSend()">Отправить</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="view-consensus" style="display:none;">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Consensus Log — история раундов совета</div>
+                        <button class="btn-outline" onclick="loadConsensus()">Обновить</button></div>
+                    <div id="consensusList" style="border:1px solid var(--border-light);border-radius:8px;padding:12px;min-height:200px;"></div>
+                </div>
+            </div>
+
+            <div class="view" id="view-documents" style="display:none;">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Documents — файлы проекта</div>
+                        <button class="btn-outline" onclick="loadDocs()">Обновить</button></div>
+                    <div id="docsList" style="border:1px solid var(--border-light);border-radius:8px;padding:12px;min-height:200px;"></div>
+                </div>
+            </div>
+
+            <div class="view" id="view-safety" style="display:none;">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Settings — автономия и безопасность</div></div>
+                    <div style="display:flex;flex-direction:column;gap:14px;padding:8px 0;">
+                        <label style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="safeConsent"> Я осознаю риски автономного режима (consent)</label>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <span>Уровень:</span>
+                            <select id="safeLevel" disabled>
+                                <option value="off">off</option><option value="observe">observe</option>
+                                <option value="suggest">suggest</option><option value="act">act</option>
+                            </select>
+                            <button class="btn-primary" id="safeApply" disabled onclick="applySafety()">Применить</button>
+                            <button class="btn-outline" onclick="emergencyStop()">Аварийная остановка</button>
+                        </div>
+                        <div id="safeStatus" style="color:var(--text-muted);font-size:13px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="view-integrations" style="display:none;">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Integrations — устройство (XToys)</div>
+                        <button class="btn-outline" onclick="loadDevice()">Обновить статус</button></div>
+                    <div style="display:flex;flex-direction:column;gap:14px;padding:8px 0;">
+                        <input type="range" id="devIntensity" min="0" max="100" value="0" oninput="document.getElementById('devOut').textContent=this.value+'%'">
+                        <div id="devOut">0%</div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-primary" onclick="devApply()">Применить</button>
+                            <button class="btn-outline" onclick="devOsc()">Oscillate</button>
+                            <button class="btn-outline" onclick="devStop()">Stop</button>
+                        </div>
+                        <div id="devStatus" style="color:var(--text-muted);font-size:13px;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -548,29 +619,253 @@
             chatInput.value = '';
             scrollToBottom();
 
-            // Имитация ответа от UNI
-            setTimeout(() => {
-                const uniHtml = `
-                <div class="msg-container">
+            // Реальный вызов локального API UNI (вместо имитации)
+            const waitingHtml = `
+                <div class="msg-container" id="uniWaiting">
                     <div class="msg-avatar" style="background: #8b5cf6;"><span class="icon" style="font-size: 16px;">psychology</span></div>
                     <div>
-                        <div class="msg-bubble">Команда принята. Ожидаю консенсуса от агентов...</div>
+                        <div class="msg-bubble">ЮНИ печатает…</div>
                         <div class="msg-time">Только что</div>
                     </div>
                 </div>`;
-                chatMessages.insertAdjacentHTML('beforeend', uniHtml);
-                scrollToBottom();
-                
-                // ВНИМАНИЕ ДЛЯ ИНЖЕНЕРА: 
-                // Здесь нужно добавить fetch() или websocket вызов к локальному API платформы UNI.
-                // Пример: fetch('http://localhost:5000/api/chat', { method: 'POST', body: JSON.stringify({message: text}) })
+            chatMessages.insertAdjacentHTML('beforeend', waitingHtml);
+            scrollToBottom();
 
-            }, 1000);
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, role: window.__uniRole || 'assistant' })
+            })
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+            .then(data => {
+                const w = document.getElementById('uniWaiting');
+                const reply = (data && (data.reply || data.response || data.text)) || '[нет ответа]';
+                const html = `
+                <div class="msg-container">
+                    <div class="msg-avatar" style="background: #8b5cf6;"><span class="icon" style="font-size: 16px;">psychology</span></div>
+                    <div>
+                        <div class="msg-bubble">${String(reply).replace(/</g,'&lt;')}</div>
+                        <div class="msg-time">Только что</div>
+                    </div>
+                </div>`;
+                if (w) w.outerHTML = html; else chatMessages.insertAdjacentHTML('beforeend', html);
+                scrollToBottom();
+            })
+            .catch(err => {
+                const w = document.getElementById('uniWaiting');
+                const html = `
+                <div class="msg-container">
+                    <div class="msg-avatar" style="background: #ef4444;"><span class="icon" style="font-size: 16px;">error</span></div>
+                    <div>
+                        <div class="msg-bubble">Ошибка связи с ЮНИ: ${String(err.message).replace(/</g,'&lt;')}</div>
+                        <div class="msg-time">Только что</div>
+                    </div>
+                </div>`;
+                if (w) w.outerHTML = html; else chatMessages.insertAdjacentHTML('beforeend', html);
+                scrollToBottom();
+            });
         }
 
         function scrollToBottom() {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+
+        // ===== ОЖИВЛЕНИЕ ПАНЕЛИ (Hermes): реальные данные из API UNI =====
+        const PILL = { ready: 'pill-success', configured: 'pill-warning', disabled: 'pill-outline', error: 'pill-danger' };
+        const ICON = { ready: '✓', configured: '◐', disabled: '⊘', error: '✕' };
+
+        function loadParticipants() {
+            fetch('/api/participants')
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+                .then(list => {
+                    const box = document.querySelector('.participant-list');
+                    if (!box || !Array.isArray(list)) return;
+                    box.innerHTML = list.map(p => {
+                        const st = (p.status || 'configured').toLowerCase();
+                        const nm = p.name || p.participant || '?';
+                        const dt = p.detail || p.transport || '';
+                        const pill = PILL[st] || 'pill-outline';
+                        return `<div class="participant-row">
+                            <div class="agent-name"><div class="agent-icon" style="background:#4f46e5;">${nm.slice(0,1)}</div> ${nm}</div>
+                            <div><span class="pill ${pill}">${st}</span></div>
+                            <div><span class="pill pill-outline">${p.transport || '—'}</span></div>
+                            <div style="color: var(--text-muted);">${dt}</div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {/* тихо: макетная статика остаётся при недоступности API */});
+        }
+
+        function loadStats() {
+            // Active Agents — из /api/participants
+            fetch('/api/participants').then(r => r.ok ? r.json() : null).then(list => {
+                if (!Array.isArray(list)) return;
+                const ready = list.filter(p => (p.status || '').toLowerCase() === 'ready').length;
+                const cards = document.querySelectorAll('.stat-card h2');
+                if (cards[1]) cards[1].textContent = ready + ' / ' + list.length;
+            }).catch(() => {});
+            // Latency / device — из /api/xtoys/status
+            fetch('/api/xtoys/status').then(r => r.ok ? r.json() : null).then(d => {
+                if (!d) return;
+                const cards = document.querySelectorAll('.stat-card h2');
+                const p = document.querySelectorAll('.stat-card p');
+                if (d.connected) {
+                    if (cards[3]) cards[3].textContent = 'live';
+                    if (p[3]) p[3].textContent = 'XToys подключен • ' + (d.mode || '');
+                } else {
+                    if (cards[3]) cards[3].textContent = 'emu';
+                    if (p[3]) p[3].textContent = 'XToys эмуляция';
+                }
+            }).catch(() => {});
+            // Autonomy level — из /api/safety
+            fetch('/api/safety').then(r => r.ok ? r.json() : null).then(d => {
+                if (!d) return;
+                const cards = document.querySelectorAll('.stat-card h2');
+                const p = document.querySelectorAll('.stat-card p');
+                if (cards[2]) cards[2].textContent = (d.autonomy_level || 'off').toUpperCase();
+                if (p[2]) p[2].textContent = d.autonomy_active ? 'автономия активна' : 'ручной режим';
+            }).catch(() => {});
+        }
+
+        function runRound() {
+            const topic = (document.querySelector('#councilTopic') || {}).value
+                || 'Проверка статуса ИИ и консенсус участников';
+            fetch('/api/round/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic, brief: '', files: [], only: '' })
+            })
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+            .then(() => { if (window.toast) toast('Раунд совета запущен'); })
+            .catch(err => alert('Не удалось запустить раунд: ' + err.message));
+        }
+
+        // Quick Controls
+        document.addEventListener('DOMContentLoaded', function () {
+            loadParticipants();
+            loadStats();
+            setInterval(loadParticipants, 5000);
+
+            const startBtn = document.querySelector('.btn-start');
+            if (startBtn) startBtn.onclick = runRound;
+            const syncBtn = [...document.querySelectorAll('.btn-control')].find(b => /Sync/i.test(b.textContent));
+            if (syncBtn) syncBtn.onclick = () => { loadParticipants(); loadStats(); if (window.toast) toast('Синхронизация агентов…'); };
+            const stopBtn = document.querySelector('.btn-stop');
+            if (stopBtn) stopBtn.onclick = () => { if (window.confirm('Остановить автономию?')) fetch('/api/safety',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autonomy_level:'off'})}).then(()=>toast('Остановлено')).catch(()=>{}); };
+
+            // навигация по меню (показываем соответствующие секции, если добавлены)
+            document.querySelectorAll('.menu-item').forEach(m => {
+                m.addEventListener('click', e => {
+                    e.preventDefault();
+                    document.querySelectorAll('.menu-item').forEach(x => x.classList.remove('active'));
+                    m.classList.add('active');
+                    const sec = m.getAttribute('data-sec');
+                    if (sec) {
+                        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+                        const el = document.getElementById('view-' + sec);
+                        if (el) el.style.display = '';
+                    }
+                });
+            });
+        });
+
+        // совместимость с именами из макета
+        function toast(msg, kind) {
+            const t = document.createElement('div');
+            t.textContent = msg;
+            t.style.cssText = 'position:fixed;right:22px;bottom:22px;background:#1e293b;color:#fff;padding:12px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:99;font-size:13px;';
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2600);
+        }
+        window.toast = toast;
+
+        // ===== Функции доп. секций (Hermes) =====
+        function hubSend() {
+            const inp = document.getElementById('hubInput');
+            const text = inp.value.trim(); if (!text) return;
+            const box = document.getElementById('hubMessages');
+            box.insertAdjacentHTML('beforeend', `<div style="text-align:right;margin:6px 0;"><span style="background:#4f46e5;color:#fff;padding:8px 12px;border-radius:12px;display:inline-block;">${text.replace(/</g,'&lt;')}</span></div>`);
+            inp.value = '';
+            fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message:text, role: window.__uniRole || 'assistant' }) })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+                .then(d => { const rep = d.reply || d.response || d.text || '[нет ответа]';
+                    box.insertAdjacentHTML('beforeend', `<div style="margin:6px 0;"><span style="background:#f1f5f9;padding:8px 12px;border-radius:12px;display:inline-block;">${String(rep).replace(/</g,'&lt;')}</span></div>`);
+                    box.scrollTop = box.scrollHeight; })
+                .catch(e => { box.insertAdjacentHTML('beforeend', `<div style="margin:6px 0;color:#ef4444;">Ошибка: ${String(e.message).replace(/</g,'&lt;')}</div>`); });
+        }
+
+        function loadConsensus() {
+            const box = document.getElementById('consensusList'); if (!box) return;
+            fetch('/api/history').then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
+                .then(list => {
+                    if (!Array.isArray(list) || !list.length) { box.innerHTML = '<div class="muted">Нет раундов</div>'; return; }
+                    box.innerHTML = list.slice(0, 30).map(r => `<div style="padding:8px 0;border-bottom:1px dashed #e2e8f0;">
+                        <b>${r.round_id || r.id || '?'}</b> — ${r.status || ''} <span class="muted">(${r.participants || 0} уч., ${(r.signatures||0)} подп.)</span></div>`).join('');
+                }).catch(e => box.innerHTML = '<div style="color:#ef4444;">Ошибка: '+e.message+'</div>');
+        }
+
+        function loadDocs() {
+            const box = document.getElementById('docsList'); if (!box) return;
+            fetch('/api/documents').then(r => r.ok ? r.json() : null).then(list => {
+                if (!Array.isArray(list)) { box.innerHTML = '<div class="muted">Эндпоинт /api/documents недоступен</div>'; return; }
+                box.innerHTML = list.map(f => `<div style="padding:6px 0;border-bottom:1px dashed #e2e8f0;">${f}</div>`).join('');
+            }).catch(() => box.innerHTML = '<div class="muted">Эндпоинт /api/documents недоступен</div>');
+        }
+
+        function applySafety() {
+            const lvl = document.getElementById('safeLevel').value;
+            fetch('/api/safety', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ autonomy_level: lvl }) })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
+                .then(() => { document.getElementById('safeStatus').textContent = 'Уровень автономии: ' + lvl; toast('Сохранено'); })
+                .catch(e => document.getElementById('safeStatus').textContent = 'Ошибка: ' + e.message);
+        }
+        function emergencyStop() {
+            fetch('/api/safety', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ autonomy_level: 'off' }) })
+                .then(() => { document.getElementById('safeStatus').textContent = 'АВАРИЙНАЯ ОСТАНОВКА — автономия off'; toast('Остановлено'); })
+                .catch(() => {});
+        }
+        function loadDevice() {
+            fetch('/api/xtoys/status').then(r => r.ok ? r.json() : null).then(d => {
+                document.getElementById('devStatus').textContent = d ? ('connected=' + d.connected + ' mode=' + (d.mode||'?')) : 'нет данных';
+            }).catch(() => document.getElementById('devStatus').textContent = 'ошибка');
+        }
+        function devApply() {
+            const v = +document.getElementById('devIntensity').value;
+            fetch('/api/xtoys', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'set_intensity', intensity: v }) })
+                .then(() => toast('Интенсивность ' + v + '%')).catch(() => toast('Ошибка устройства','err'));
+        }
+        function devOsc() {
+            fetch('/api/xtoys', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'oscillate' }) })
+                .then(() => toast('Oscillate')).catch(() => toast('Ошибка','err'));
+        }
+        function devStop() {
+            fetch('/api/xtoys', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'stop' }) })
+                .then(() => { document.getElementById('devIntensity').value = 0; document.getElementById('devOut').textContent = '0%'; toast('Stop'); })
+                .catch(() => toast('Ошибка','err'));
+        }
+
+        // загрузка безопасности при открытии секции
+        function refreshSafety() {
+            fetch('/api/safety').then(r => r.ok ? r.json() : null).then(d => {
+                if (!d) return;
+                document.getElementById('safeLevel').value = d.autonomy_level || 'off';
+                document.getElementById('safeStatus').textContent = 'Уровень: ' + (d.autonomy_level||'off') + (d.autonomy_active ? ' (активна)' : '');
+            }).catch(() => {});
+        }
+        // подхватываем открытие секций
+        document.addEventListener('click', function(e){
+            const m = e.target.closest && e.target.closest('.menu-item');
+            if (!m) return;
+            const sec = m.getAttribute('data-sec');
+            if (sec === 'consensus') loadConsensus();
+            if (sec === 'documents') loadDocs();
+            if (sec === 'safety') refreshSafety();
+            if (sec === 'integrations') loadDevice();
+            if (sec === 'chathub' && !document.getElementById('hubMessages').dataset.boot) {
+                document.getElementById('hubMessages').dataset.boot = '1';
+                document.getElementById('hubMessages').innerHTML = '<div class="muted">Чат готов. Выберите роль и пишите.</div>';
+            }
+        });
     </script>
 </body>
 </html>

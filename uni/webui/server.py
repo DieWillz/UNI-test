@@ -524,6 +524,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": f"{type(exc).__name__}: {exc}"})
             return
 
+        if parsed.path == "/api/xtoys/status":
             agent = self._get_chat_agent()
             xtoys = agent.capabilities.get("xtoys") if agent is not None else None
             self._json(200, {
