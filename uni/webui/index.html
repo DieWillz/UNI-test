@@ -27,9 +27,31 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05);
         }
 
+        /* Тёмная тема (по желанию координатора; светлая — по умолчанию) */
+        [data-theme="dark"] {
+            --bg-body: #0b0f19;
+            --bg-panel: #131a2b;
+            --bg-elevated: #1b2540;
+            --text-main: #e6e9f2;
+            --text-muted: #94a3b8;
+            --border-light: #243049;
+            --primary: #7c3aed;
+            --primary-hover: #6d28d9;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+        [data-theme="dark"] .search-bar { background: var(--bg-elevated); }
+        [data-theme="dark"] .search-bar:focus-within { background: var(--bg-elevated); }
+        [data-theme="dark"] .status-badge { background: var(--bg-elevated); }
+        [data-theme="dark"] .menu-item:hover { background: var(--bg-elevated); }
+        [data-theme="dark"] .icon-btn:hover { background: var(--bg-elevated); }
+        [data-theme="dark"] .pill-outline { background: var(--bg-elevated); }
+
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
         
-        body { background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
 
         /* Иконки */
         .icon { font-family: 'Material Icons Outlined'; font-weight: normal; font-style: normal; font-size: 20px; display: inline-block; vertical-align: middle; }
@@ -42,6 +64,7 @@
         /* Topbar */
         .topbar { height: 64px; background: var(--bg-panel); border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 5; }
         .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .uni-logo { height: 24px; margin-right: 8px; vertical-align: middle; }
         .status-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-muted); background: var(--bg-body); padding: 6px 12px; border-radius: 20px; }
         .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
         .search-bar { display: flex; align-items: center; background: var(--bg-body); padding: 8px 16px; border-radius: 20px; width: 400px; color: var(--text-muted); border: 1px solid transparent; transition: 0.2s; }
@@ -69,22 +92,22 @@
         .dashboard-pad { padding: 24px; display: flex; flex-direction: column; gap: 24px; flex: 1; }
         
         /* Stats Cards */
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        .stat-card { background: var(--bg-panel); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-sm); }
-        .stat-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        .stat-info h4 { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
-        .stat-info h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-        .stat-info p { font-size: 12px; color: var(--text-muted); }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .stat-card { background: var(--bg-panel); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); }
+        .stat-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .stat-info h4 { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 2px; }
+        .stat-info h2 { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+        .stat-info p { font-size: 11px; color: var(--text-muted); }
 
         /* Middle Section: AI Participants & Workflows */
         .middle-grid { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
-        .card { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .card-title { font-size: 16px; font-weight: 600; }
+        .card { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .card-title { font-size: 15px; font-weight: 600; }
         
         /* AI Participants Table */
         .participant-list { display: flex; flex-direction: column; gap: 8px; }
-        .participant-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+        .participant-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-light); font-size: 12px; }
         .participant-row:last-child { border-bottom: none; }
         .agent-name { display: flex; align-items: center; gap: 8px; font-weight: 500; }
         .agent-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #fff; }
@@ -168,7 +191,8 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="brand">
-            <span class="icon" style="font-size: 28px;">psychology</span> 
+            <span class="icon" style="font-size: 28px;">psychology</span>
+            <img src="img/logo.png" alt="UNI" class="uni-logo" onerror="this.style.display='none'">
             UNI Platform <span style="font-size: 12px; font-weight: 400; color: var(--text-muted);">v2.7</span>
         </div>
         
@@ -221,7 +245,8 @@
                 </div>
             </div>
             <div class="topbar-right">
-                <button class="icon-btn"><span class="icon">dark_mode</span></button>
+                <span id="deviceBadge" class="pill pill-outline" title="статус XToys-устройства">XToys: …</span>
+                <button class="icon-btn" id="themeToggle" title="Переключить тему"><span class="icon">dark_mode</span></button>
                 <button class="icon-btn" style="position: relative;">
                     <span class="icon">notifications</span>
                     <span style="position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; border: 2px solid #fff;"></span>
@@ -689,7 +714,7 @@
                             <div class="agent-name"><div class="agent-icon" style="background:#4f46e5;">${nm.slice(0,1)}</div> ${nm}</div>
                             <div><span class="pill ${pill}">${st}</span></div>
                             <div><span class="pill pill-outline">${p.transport || '—'}</span></div>
-                            <div style="color: var(--text-muted);">${dt}</div>
+                            <div style="color: var(--text-muted);" title="${dt}">${dt.includes('open tab') ? 'tab: ok' : dt}</div>
                         </div>`;
                     }).join('');
                 })
@@ -709,12 +734,15 @@
                 if (!d) return;
                 const cards = document.querySelectorAll('.stat-card h2');
                 const p = document.querySelectorAll('.stat-card p');
+                const badge = document.querySelector('#deviceBadge');
                 if (d.connected) {
                     if (cards[3]) cards[3].textContent = 'live';
-                    if (p[3]) p[3].textContent = 'XToys подключен • ' + (d.mode || '');
+                    if (p[3]) p[3].textContent = 'XToys подключён • ' + (d.mode || '');
+                    if (badge) { badge.textContent = 'XToys: live'; badge.className = 'pill pill-success'; }
                 } else {
                     if (cards[3]) cards[3].textContent = 'emu';
                     if (p[3]) p[3].textContent = 'XToys эмуляция';
+                    if (badge) { badge.textContent = 'XToys: emu'; badge.className = 'pill pill-warning'; }
                 }
             }).catch(() => {});
             // Autonomy level — из /api/safety
@@ -730,14 +758,39 @@
         function runRound() {
             const topic = (document.querySelector('#councilTopic') || {}).value
                 || 'Проверка статуса ИИ и консенсус участников';
+            if (window.toast) toast('Раунд совета запущен — читаю поток…');
             fetch('/api/round/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ topic, brief: '', files: [], only: '' })
             })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-            .then(() => { if (window.toast) toast('Раунд совета запущен'); })
-            .catch(err => alert('Не удалось запустить раунд: ' + err.message));
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const reader = r.body.getReader();
+                const dec = new TextDecoder();
+                let buf = '';
+                function pump() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) return;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            const t = line.trim();
+                            if (t.startsWith('data:')) {
+                                try {
+                                    const ev = JSON.parse(t.slice(5).trim());
+                                    if (window.console) console.log('[round]', ev);
+                                } catch (e) { /* ignore非-JSON */ }
+                            }
+                        }
+                        return pump();
+                    });
+                }
+                return pump();
+            })
+            .then(() => { if (window.toast) toast('Раунд завершён'); })
+            .catch(err => { if (window.toast) toast('Ошибка раунда: ' + err.message, 'err'); });
         }
 
         // Quick Controls
@@ -767,6 +820,40 @@
                     }
                 });
             });
+
+            // Тема: светлая по умолчанию, выбор в localStorage (QWN_admin_review)
+            const savedTheme = localStorage.getItem('uni-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const themeBtn = document.getElementById('themeToggle');
+            if (themeBtn) themeBtn.onclick = () => {
+                const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', cur);
+                localStorage.setItem('uni-theme', cur);
+                if (window.toast) toast('Тема: ' + (cur === 'dark' ? 'тёмная' : 'светлая'));
+            };
+
+            // Правый чат сворачиваемый при <1400px (QWN_admin_review)
+            const chatPanel = document.querySelector('.chat-panel');
+            function fitChat() {
+                if (!chatPanel) return;
+                if (window.innerWidth < 1400) chatPanel.style.display = 'none';
+                else chatPanel.style.display = '';
+            }
+            fitChat();
+            window.addEventListener('resize', fitChat);
+            // кнопка-пилюля для открытия чата (добавим в topbar-right, если ещё нет)
+            if (chatPanel && !document.getElementById('chatToggle')) {
+                const b = document.createElement('button');
+                b.id = 'chatToggle';
+                b.className = 'icon-btn';
+                b.title = 'Показать/скрыть чат';
+                b.innerHTML = '<span class="icon">chat</span>';
+                b.onclick = () => {
+                    chatPanel.style.display = (chatPanel.style.display === 'none') ? '' : 'none';
+                };
+                const tr = document.querySelector('.topbar-right');
+                if (tr) tr.insertBefore(b, tr.firstChild);
+            }
         });
 
         // совместимость с именами из макета
