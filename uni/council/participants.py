@@ -85,7 +85,7 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
         "role": "Risk analyst",
         "transport": "api",  # free Gemini API (user provides a key)
         "endpoint": "gemini",
-        "model": "gemini-2.0-flash",
+        "model": "gemini-1.5-flash",
     },
     {
         "name": "Groq",
@@ -99,7 +99,7 @@ DEFAULT_PARTICIPANTS: list[dict[str, Any]] = [
         "role": "Open model router (free tier)",
         "transport": "api",  # OpenRouter free models
         "endpoint": "openrouter",
-        "model": "deepseek/deepseek-chat:free",
+        "model": "deepseek/deepseek-chat",
     },
     {
         "name": "HuggingFace",

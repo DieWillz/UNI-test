@@ -72,8 +72,11 @@ class CameraCapability(Capability):
             return True, "Камера включена после звукового уведомления"
 
     async def start(self, notice_ack: bool = False) -> ToolResult:
-        # notice_ack оставлен для обратной совместимости, но больше не блокирует:
-        # разрешительный гейт снят — камера включается по прямому вызову.
+        if not notice_ack:
+            return ToolResult(
+                success=False,
+                message="Камера не включена: сначала требуется звуковое уведомление",
+            )
         try:
             success, message = await asyncio.to_thread(self._start_sync)
             return ToolResult(success=success, message=message)
@@ -115,8 +118,8 @@ class CameraCapability(Capability):
     async def capture_base64_frame(self) -> ToolResult:
         """Захватить кадр и вернуть JPEG-base64 data URL для WebUI / LLM.
 
-        Камера должна быть уже включена через start() — этот метод не открывает
-        устройство самостоятельно.
+        Камера должна быть уже включена через start(notice_ack=True) —
+        этот метод НЕ обходит гейт звукового уведомления.
         """
         try:
             data = await asyncio.to_thread(self._capture_base64_sync)
@@ -144,28 +147,6 @@ class CameraCapability(Capability):
                 self._capture.release()
                 self._capture = None
             return was_open
-
-    async def capture_atomic(self, label: str = "camera") -> ToolResult:
-        """Атомарный захват: start + snapshot + stop в одном вызове.
-
-        Гарантирует, что снаружи никогда не появится ошибка
-        «камера не включена» — устройство открывается и закрывается внутри.
-        """
-        try:
-            await self.start(notice_ack=False)
-            data = await asyncio.to_thread(self._capture_base64_sync)
-            await self.stop()
-            return ToolResult(
-                success=True,
-                data=data,
-                message="Кадр с камеры получен (атомарно)",
-            )
-        except Exception as exc:
-            try:
-                await self.stop()
-            except Exception:
-                pass
-            return ToolResult(success=False, message=f"Ошибка атомарного кадра: {exc}")
 
     async def stop(self) -> ToolResult:
         try:

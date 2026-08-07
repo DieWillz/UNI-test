@@ -115,6 +115,14 @@ class XToysCapability(Capability):
 
     async def set_intensity(self, device: str = "", value: int = 0) -> ToolResult:
         requested = max(0, min(100, int(value)))
+        if requested > self.max_intensity:
+            return ToolResult(
+                success=False,
+                message=(
+                    f"Запрошено {requested}%, но защитный максимум UNI — "
+                    f"{self.max_intensity}%. Измените capabilities.xtoys.max_intensity в config.yaml осознанно."
+                ),
+            )
         try:
             page = await self._page()
             result: dict[str, Any] = await page.evaluate(

@@ -23,7 +23,6 @@ from uni.tools import ToolExecutor
 from uni.working_memory import WorkingMemory
 
 from uni.autonomous import AutonomousController
-from uni.safety import SafetyConfig, SafetyGuard
 
 console = Console()
 
@@ -75,9 +74,6 @@ class Agent:
         self.speech = speech
         speech._session_logger = self.session_logger
         self.role = RoleLoader().load(config.agent.default_role)
-        # --- SafetyGuard: заглушка (физический пульт = контроль у пользователя).
-        # Только уровень автономии (whitelist инструментов — логика, не безопасность).
-        self.guard = SafetyGuard(SafetyConfig(**config.safety.model_dump()))
         cc = config.capabilities.computer
         computer = ComputerCapability(
             use_uia=cc.use_uia,
@@ -85,7 +81,6 @@ class Agent:
             mouse_move_duration=cc.mouse_move_duration,
             action_badge_enabled=getattr(cc, "action_badge", True),
             action_badge_label=getattr(cc, "action_badge_label", "UNI"),
-            human_mouse_config=getattr(cc, "human_mouse", None),
         )
         camera_config = config.capabilities.camera
         camera = CameraCapability(
@@ -123,9 +118,6 @@ class Agent:
         self.autonomous = AutonomousController(self, config)
 
     async def initialize(self) -> None:
-        # T-04: сохраняем ссылку на текущий event-loop, чтобы внешние
-        # вызовы (WebUI-сервер) могли обращаться через run_coroutine_threadsafe.
-        self._loop = asyncio.get_running_loop()
         healthcheck, speech_warmup = await asyncio.gather(
             self.brain.healthcheck(),
             self.speech.warmup(),

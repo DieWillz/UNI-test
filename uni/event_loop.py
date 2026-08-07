@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import re
 import threading
 from dataclasses import dataclass
@@ -11,8 +10,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from rich.console import Console
-
-logger = logging.getLogger(__name__)
 
 from uni.brain import Brain
 from uni.capabilities.registry import CapabilityRegistry
@@ -80,23 +77,6 @@ class EventLoop:
         self._screen_watch_task: asyncio.Task[None] | None = None
         self._screen_watch_stop = asyncio.Event()
         self._screen_observations: list[dict[str, Any]] = []
-
-    def _load_role_prompt(self, role_name: str) -> bool:
-        """Загружает system-prompt роли из файла uni/roles/<name>.md и обновляет self.role_prompt.
-
-        Механическая интеграция: берётся ТОЛЬКО имя файла (без чтения содержимого
-        в чате), через RoleLoader. Возвращает True при успехе.
-        """
-        try:
-            from uni.roles.loader import RoleLoader
-
-            role = RoleLoader().load(role_name)
-            self.role_prompt = role.system_prompt
-            return True
-        except Exception as exc:
-            logger.warning("Не удалось загрузить роль %s: %s", role_name, exc)
-            return False
-
 
     def _log(self, event: str, message: object) -> None:
         if self.session_logger is not None:
@@ -282,18 +262,20 @@ class EventLoop:
         return getattr(getattr(self, "_agent_ref", None), "autonomous", None)
 
     async def _maybe_autonomous_override(self, user_input: str) -> bool:
-        """If the hands-free session is running, route manual intensity to it.
-
-        NOTE: аварийный стоп (emergency_stop) и проверка стоп-слова УДАЛЕНЫ —
-        физический пульт пользователя сам сбрасывает устройство. Юни не
-        «защищается от самой себя». Стоп-слово просто завершает диалог
-        (через is_stop_command в run_cycle/run_interactive).
+        """If the hands-free session is running, route stop + manual intensity to it.
 
         Returns True if the input was consumed by the autonomous controller.
         """
         ctrl = self._autonomous()
         if ctrl is None or not getattr(ctrl, "device_allowed", False):
             return False
+        if ctrl.state.stopped and self.is_stop_command(user_input):
+            return False  # already stopped; let normal flow handle it
+        # stop / red -> emergency stop, not via the task queue
+        if self.is_stop_command(user_input):
+            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+            ctrl.emergency_stop()
+            return True
         # manual intensity -> adopt value and pause the auto timeline briefly
         m = re.search(r"(?:интенсивность|скорость|speed)\s*{0,3}(\d{1,3})", user_input.casefold())
         if m:
@@ -509,7 +491,7 @@ class EventLoop:
         self._pending_message = None
         return f"Сообщение для {contact} отправлено."
 
-    async def _run_tool(self, action: str, args: dict[str, Any], *, autonomous: bool = False) -> ToolResult:
+    async def _run_tool(self, action: str, args: dict[str, Any]) -> ToolResult:
         self._log("ACTION", f"{action} {args}")
         async with self._tool_lock:
             result = await self.tool_executor.execute(action, args)
@@ -1000,8 +982,10 @@ class EventLoop:
             self.state = AgentState.IDLE
             return None
         if self.is_stop_command(user_input):
-            # Стоп-слово завершает диалог. Аварийный стоп устройства УБРАН —
-            # физический пульт пользователя сам сбрасывает интенсивность.
+            ctrl = self._autonomous()
+            if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
+                console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+                ctrl.emergency_stop()
             self._running = False
             await self._speak("До встречи")
             self.state = AgentState.IDLE
@@ -1028,7 +1012,10 @@ class EventLoop:
                         await asyncio.sleep(0.05)
                         continue
                     if self.is_stop_command(user_input):
-                        # Стоп-слово завершает диалог. Аварийный стоп УБРАН.
+                        ctrl = self._autonomous()
+                        if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
+                            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+                            ctrl.emergency_stop()
                         self._running = False
                         await self._speak("До встречи")
                         break

@@ -1,888 +1,223 @@
-/* js/app.js — вся логика консоли UNI v2.7 */
-"use strict";
-const $=s=>document.querySelector(s);
-const el=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
-const esc=s=>String(s??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
-const transportLabel=t=>t==="api"?"API":t==="codex"?"Codex CLI":"браузер · free";
-const statusLabel=s=>({ready:"готов",configured:"настроен",unavailable:"недоступен",disabled:"отключён"}[s]||s||"неизвестно");
-const PAL=["#f6a11c","#4ade80","#6fc3ef","#c4b5fd","#f472b6","#facc15","#2dd4bf","#fb7185"];
-const tag=(txt,cls)=>{const s=el("span","tag "+cls);s.textContent=txt;return s;};
-/* =====================================================================
-   Табы центра (Текущий раунд / Итог / Журнал)
-===================================================================== */
-function switchTab(name) {
-  document.querySelectorAll(".tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.tab === name);
-  });
-  
-  document.querySelectorAll(".tabpane").forEach(p => {
-    p.classList.remove("active");
-  });
-
-  const targetPane = $("#pane" + name.charAt(0).toUpperCase() + name.slice(1));
-  if (targetPane) {
-    targetPane.classList.add("active");
-  }
-
-  if (name === "summary" && typeof clearSummaryBadge === "function") {
-    clearSummaryBadge();
-  }
+let FS=localStorage.getItem('uni_fs')||'http://127.0.0.1:8000';
+let HRM=localStorage.getItem('uni_hrm')||'http://127.0.0.1:8787';
+let LMS=localStorage.getItem('uni_lms')||'http://127.0.0.1:1234';
+let LMS_MODEL='';
+const COLORS={QWN:'#16a34a',DPS:'#2563eb',GMN:'#ea580c',MST:'#4f46e5',GRK:'#ca8a04',CLD:'#7c3aed',GPT:'#0891b2',KMI:'#dc2626',ZAI:'#059669',HRM:'#dc2626',LMS:'#6b7280',USR:'#f59e0b'};
+const BASE_PARTS=[{n:'DeepSeek',c:'DPS',m:'browser',src:'chat.deepseek.com'},{n:'QWEN',c:'QWN',m:'browser',src:'chat.qwen.ai'},{n:'Claude',c:'CLD',m:'browser',src:'claude.ai'},{n:'ChatGPT',c:'GPT',m:'codex',src:'codex.local'},{n:'Grok',c:'GRK',m:'browser',src:'grok.com'},{n:'Gemini',c:'GMN',m:'api',src:'gemini.google.com'},{n:'Mistral',c:'MST',m:'browser',src:'chat.mistral.ai'},{n:'Kimi',c:'KMI',m:'browser',src:'kimi.com'},{n:'Hermes',c:'HRM',m:'api',src:'hermes.local'},{n:'OpenRouter',c:'OR',m:'free',src:'openrouter.ai'}];
+let liveParts={},seenReplies=new Set(),micOn=false,recog=null;
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function now(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')}
+function showToast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function setTheme(v){document.documentElement.setAttribute('data-theme',v);localStorage.setItem('uni_theme',v);$('themeSel').value=v;$('themeBtn').textContent=v==='dark'?'☀ Тема':'🌙 Тема'}
+function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
+function toggleChatPanel(){$('chatPanel').classList.toggle('collapsed')}
+function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active')}
+function setStep(n){document.querySelectorAll('.pstep').forEach((el,i)=>{el.classList.remove('active','done');if(n>=0){if(i<n)el.classList.add('done');if(i===n)el.classList.add('active')}})}
+async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||2500);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e}}
+async function pingServers(){
+try{await api(FS+'/ping');$('dotFs').className='dot on';$('qwSrv').textContent='онлайн';$('qwSrv').className='qw-ok';$('intFs').className='pill p-ok';$('intFs').textContent='онлайн'}catch(e){$('dotFs').className='dot err';$('qwSrv').textContent='офлайн';$('qwSrv').className='qw-bad';$('intFs').className='pill p-err';$('intFs').textContent='офлайн'}
+try{await api(HRM+'/api/participants');$('dotHermes').className='dot on';$('intHrm').className='pill p-ok';$('intHrm').textContent='онлайн'}catch(e){$('dotHermes').className='dot err';$('intHrm').className='pill p-err';$('intHrm').textContent='офлайн'}
+try{
+const r=await api(LMS+'/v1/models',1800);const d=await r.json();
+if(d.data&&d.data.length){LMS_MODEL=d.data[0].id;$('dotLms').className='dot on';$('lmsLabel').textContent=LMS_MODEL;$('chatModel').textContent=LMS_MODEL;$('intLms').className='pill p-ok';$('intLms').textContent=LMS_MODEL;$('rchatDot').className='dot on';$('rchatStatus').textContent='LM: '+LMS_MODEL}
+else{$('dotLms').className='dot err';$('lmsLabel').textContent='LM: нет модели';$('chatModel').textContent='модель не загружена';$('intLms').className='pill p-warn';$('intLms').textContent='сервер онлайн, модель не загружена';$('rchatStatus').textContent='LM без модели → письма Qwen'}
+}catch(e){$('dotLms').className='dot err';$('lmsLabel').textContent='LM офлайн';$('chatModel').textContent='офлайн';$('intLms').className='pill p-err';$('intLms').textContent='офлайн (письма Qwen)';$('rchatDot').className='dot on';$('rchatStatus').textContent='LM офлайн → письма Qwen'}
 }
-
-document.querySelectorAll(".tab").forEach(t => {
-  t.onclick = () => switchTab(t.dataset.tab);
-});
-
-/* =====================================================================
-   Табы Настроек (Общие / Браузерные ИИ / API / и т.д.)
-===================================================================== */
-function switchMtab(name) {
-  document.querySelectorAll(".modal-tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.mtab === name);
-  });
-  
-  document.querySelectorAll(".mtab").forEach(p => {
-    p.style.display = (p.dataset.mtab === name) ? "flex" : "none";
-  });
+async function runRollCall(){
+showToast('🔄 Roll call: чтение heartbeat-логов…');
+liveParts={};
+try{
+const r=await api(FS+'/list?path=.');const d=await r.json();
+if(d.ok){const dirs=d.items.filter(i=>i.endsWith('/')&&i.startsWith('uni-'));
+for(const dir of dirs){const name=dir.replace('/','').replace('uni-','');
+try{const hr=await api(FS+'/read?path=uni-'+name+'/heartbeat.log');const hd=await hr.json();
+if(hd.ok){const lines=hd.content.trim().split('\n');const last=lines[lines.length-1]||'';liveParts[name]={last:last.slice(0,120),online:/auto|ok|ready|готов/i.test(last)}}}catch(e){liveParts[name]={last:'heartbeat недоступен',online:false}}}}
+}catch(e){showToast('❌ Файловый сервер недоступен')}
+renderParticipants();
 }
-
-document.querySelectorAll(".modal-tab").forEach(t => {
-  t.onclick = () => switchMtab(t.dataset.mtab);
-});
-const TEMPLATES={
-  status:{topic:"Проверка статуса ИИ",brief:"Ответь одной короткой фразой (до 15 слов): подтверди, что ты на связи и готов работать в совете UNI. Формат: «<Имя>: доступен, готов». Без пояснений."},
-  concept:{topic:"Согласование концепции",brief:"Проверьте концепцию. Если согласны — поставьте подпись: Имя = ваша редакция; подписываюсь под концепцией."},
-  audit:{topic:"Аудит кода",brief:"Проведите аудит предложенного кода. Найдите риски, уязвимости и что можно улучшить."},
-  feature:{topic:"Разработка функции",brief:"Предложите реализацию функции. Опишите API, крайние случаи и тесты."},
-  bug:{topic:"Поиск ошибки",brief:"Найдите причину ошибки в описанном сценарии и предложите фикс."},
-  free:{topic:"Свободное задание",brief:"Опишите задачу свободно — что нужно сделать или обсудить."}
+function renderParticipants(){
+const rows=BASE_PARTS.map(p=>{
+const lp=liveParts[p.n.toLowerCase()];
+const st=lp?(lp.online?'ready':'stale'):'—';
+const pill=st==='ready'?'p-ok':st==='stale'?'p-warn':'p-out';
+const src=lp?lp.last:p.src;
+return `<div class="prow"><div class="ag-name"><div class="ag-av" style="background:${COLORS[p.c]||'#6b7280'}">${p.c[0]}</div>${p.n}</div><div><span class="pill ${pill}">${st}</span></div><div><span class="pill p-out">${p.m}</span></div><div style="color:var(--text3);font-size:10px" title="${esc(src)}">${esc((src||'').slice(0,40))}</div></div>`}).join('');
+$('partList').innerHTML=rows;$('partListFull').innerHTML=rows;
+const on=Object.values(liveParts).filter(x=>x.online).length;
+$('stAgents').textContent=on+' / '+BASE_PARTS.length;
+$('qwParts').innerHTML=BASE_PARTS.slice(0,6).map(p=>{const lp=liveParts[p.n.toLowerCase()];return `<div class="qw-row"><span>${p.n}</span><span class="${lp?(lp.online?'qw-ok':'qw-warn'):'qw-bad'}">${lp?(lp.online?'готов':'stale'):'нет heartbeat'}</span></div>`}).join('');
+}
+async function loadLogs(){
+try{const r=await api(FS+'/log?lines=60');const d=await r.json();
+if(d.ok){$('logBox').innerHTML=d.lines.map(l=>{const p=l.split(' | ');const tag=/WRITE/.test(l)?(/DENY|ERROR/.test(l)?'err':'ok'):/READ|LIST/.test(l)?'ok':'info';return `<div class="log-line"><span class="log-time">${esc(p[0]||'')}</span><span class="log-tag ${tag}">[${esc(p[1]||'')}]</span><span class="log-msg">${esc(p.slice(2).join(' | '))}</span></div>`}).join('')||'лог пуст'}
+}catch(e){$('logBox').textContent='❌ fileserver.log недоступен (сервер 8000 офлайн)'}
+}
+function filterLogs(tag,btn){document.querySelectorAll('.log-filters button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.querySelectorAll('#logBox .log-line').forEach(l=>{l.style.display=(tag==='all'||l.textContent.includes(tag))?'flex':'none'})}
+async function loadBoard(){
+try{const r=await api(FS+'/read?path=uni-qwen/UNI_BOARD.md');const d=await r.json();
+if(d.ok){const i=d.content.indexOf('ЗАМЕТКИ КООРДИНАТОРА');$('boardNotes').textContent=i>=0?d.content.slice(i,i+1800):d.content.slice(-1800);
+const t=d.content.indexOf('ЗАДАЧИ');$('tasksBody').innerHTML='<pre style="white-space:pre-wrap;font:11px/1.5 var(--mono)">'+esc(d.content.slice(t>=0?t:0,(t>=0?t:0)+2500))+'</pre>'}
+}catch(e){$('boardNotes').textContent='❌ UNI_BOARD.md недоступен'}
+}
+async function loadMail(){
+try{const r=await api(FS+'/list?path=uni-qwen/outbox');const d=await r.json();
+if(d.ok){const files=d.items.filter(f=>f.endsWith('.md')).slice(-6).reverse();
+$('hubMail').innerHTML=files.map(f=>`<div class="hub-msg"><div class="hub-head"><div class="hub-av">Q</div><span class="hub-from">outbox</span><span class="hub-time">${esc(f.slice(0,26))}</span></div><div class="hub-body">${esc(f)}</div></div>`).join('')||'писем нет'}
+}catch(e){$('hubMail').textContent='❌ outbox недоступен'}
+}
+async function loadDocs(){try{const r=await api(FS+'/list?path=.');const d=await r.json();if(d.ok)$('docsBody').innerHTML='<pre style="font:11px/1.6 var(--mono)">'+esc(d.items.join('\n'))+'</pre>'}catch(e){$('docsBody').textContent='❌ недоступно'}}
+async function loadStats(){try{const r=await api(FS+'/stats');const d=await r.json();if(d.ok)$('statsBody').innerHTML='<pre style="font:12px/1.6 var(--mono)">'+esc(JSON.stringify(d.stats,null,1))+'</pre>'}catch(e){$('statsBody').textContent='❌ /stats недоступен'}}
+function addMsg(feed,role,text){const m=document.createElement('div');m.className='msg '+role;m.innerHTML=(role!=='sys'?`<div class="who">${role==='user'?'Вы':'ЮНИ'} · ${now()}</div>`:'')+esc(text);feed.appendChild(m);feed.scrollTop=feed.scrollHeight}
+async function uniSend(text,feeds){
+feeds=(feeds||[]).filter(f=>f&&f.nodeType);
+if(!feeds.length){console.warn('uniSend: нет валидного фида');return}
+feeds.forEach(f=>addMsg(f,'user',text));
+feeds.forEach(f=>addMsg(f,'sys','⏳ обработка…'));
+let reply=null,err=null;
+if(LMS_MODEL){
+try{
+const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),20000);
+const r=await fetch(LMS+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:LMS_MODEL,messages:[{role:'system',content:'Ты — ЮНИ, локальный ассистент проекта UNI. Роль: '+($('uniRole')?$('uniRole').value:'assistant')+'. Отвечай на русском, кратко, честно.'},{role:'user',content:text}],stream:false}),signal:ctrl.signal});
+clearTimeout(to);
+if(r.ok){const d=await r.json();reply=d.choices&&d.choices[0]&&d.choices[0].message?d.choices[0].message.content:null;if(!reply)err='LM Studio вернул пустой ответ'}
+else{const t=await r.text().catch(()=>'');err='LM Studio HTTP '+r.status+': '+t.slice(0,160)}
+}catch(e){err='LM Studio недоступен: '+e.message}
+}
+if(reply){feeds.forEach(f=>{f.lastChild.remove();addMsg(f,'uni',reply)});try{if($('speakChk').checked)speak(reply)}catch(e){};return}
+try{
+const ts=Date.now();
+const body='# Чат с ЮНИ\nfrom: user\nto: qwen\ntitle: Чат\n\n'+text+'\n';
+const w=await fetch(FS+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:'uni-qwen/outbox/chat_'+ts+'.md',content:body,participant:'qwen'})});
+if(w.ok){feeds.forEach(f=>{f.lastChild.remove();addMsg(f,'sys',(err?err+'. ':'')+'Письмо Qwen отправлено через мост (до 2 мин)…')});pollReply(feeds);return}
+}catch(e){}
+feeds.forEach(f=>{f.lastChild.remove();addMsg(f,'sys','❌ '+(err||'нет ответа')+'. Файл-сервер 8000 тоже недоступен.')});
+}
+function pollReply(feeds){
+const known=new Set();let tries=0;
+const iv=setInterval(async()=>{
+tries++;
+try{
+const r=await api(FS+'/list?path=uni-qwen/outbox');const d=await r.json();
+if(d.ok){
+if(!known.size)d.items.forEach(f=>known.add(f));
+const fresh=d.items.filter(f=>!known.has(f)&&/reply|panel|chat/.test(f));
+for(const f of fresh){
+if(seenReplies.has(f))continue;seenReplies.add(f);
+const rr=await api(FS+'/read?path=uni-qwen/outbox/'+encodeURIComponent(f));const dd=await rr.json();
+if(dd.ok){clearInterval(iv);const body=dd.content.replace(/^(from|to|title):.*$/gm,'').trim();feeds.forEach(x=>{const l=x.lastChild;if(l&&l.classList.contains('sys'))l.remove();addMsg(x,'uni','[Qwen через мост] '+body.slice(0,900))});if($('speakChk').checked)speak(body.slice(0,300));return}
+}}}catch(e){}
+if(tries>24){clearInterval(iv);feeds.forEach(f=>addMsg(f,'sys','⚠ Ответа от Qwen нет 2 минуты. Возможно, вкладка Qwen спит — диспетчер AHK разбудит.'))}
+},5000);
+}
+function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='ru-RU';speechSynthesis.speak(u)}catch(e){}}
+function uniSendMain(){const i=$('mainInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('mainFeed')].filter(Boolean).concat([$('sideFeed')].filter(Boolean)))}
+function uniSendSide(){const i=$('sideInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('sideFeed')])}
+function toggleMic(){
+if(!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)){showToast('❌ Браузер не поддерживает голосовой ввод');return}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(micOn){ // выключаем
+  micOn=false;$('micBtn').classList.remove('active');
+  if(recog){try{recog.stop()}catch(e){}}
+  return;
+}
+micOn=true;$('micBtn').classList.add('active');
+recog=new SR();recog.lang='ru-RU';recog.interimResults=true;recog.continuous=false;
+const inp=$('sideInput');
+recog.onresult=e=>{
+  let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
+  if(inp)inp.value=t;
 };
-
-/* демо-состав (если бэкенд не отвечает) */
-const FALLBACK_AGENTS=[
-  {name:"DeepSeek",    role:"Algorithms Engineer", transport:"browser",status:"ready",      host:"chat.deepseek.com",cdp:true, tab:true},
-  {name:"QWEN",        role:"Consensus editor",    transport:"browser",status:"ready",      host:"chat.qwen.ai",     cdp:true, tab:true},
-  {name:"Qwen Coder",  role:"Code implementation", transport:"browser",status:"ready",      host:"chat.qwen.ai",     cdp:true, tab:true},
-  {name:"Claude",      role:"Critic / ethics",     transport:"browser",status:"ready",      host:"claude.ai",        cdp:true, tab:true},
-  {name:"ChatGPT",     role:"General reviewer",    transport:"codex",  status:"unavailable",detail:"Codex CLI не установлен",cdp:false,tab:false},
-  {name:"Grok",        role:"Reality-check",       transport:"browser",status:"ready",      host:"grok.com",         cdp:true, tab:true},
-  {name:"Gemini",      role:"Risk analyst",        transport:"api",    status:"ready",      cdp:false,tab:false},
-  {name:"Groq",        role:"Fast inference",      transport:"api",    status:"ready",      cdp:false,tab:false},
-  {name:"OpenRouter",  role:"Fallback model",      transport:"api",    status:"ready",      cdp:false,tab:false},
-  {name:"HuggingFace", role:"Open weights",        transport:"api",    status:"ready",      cdp:false,tab:false},
-  {name:"Hermes",      role:"Local server",        transport:"api",    status:"ready",      host:"127.0.0.1:11434",cdp:false,tab:false}
-];
-
-let AGENTS=[],EP_CONFIG={},BACKEND_OK=false;
-const state={};
-let running=false;
-let currentRound={id:null,synthesis:"",reportPath:null,signatures:{},errors:{}};
-let reportViewing=false,newAnswersWhileViewing=0;
-let autoMode="off";
-let activeNames=null;
-let doneCount=0,totalCount=0;
-let pendingSummary=0;
-const files=[];
-const demoReports={};
-let localHistory=[];
-
-/* =====================================================================
-   ЖИВАЯ ПРОВЕРКА CDP: реальный probe порта 9222 + список вкладок DevTools
-===================================================================== */
-let cdpProbeOk=false;
-async function probeCDP(){
-  try{
-    const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),1500);
-    await fetch("http://127.0.0.1:9222/json/version",{mode:"no-cors",cache:"no-store",signal:ctl.signal});
-    clearTimeout(to);return true;
-  }catch(e){return false;}
+recog.onerror=e=>{micOn=false;$('micBtn').classList.remove('active');showToast('🎤 '+(e.error==='not-allowed'?'нет доступа к микрофону':e.error==='no-speech'?'не услышал':'ошибка '+e.error))};
+recog.onend=()=>{micOn=false;$('micBtn').classList.remove('active')};
+try{recog.start()}catch(e){micOn=false;$('micBtn').classList.remove('active');showToast('🎤 не удалось запустить')}
 }
-async function fetchCDPTabs(){
-  try{
-    const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),1500);
-    const r=await fetch("http://127.0.0.1:9222/json",{cache:"no-store",signal:ctl.signal});
-    clearTimeout(to);
-    if(!r.ok)return null;
-    const j=await r.json();return Array.isArray(j)?j:null;
-  }catch(e){return null;}
+async function startRound(){
+showToast('▶ Запуск раунда через Hermes 8787…');setStep(0);
+try{
+const r=await fetch(HRM+'/api/round/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:$('qwTheme').value,brief:$('qwBrief').value})});
+if(r.ok){$('stRound').textContent='запущен';$('qwJournal').textContent+=`\n[${now()}] раунд запущен через Hermes`;
+try{const es=new EventSource(HRM+'/api/round/progress');es.onmessage=e=>{try{const d=JSON.parse(e.data);if(d.step!=null)setStep(d.step);if(d.msg)$('qwJournal').textContent+='\n'+d.msg}catch(_){}};es.onerror=()=>{es.close()}}catch(e){}
+}else{$('stRound').textContent='ошибка';showToast('❌ Hermes вернул '+r.status)}
+}catch(e){setStep(-1);$('stRound').textContent='Hermes офлайн';showToast('❌ Hermes 8787 недоступен — раунд не запущен (без симуляции)')}
 }
-async function refreshBrowserStatus(){
-  const [probe,tabs]=await Promise.all([probeCDP(),fetchCDPTabs()]);
-  cdpProbeOk=probe||!!tabs;
-  AGENTS.forEach(a=>{
-    const st=state[a.name];if(!st||a.transport!=="browser")return;
-    const d=String(a.detail||"");
-    const host=String(a.host||"");
-    const tabByCdp=(tabs&&host)?tabs.some(t=>String(t.url||"").includes(host)):false;
-    const tabOk=a.tab===true||tabByCdp||
-      (host&&d.toLowerCase().includes(host.toLowerCase()))||
-      /open tab|вкладка найдена/i.test(d);
-    const cdpOk=a.cdp===true||cdpProbeOk||/open tab found|вкладка найдена/i.test(d);
-    st.cdpOk=cdpOk;st.tabOk=tabOk;
-    st.browserSetup.cdp=cdpOk?"OK":"—";
-    st.browserSetup.tab=tabOk?"найдена":"—";
-  });
-  renderAgents();
+function qwStartRound(){startRound()}
+function qwSendChat(){const i=$('qwCin');const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('qwChat')])}
+function emergencyStop(){setStep(-1);$('stRound').textContent='остановлен';showToast('🛑 Аварийная остановка')}
+/* ===== XToys → Intiface (Buttplug JSON v4 over WebSocket) ===== */
+let xtWS=null,xtId=1,xtDevices=[],xtPat=null,intensity=0.45;
+function xtSend(type,msg){if(xtWS&&xtWS.readyState===1){const m={Id:++xtId};m[type]=msg;xtWS.send(JSON.stringify([m]))}}
+function xtoySet(s,cls){const m=$('xStatus');m.textContent='статус: '+s;m.className='pill '+(cls||'p-warn')}
+function xtoysConnect(){
+if(xtWS&&xtWS.readyState===1){try{xtWS.close()}catch(e){};return}
+const host=$('xtoysHost').value.trim()||'ws://127.0.0.1:12345';
+xtoySet('подключение…');
+try{xtWS=new WebSocket(host)}catch(e){xtoySet('ошибка: '+e.message,'p-err');return}
+xtWS.onopen=()=>{xtoySet('рукопожатие…');xtSend('RequestServerInfo',{ClientName:'UNI Panel',MessageVersion:3})};
+xtWS.onmessage=ev=>{let arr;try{arr=JSON.parse(ev.data)}catch(e){return}
+arr.forEach(m=>{if(m.ServerInfo){xtoySet('онлайн','p-ok');$('xtoysBtn').textContent='⏸ Отключить';xtSend('RequestDeviceList',{});renderXtDevices()}
+else if(m.DeviceAdded){const d=m.DeviceAdded;if(!xtDevices.find(x=>x.DeviceIndex===d.DeviceIndex))xtDevices.push(d);renderXtDevices();xtoySet('устройство: '+(d.DeviceName||'#'+d.DeviceIndex),'p-ok')}
+else if(m.DeviceRemoved){xtDevices=xtDevices.filter(x=>x.DeviceIndex!==m.DeviceRemoved.DeviceIndex);renderXtDevices()}
+else if(m.DeviceList){xtDevices=m.DeviceList.Devices||[];renderXtDevices()}
+else if(m.Error){const em=m.Error.ErrorMessage||JSON.stringify(m.Error);if(!/DeviceList|unknown message/i.test(em))showToast('⚠ Intiface: '+em.slice(0,120))}})};
+xtWS.onerror=()=>xtoySet('ошибка соединения','p-err');
+xtWS.onclose=()=>{xtoySet('отключено');$('xtoysBtn').textContent='🔌 Подключить';xtDevices=[];renderXtDevices();if(xtPat){clearInterval(xtPat);xtPat=null}}
 }
-
-/* =====================================================================
-   ТЕМЫ
-===================================================================== */
-const BUILTIN_THEMES=["Glassmorphism","Cyberpunk","Monokai"];
-const THEME_INFO={
-  "default":{desc:"тёплый графит + янтарь",sw:"linear-gradient(135deg,#f6a11c,#3a2c14)"},
-  "Glassmorphism":{desc:"стекло, блюр, полупрозрачность",sw:"linear-gradient(135deg,#8ec5ff,#c4b5fd)"},
-  "Cyberpunk":{desc:"неон: магента + циан",sw:"linear-gradient(135deg,#ff2d78,#22d3ee)"},
-  "Monokai":{desc:"классическая палитра Monokai",sw:"linear-gradient(135deg,#fd971f,#a6e22e)"}
-};
-let themeNames=[];
-let customThemes={};
-function loadCustomThemes(){try{customThemes=JSON.parse(localStorage.getItem("uni_custom_themes")||"{}");}catch(e){customThemes={};}}
-function saveCustomThemes(){try{localStorage.setItem("uni_custom_themes",JSON.stringify(customThemes));}catch(e){log("Не удалось сохранить тему (лимит хранилища)","warn");}}
-async function discoverThemes(){
-  const found=new Set();
-  try{const r=await fetch("/api/themes");if(r.ok){const d=await r.json();(Array.isArray(d)?d:[]).forEach(n=>found.add(String(n)));}}catch(e){}
-  try{const r=await fetch("css/themes/index.json",{cache:"no-store"});if(r.ok){const d=await r.json();(Array.isArray(d)?d:[]).forEach(n=>found.add(String(n)));}}catch(e){}
-  await Promise.all(BUILTIN_THEMES.map(async n=>{
-    try{const r=await fetch(`css/themes/${n}.css`,{cache:"no-store"});if(r.ok)found.add(n);}
-    catch(e){found.add(n);}
-  }));
-  themeNames=[...found];
-  Object.keys(customThemes).forEach(n=>{if(!themeNames.includes(n))themeNames.push(n);});
-  renderThemeList();
+function renderXtDevices(){
+const box=$('xtoysDevices');
+if(!xtDevices.length){box.innerHTML='<span style="color:var(--text3)">устройства не обнаружены</span>';return}
+box.innerHTML=xtDevices.map(d=>{const f=d.DeviceMessages||{};const caps=Object.keys(f).join(', ');return `<div style="padding:4px 0;border-top:1px solid var(--border)"><b>${esc(d.DeviceName||'device')}</b> (#${d.DeviceIndex})<br><span style="color:var(--text3)">${esc(caps)}</span></div>`}).join('')
 }
-function currentTheme(){try{return localStorage.getItem("uni_theme")||"default";}catch(e){return "default";}}
-function applyTheme(name){
-  const link=$("#themeLink");const html=document.documentElement;
-  if(!name||name==="default"){
-    link.removeAttribute("href");html.removeAttribute("data-theme");
-  }else if(customThemes[name]){
-    html.dataset.theme=name;
-    const blob=new Blob([customThemes[name]],{type:"text/css"});
-    link.href=URL.createObjectURL(blob);
-  }else{
-    html.dataset.theme=name;
-    link.href="css/themes/"+name+".css";
-  }
-  try{localStorage.setItem("uni_theme",name||"default");}catch(e){}
-  renderThemeList();
+function xtDeviceIdx(){const d=xtDevices.find(x=>(x.DeviceMessages&&(x.DeviceMessages.OscillateCmd||x.DeviceMessages.RotateCmd))||(x.DeviceName||'').toLowerCase().includes('rotary'));return d?d.DeviceIndex:null}
+function xtoyOsc(v){const i=xtDeviceIdx();if(i===null)return false;v=Math.max(0,Math.min(1,v));xtSend('OscillateCmd',{DeviceIndex:i,Speeds:[{Index:0,Intensity:v}]});return true}
+function xtoysSetIntensity(v){intensity=v;if(xtDeviceIdx()===null)return;xtoyOsc(v);xtoySet('поршень · '+Math.round(v*100)+'%','p-ok')}
+function xtoysStop(){if(xtPat){clearInterval(xtPat);xtPat=null}intensity=0;xtoyOsc(0);xtoySet('стоп','p-warn')}
+/* ===== Роли: подгрузка из uni/roles/*.md через Hermes API ===== */
+async function loadRoles(){
+try{
+const r=await api(HRM+'/api/roles');const d=await r.json();
+if(!d.roles||!d.roles.length){return}
+const sel=$('uniRole');sel.innerHTML=d.roles.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+if(d.current)sel.value=d.current;
+}catch(e){showToast('⚠ Не удалось загрузить роли (Hermes 8787)')}
 }
-function renderThemeList(){
-  const wrap=$("#themeList");if(!wrap)return;
-  wrap.innerHTML="";
-  const cur=currentTheme();
-  const all=["default",...themeNames.filter(n=>n!=="default")];
-  all.forEach(n=>{
-    const info=THEME_INFO[n]||{desc:"своя тема (загружена)",sw:"linear-gradient(135deg,#9ca3af,#374151)"};
-    const card=el("button","theme-card"+(cur===n?" active":""));card.type="button";
-    const sw=el("span","sw");sw.style.background=info.sw;
-    const tt=el("span","tt");
-    const b=el("b");b.textContent=n==="default"?"По умолчанию":n;
-    const s=el("span");s.textContent=info.desc;
-    tt.append(b,s);
-    card.append(sw,tt);
-    if(cur===n){const chk=el("span","chk");chk.textContent="✓";card.append(chk);}
-    card.onclick=()=>{applyTheme(n);log("Тема: "+(n==="default"?"по умолчанию":n),"ok");};
-    wrap.append(card);
-  });
+async function setRole(name){
+if(!name)return;
+try{await fetch(HRM+'/api/role/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:name})});showToast('🎭 Роль: '+name)}catch(e){showToast('⚠ Роль не сохранена: '+e.message)}
 }
-$("#themeUploadBtn").onclick=()=>$("#themeUpload").click();
-$("#themeUpload").onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  const css=await f.text();
-  const name=f.name.replace(/\.css$/i,"")||"custom";
-  customThemes[name]=css;saveCustomThemes();
-  if(!themeNames.includes(name))themeNames.push(name);
-  applyTheme(name);renderThemeList();
-  log("Тема загружена и применена: "+name,"ok");
-  e.target.value="";
-};
-
-/* =====================================================================
-   Участники
-===================================================================== */
-async function loadParticipants(){
-  try{
-    const r=await fetch("/api/participants");
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const data=await r.json();
-    if(!Array.isArray(data)||!data.length)throw new Error("пустой список");
-    AGENTS=data;BACKEND_OK=true;
-  }catch(e){
-    AGENTS=FALLBACK_AGENTS.map(a=>({...a}));BACKEND_OK=false;
-    log("Бэкенд 127.0.0.1:8787 недоступен — включён демо-режим","warn");
-  }
-  setBackendPill();
-  AGENTS.forEach(a=>{
-    if(!(a.name in state)){
-      const una=a.status==="unavailable"||a.status==="disabled";
-      state[a.name]={on:!una,status:statusLabel(a.status),answer:"",sig:"",via:a.transport,
-        error:"",warn:"",expanded:false,latency:null,browserStage:"",
-        browserSetup:{enabled:a.transport==="browser",cdp:a.cdp?"OK":"—",tab:a.tab?"найдена":"—",auth:"—",url:a.host?("https://"+a.host):""}};
-    }
-  });
-  renderAgents();updateReadiness();
-  refreshBrowserStatus();
+async function fbExec(){
+const op=$('fbOp').value,path=$('fbPath').value,part=$('fbPart').value,content=$('fbContent').value,out=$('fbResult');
+out.textContent='['+now()+'] '+op+' '+path+'\n';
+try{
+if(op==='FILE_READ'){const r=await api(FS+'/read?path='+encodeURIComponent(path));const d=await r.json();out.textContent+=d.ok?('READ_OK '+d.size+' bytes\n\n'+d.content.slice(0,3000)):('❌ '+JSON.stringify(d))}
+else if(op==='FILE_LIST'){const r=await api(FS+'/list?path='+encodeURIComponent(path));const d=await r.json();out.textContent+=d.ok?('LIST_OK\n\n'+d.items.join('\n')):('❌ '+JSON.stringify(d))}
+else{const r=await fetch(FS+'/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path,content:content,participant:part})});const d=await r.json();out.textContent+=d.ok?('WRITE_OK '+path):('❌ '+JSON.stringify(d))}
+}catch(e){out.textContent+='❌ сервер 8000 недоступен: '+e.message}
 }
-function setBackendPill(){
-  const led=$("#backendLed"),txt=$("#backendText");
-  led.className="led"+(BACKEND_OK?"":" amber");
-  txt.textContent=BACKEND_OK?"бэкенд: онлайн":"демо-режим";
-  $("#backendPill").title=BACKEND_OK?"Бэкенд Юни отвечает":"Бэкенд недоступен — консоль эмулирует ответы";
-}
-function liveStatus(a,st){
-  if(a.status==="unavailable"||a.status==="disabled")return{cls:"off",lv:"lv-off",text:statusLabel(a.status)};
-  if(st.status==="опрос…")return{cls:"think",lv:"lv-think",text:"Думает…"};
-  if(st.error||st.status==="ошибка")return{cls:"err",lv:"lv-err",text:"Ошибка"};
-  return{cls:"ready",lv:"lv-ready",text:"Готов"};
-}
-function renderAgents(){
-  const wrap=$("#agents");wrap.innerHTML="";
-  AGENTS.forEach((a,i)=>{
-    const st=state[a.name]||{on:false};
-    const una=a.status==="unavailable"||a.status==="disabled";
-    const card=el("div","agent-card"+(st.on?" active":" off")+(una?" unavailable":""));
-
-    const top=el("div","ac-top");
-    const check=el("input","ac-check");check.type="checkbox";check.checked=!!st.on&&!una;check.disabled=una;check.tabIndex=-1;
-    const icon=el("div","ac-icon");icon.style.background=`linear-gradient(160deg, ${PAL[i%PAL.length]}, ${PAL[i%PAL.length]}cc)`;icon.textContent=a.name[0].toUpperCase();
-    const info=el("div","ac-info");
-    const nm=el("div","ac-name");nm.textContent=a.name;nm.title=a.name;
-    const rl=el("div","ac-role");rl.textContent=a.role||"—";
-    info.append(nm,rl);
-    top.append(check,icon,info);
-
-    const tags=el("div","ac-tags");
-    if(a.transport==="browser"){
-      const cdpOk=(st.cdpOk!==undefined)?st.cdpOk:!!a.cdp;
-      const tabOk=(st.tabOk!==undefined)?st.tabOk:!!a.tab;
-      tags.append(tag("CDP: "+(cdpOk?"OK":"OFF"),cdpOk?"t-cdp-ok":"t-cdp-off"));
-      tags.append(tag("Вкладка: "+(tabOk?"найдена":"нет"),tabOk?"t-tab-ok":"t-tab-no"));
-      tags.append(tag("браузер","t-type-browser"));
-    }else{
-      tags.append(tag(a.transport==="api"?"API":"Codex","t-type-"+a.transport));
-      if(a.transport==="api"){
-        const keySet=!!EP_CONFIG?.endpoints?.[a.name]?.api_key_set;
-        tags.append(tag(keySet?"ключ задан":"ключ пуст",keySet?"t-key-ok":"t-key-no"));
-      }
-    }
-    tags.append(tag(transportLabel(a.transport),"t-type"));
-
-    const sb=el("div","ac-status");
-    const live=liveStatus(a,st);
-    const host=el("span","ac-host");host.textContent=a.detail||a.host||transportLabel(a.transport);
-    const lv=el("span","ac-live "+live.lv);
-    lv.innerHTML=`<i class="dot ${live.cls}"></i>${esc(live.text)}`;
-    sb.append(host,lv);
-
-    card.append(top,tags,sb);
-    if(!una)card.onclick=()=>{const s=state[a.name];if(s){s.on=!s.on;renderAgents();updateReadiness();}};
-    wrap.append(card);
-  });
-  const n=AGENTS.filter(a=>state[a.name]&&state[a.name].on).length;
-  $("#agentCount").textContent=`${n}/${AGENTS.length}`;
-}
-$("#deselectAll").onclick=()=>{
-  AGENTS.forEach(a=>{if(state[a.name])state[a.name].on=false;});
-  renderAgents();updateReadiness();
-  log("Выделение снято со всех участников");
-};
-function updateReadiness(){
-  const ready=AGENTS.filter(a=>state[a.name]&&state[a.name].on&&a.status!=="unavailable"&&a.status!=="disabled").length;
-  const una=AGENTS.filter(a=>a.status==="unavailable"||a.status==="disabled").length;
-  const dis=AGENTS.filter(a=>state[a.name]&&!state[a.name].on&&a.status!=="unavailable"&&a.status!=="disabled").length;
-  $("#miniReadiness").textContent=`готовы ${ready} · недоступны ${una} · отключены ${dis}`;
-  updatePlan();
-}
-
-/* =====================================================================
-   Файлы (компактный блок)
-===================================================================== */
-function renderFiles(){
-  const wrap=$("#files");wrap.innerHTML="";
-  $("#filesCount").textContent=`(${files.length})`;
-  files.forEach((f,i)=>{
-    const c=el("div","filechip");
-    const name=el("span");name.textContent="📄 "+f.name;
-    const meta=el("span","meta");meta.textContent=Math.ceil(f.size/1024)+" КБ";
-    const sync=el("span","sync");sync.textContent="✓ синхр.";
-    const x=el("span","x");x.textContent="✕";x.onclick=()=>{files.splice(i,1);renderFiles();updatePlan();};
-    c.append(name,meta,sync,x);wrap.append(c);
-  });
-}
-async function addFiles(list){
-  for(const file of list){
-    if(files.length>=12){log("Максимум 12 файлов","warn");break;}
-    if(file.size>300000){log(`${file.name}: файл больше 300 КБ`,"warn");continue;}
-    if(files.some(f=>f.name===file.name)){log(`${file.name}: уже добавлен`,"warn");continue;}
-    const content=await file.text();
-    if(content.includes("\u0000")){log(`${file.name}: бинарный файл не поддерживается`,"warn");continue;}
-    files.push({name:file.name,content,size:file.size});
-  }
-  renderFiles();updatePlan();
-}
-$("#filesToggle").onclick=()=>{
-  const p=$("#filesPanel");const open=p.style.display!=="none";
-  p.style.display=open?"none":"block";
-  $("#filesToggle").classList.toggle("open",!open);
-};
-$("#drop").onclick=()=>$("#fileInput").click();
-$("#fileInput").onchange=async e=>{await addFiles(e.target.files);e.target.value="";};
-const drop=$("#drop");
-["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("hover");}));
-["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("hover");}));
-drop.addEventListener("drop",async e=>{await addFiles(e.dataTransfer.files);});
-const fmini=$("#filesMini");
-["dragover","dragenter"].forEach(ev=>fmini.addEventListener(ev,e=>{e.preventDefault();fmini.classList.add("hover");}));
-["dragleave","drop"].forEach(ev=>fmini.addEventListener(ev,e=>{e.preventDefault();fmini.classList.remove("hover");}));
-fmini.addEventListener("drop",async e=>{
-  e.preventDefault();
-  $("#filesPanel").style.display="block";$("#filesToggle").classList.add("open");
-  await addFiles(e.dataTransfer.files);
-});
-
-/* =====================================================================
-   Шаблон / план
-===================================================================== */
-$("#template").onchange=()=>{const t=TEMPLATES[$("#template").value];if(t){$("#topic").value=t.topic;$("#brief").value=t.brief;updatePlan();}};
-$("#topic").oninput=updatePlan;$("#brief").oninput=updatePlan;
-function updatePlan(){
-  const t=$("#topic").value.trim()||"(не задана)";
-  const b=$("#brief").value.trim()||"(пусто)";
-  const on=AGENTS.filter(a=>state[a.name]&&state[a.name].on);
-  $("#planText").textContent=`Тема: ${t}\nБриф: ${b.slice(0,200)}${b.length>200?"…":""}\nУчастников: ${on.length} (${on.map(a=>a.name).join(", ")})`;
-}
-
-/* =====================================================================
-   Журнал (один поток)
-===================================================================== */
-function log(msg,cls=""){
-  const t=new Date().toLocaleTimeString("ru-RU");
-  const node=$("#logFull");
-  if(node){
-    const d=el("div");
-    d.innerHTML=`<span class="t">${t}</span> <span class="${cls}">${esc(msg)}</span>`;
-    node.append(d);node.scrollTop=node.scrollHeight;
-  }
-  const hint=$("#runHint");if(hint)hint.textContent=msg;
-}
-
-/* =====================================================================
-   Сетка ответов
-===================================================================== */
-function buildGrid(names){
-  const grid=$("#grid");grid.innerHTML="";
+function saveCfg(){localStorage.setItem('uni_lms',$('cfgLms').value);localStorage.setItem('uni_fs',$('cfgFs').value);localStorage.setItem('uni_hrm',$('cfgHrm').value);LMS=$('cfgLms').value;FS=$('cfgFs').value;HRM=$('cfgHrm').value;showToast('💾 Конфиг сохранён');pingServers()}
+const RULES_KEY='uni_rules';
+const DEFAULT_RULES=['канон uni/ только чтение','артефакты <КОД>_','статус только с доказательством','процессы не убивать','L3/L4 — явное подтверждение'];
+function getRules(){try{const r=JSON.parse(localStorage.getItem(RULES_KEY));if(Array.isArray(r))return r}catch(e){}return DEFAULT_RULES.slice()}
+function renderRules(){const list=$('rulesList');if(!list)return;const rules=getRules();list.innerHTML=rules.map((t,i)=>`<div class="rule-row"><span class="rule-text" ondblclick="editRule(${i})">${esc(t)}</span><button class="rbtn" onclick="editRule(${i})">✎</button><button class="rbtn del" onclick="delRule(${i})">🗑</button></div>`).join('')||'<div style="font-size:12px;color:var(--text3)">нет правил</div>'}
+function saveRules(r){localStorage.setItem(RULES_KEY,JSON.stringify(r));renderRules();showToast('⚖ Правила сохранены')}
+function addRule(){const t=(prompt('Новое правило, которому следует ЮНИ:')||'').trim();if(!t)return;const r=getRules();r.push(t);saveRules(r)}
+function editRule(i){const r=getRules();const v=(prompt('Изменить правило:',r[i])||'').trim();if(!v)return;r[i]=v;saveRules(r)}
+function delRule(i){const r=getRules();if(!confirm('Удалить правило «'+r[i]+'»?'))return;r.splice(i,1);saveRules(r)}
+function moveCursor(x,y){const c=$('uniCursor');c.classList.add('moving');c.style.left=x+'%';c.style.top=y+'%';setTimeout(()=>c.classList.remove('moving'),600)}
+setInterval(()=>{if($('view-browser').classList.contains('active'))moveCursor(15+Math.random()*70,15+Math.random()*60)},5000);
+setInterval(()=>{pingServers();loadLogs();loadMail()},15000);
+setTheme(localStorage.getItem('uni_theme')||'light');
+pingServers();runRollCall();loadLogs();loadBoard();loadMail();loadDocs();loadStats();renderRules();loadRoles();
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='l'){e.preventDefault();startRound()}});
+/* ===== Анимированная favicon: U → N → i (смена href у <link rel=icon>) ===== */
+(function(){
+  const favEl=document.getElementById('dynFav');
+  if(!favEl)return;
+  const seq=['convertico-256-ico-uni.ico','convertico-256-ico-uni-2.ico','convertico-256-ico-uni-3.ico'];
   let i=0;
-  names.forEach(nm=>{
-    const a=AGENTS.find(x=>x.name===nm);if(!a)return;
-    const box=el("div","mbox");box.dataset.name=nm;
-    const head=el("div","mhead");
-    const av=el("div","mava");av.style.background=PAL[i++%PAL.length];av.textContent=nm[0].toUpperCase();
-    const nmBox=el("div");const n1=el("div","mname");n1.textContent=nm;const n2=el("div","mrole");n2.textContent=a.role||"";nmBox.append(n1,n2);
-    const led=el("div","mled");led.dataset.led="1";
-    head.append(av,nmBox,led);
-    const body=el("div","mbody");body.dataset.body="1";
-    const foot=el("div","mfoot");foot.dataset.foot="1";
-    box.append(head,body,foot);grid.append(box);
-    renderCardFromState(nm);
-  });
-}
-function cardBox(name){return document.querySelector(`.mbox[data-name="${CSS.escape(name)}"]`);}
-function renderCardFromState(name){
-  const st=state[name];if(!st)return;
-  const box=cardBox(name);if(!box)return;
-  setLed(name, st.status==="опрос…"?"run":st.error?"err":st.answer?"ok":"");
-  const errHtml=st.error?`<div class="err">⚠ ${esc(st.error).slice(0,400)}</div>`:"";
-  const warnHtml=st.warn?`<div class="warnline">⚠ ${esc(st.warn).slice(0,300)}</div>`:"";
-  const sigHtml=st.sig?`<div class="sig"><b>Подпись ${esc(name)}:</b> ${esc(st.sig)}</div>`:"";
-  const textHtml=st.answer?`<div>${esc(st.answer)}</div>`:`<div class="empty">${st.error?"нет ответа":"ожидает запуска · транспорт: "+transportLabel(st.via)}</div>`;
-  let stageHtml="";
-  if(st.via==="browser"&&st.status!=="готов"){stageHtml=`<div class="stage"><span class="wait">${esc(st.browserStage||"ожидание браузерной сессии…")}</span></div>`;}
-  const body=box.querySelector("[data-body]");
-  body.innerHTML=textHtml+sigHtml+warnHtml+errHtml+stageHtml;
-  body.classList.toggle("expanded",!!st.expanded);
-  const foot=box.querySelector("[data-foot]");
-  foot.innerHTML=`<span>${esc(transportLabel(st.via))}${st.latency?` · ${st.latency}s`:""}${st.error?" · ошибка":""}</span>`+
-    (st.answer&&st.answer.length>500?`<span class="expand-btn" data-exp="1">${st.expanded?"Свернуть":"Развернуть"}</span>`:"");
-  const eb=foot.querySelector("[data-exp]");
-  if(eb)eb.onclick=()=>{st.expanded=!st.expanded;renderCardFromState(name);};
-}
-function setLed(name,cls){
-  const box=cardBox(name);if(!box)return;
-  box.className="mbox"+(cls?" "+cls:"");
-  const led=box.querySelector("[data-led]");if(led)led.className="mled"+(cls?" "+cls:"");
-}
-
-/* =====================================================================
-   Прогресс / кнопки
-===================================================================== */
-function setProgress(p){const bar=$("#progress").firstElementChild;if(bar)bar.style.width=Math.min(100,Math.max(0,p))+"%";}
-function finishProgress(){const p=$("#progress");setProgress(100);
-  setTimeout(()=>{p.classList.remove("show");setTimeout(()=>setProgress(0),300);},700);}
-const busySel=["#runBtn","#runBtn2","#runApiBtn"];
-function setBusy(b){busySel.forEach(s=>{const btn=$(s);if(btn)btn.disabled=b;});}
-function resetRoundState(){
-  AGENTS.forEach(a=>{const s=state[a.name];if(s){s.answer="";s.sig="";s.error="";s.warn="";s.status="готов";s.expanded=false;s.latency=null;s.browserStage="";}});
-  currentRound={id:null,synthesis:"",reportPath:null,signatures:{},errors:{}};
-}
-
-/* =====================================================================
-   Бейдж вкладки «Итог»
-===================================================================== */
-function bumpSummaryBadge(){pendingSummary++;const b=$("#summaryDot");b.textContent=pendingSummary;b.classList.add("show");}
-function clearSummaryBadge(){pendingSummary=0;$("#summaryDot").classList.remove("show");}
-
-/* =====================================================================
-   Запуск раунда
-===================================================================== */
-async function runRound(opts={}){
-  if(running)return;
-  const apiOnly=!!opts.apiOnly;
-  let enabled=AGENTS.filter(a=>{
-    if(!(state[a.name]&&state[a.name].on))return false;
-    if(apiOnly&&a.transport==="browser")return false;
-    return true;
-  }).map(a=>a.name);
-  if(!$("#topic").value.trim()){log("Укажите тему раунда","warn");return;}
-  if(!enabled.length){log("Включите хотя бы одного доступного участника","warn");return;}
-  const hadBrowser=enabled.some(n=>AGENTS.find(a=>a.name===n)?.transport==="browser");
-  const tosAck=localStorage.getItem("uni_tos_ack")==="1";
-  if(hadBrowser&&!tosAck){
-    enabled=enabled.filter(n=>AGENTS.find(a=>a.name===n)?.transport!=="browser");
-    log("ToS не подтверждён — браузерные участники пропущены. Используйте «Только API».","warn");
-    if(!enabled.length)return;
-  }
-  running=true;setBusy(true);
-  $("#progress").classList.add("show");setProgress(3);
-  clearSummaryBadge();
-  $("#preRound").style.display="none";$("#gridWrap").style.display="block";
-  resetRoundState();
-  activeNames=enabled;doneCount=0;totalCount=enabled.length;
-  buildGrid(enabled);updateSigCount();
-  const topic=$("#topic").value.trim();
-  const attachments=Object.fromEntries(files.map(f=>[f.name,f.content]));
-  $("#roundId").textContent="run…";
-  log(`Старт раунда · участников: ${enabled.length}${hadBrowser&&!tosAck?" (браузерные пропущены)":""}`);
-
-  if(!BACKEND_OK){
-    simulateRound(enabled,{
-      answerFor:a=>({text:demoAnswerFor(a,topic),sig:`«${topic}» — согласовано. ${a.name}`}),
-      done:(s,e)=>makeDemoDone(topic,$("#brief").value,enabled,s,e)
-    });
-    return;
-  }
-  try{
-    await streamRound({topic,brief:$("#brief").value,files:attachments,tasks:[],only:enabled,enabled});
-  }catch(e){log("Ошибка соединения: "+e.message,"warn");}
-  finally{running=false;setBusy(false);finishProgress();}
-}
-
-/* Устойчивый SSE-парсер: построчно, работает и с "\n\n", и с одинарным "\n" */
-async function streamRound(payload){
-  const res=await fetch("/api/round/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-  if(!res.ok){const b=await res.json().catch(()=>({}));throw new Error(b.error||("HTTP "+res.status));}
-  const reader=res.body.getReader();const dec=new TextDecoder();let buf="";
-  const consume=chunk=>{
-    buf+=chunk;
-    const lines=buf.split(/\r?\n/);
-    buf=lines.pop();
-    for(const raw of lines){
-      const l=raw.trim();
-      if(!l.startsWith("data:"))continue;
-      const p=l.slice(5).trim();
-      if(!p)continue;
-      try{handleEvent(JSON.parse(p));}catch(e){}
-    }
-  };
-  while(true){
-    const{done,value}=await reader.read();
-    if(done)break;
-    consume(dec.decode(value,{stream:true}));
-  }
-  if(buf.trim()){consume("\n");}
-}
-
-/* ---------------- демо-эмуляция ---------------- */
-function simulateRound(names,cfg){
-  handleEvent({type:"init",participants:names.map(n=>({name:n}))});
-  const sigMap={},errMap={};
-  let lastEnd=0;
-  names.forEach((nm,i)=>{
-    const a=AGENTS.find(x=>x.name===nm)||{name:nm,transport:"api",role:""};
-    const t0=350+i*430,dur=1400+Math.random()*2400;
-    lastEnd=Math.max(lastEnd,t0+dur);
-    setTimeout(()=>handleEvent({type:"participant_start",name:nm,via:a.transport,
-      stage:a.transport==="browser"?"CDP: открытие вкладки → ввод брифа → ожидание ответа":""}),t0);
-    setTimeout(()=>{
-      const r=cfg.answerFor(a);
-      if(r.sig)sigMap[nm]=r.sig;
-      handleEvent({type:"participant_done",name:nm,ok:true,text:r.text,signature:r.sig||"",via:a.transport,latency:+(dur/1000).toFixed(1)});
-    },t0+dur);
-  });
-  setTimeout(()=>{handleEvent(cfg.done(sigMap,errMap));running=false;setBusy(false);finishProgress();},lastEnd+700);
-}
-function demoAnswerFor(a,topic){
-  const t=(topic||"").trim()||"базовая задача";const role=a.role||"";
-  if(/Проверка статуса/.test(t))return `${a.name}: доступен, готов. На связи, очередь пуста.`;
-  if(/Algorithm/.test(role))return `Разобрал «${t}». Декомпозиция: 1) спецификация интерфейсов, 2) прототип ядра, 3) нагрузочные тесты.`;
-  if(/Consensus/.test(role))return `Вижу формирующийся консенсус по «${t}». После сбора подписей соберу единую редакцию решения.`;
-  if(/Code implementation/.test(role))return `Готов реализовать «${t}». План: модуль ядра + тонкий API-слой.`;
-  if(/Critic/.test(role))return `По «${t}»: требую явный kill-switch и логирование каждого шага. В остальном — поддерживаю.`;
-  if(/Reality/.test(role))return `Reality-check по «${t}»: сроки реалистичны при скоупе без «приятных мелочей».`;
-  if(/Risk/.test(role))return `Риски по «${t}»: рассинхронизация версий, rate-limit, потеря контекста. Митигация: чекпоинты.`;
-  if(/Fast/.test(role))return `Быстрый проход по «${t}»: формулировка ясная, блокеров не вижу.`;
-  if(/Fallback/.test(role))return `Как fallback-модель готова подхватить «${t}» при отказе основных эндпоинтов.`;
-  if(/Open weights/.test(role))return `По «${t}»: предложу open-weights альтернативы для локального инференса.`;
-  if(/Local/.test(role))return `Локальный сервер для «${t}» в норме: память ок, очередь пуста.`;
-  if(/General/.test(role))return `Общее ревью «${t}»: структура брифа понятна, критичных замечаний нет.`;
-  return `Подтверждаю участие в раунде по теме «${t}». Замечаний нет.`;
-}
-function makeDemoDone(topic,brief,names,sigMap,errMap){
-  const rid="demo-"+Date.now().toString(36).toUpperCase();
-  const sigCount=Object.keys(sigMap).length;
-  const synthesis=`Демо-итог: по теме «${topic||"—"}» опрошено ${names.length}, подписей ${sigCount}, ошибок ${Object.keys(errMap).length}. Общий вектор согласован.`;
-  demoReports[rid]=buildDemoReport(rid,topic,brief,names,sigMap);
-  localHistory.unshift({round_id:rid,topic:topic||"(без темы)",signatures:sigCount,errors:Object.keys(errMap).length});
-  return {type:"done",round_id:rid,synthesis,report_path:".uni-council/"+rid+"/report.md",signatures:sigMap,errors:errMap};
-}
-function buildDemoReport(rid,topic,brief,names,sigMap){
-  const L=[];
-  L.push(`# Отчёт раунда ${rid}`,"",`Тема: ${topic||"—"}`,"","Бриф:",`«${(brief||"").trim()||"(пусто)"}»`,"","## Ответы участников","");
-  names.forEach(n=>{const st=state[n];if(!st)return;
-    L.push(`### ${n}`,"",st.answer||"(нет ответа)","");
-    if(st.sig)L.push(`> Подпись: ${st.sig}`,"");});
-  L.push("## Итог","",`Подписей: ${Object.keys(sigMap).length}/${names.length}.`,"","(демо-режим: ответы сгенерированы локально)");
-  return L.join("\n");
-}
-
-/* =====================================================================
-   События SSE (с алиасами и терпимой обработкой ошибок)
-===================================================================== */
-function handleEvent(ev){
-  let t=ev.type;
-  if(["answer","participant_answer","result","participant_result"].includes(t))t="participant_done";
-  else if(["round_done","complete","completed","finish","finished","round_complete"].includes(t))t="done";
-  else if(["participant_begin","participant_started"].includes(t))t="participant_start";
-  switch(t){
-    case "init":
-      log("Участники: "+ev.participants.map(p=>p.name).join(", "),"ok");break;
-    case "start":break;
-    case "participant_start":{
-      setLed(ev.name,"run");
-      const st=state[ev.name];
-      if(st){st.status="опрос…";st.error="";st.warn="";if(st.via==="browser"&&ev.stage)st.browserStage=ev.stage;}
-      renderCardFromState(ev.name);renderAgents();
-      log(`→ ${ev.name} [${ev.via}] запрос отправлен`);break;}
-    case "participant_done":{
-      const st=state[ev.name];
-      if(st){
-        const txt=String(ev.text??ev.answer??ev.response??ev.output??"");
-        const sig=String(ev.signature??ev.sig??"");
-        const errRaw=String(ev.error||ev.err||"");
-        const hasText=txt.trim().length>0;
-        const ok=hasText||ev.ok===true;
-        st.answer=txt;
-        st.sig=sig;
-        st.error=hasText?"":errRaw;      /* есть ответ — не ошибка */
-        st.warn=(hasText&&errRaw)?errRaw:""; /* ответ пришёл, но адаптер ругался */
-        st.status=ok?"готов":"ошибка";
-        st.via=ev.via||st.via;
-        st.latency=ev.latency;
-      }
-      doneCount++;if(totalCount>0)setProgress(Math.round(doneCount/totalCount*100));
-      renderCardFromState(ev.name);renderAgents();updateSigCount();
-      bumpSummaryBadge();
-      log(`← ${ev.name} ответ${(st&&st.warn)?" (с предупреждением)":ev.ok?"":" (ошибка)"}${ev.signature||st?.sig?" + подпись":""}`,
-        (st&&st.answer)?"ok":(st&&st.warn)?"ok":"warn");
-      if(reportViewing){newAnswersWhileViewing++;showNotify(`Новый ответ: ${ev.name}`);}
-      break;}
-    case "done":{
-      currentRound.id=ev.round_id??ev.id??null;
-      currentRound.synthesis=String(ev.synthesis??ev.summary??ev.consensus??ev.synthesis_text??"");
-      currentRound.reportPath=ev.report_path??ev.report??ev.report_file??null;
-      currentRound.signatures=ev.signatures||{};currentRound.errors=ev.errors||{};
-      $("#roundId").textContent=currentRound.id||"—";
-      log("Раунд завершён · отчёт: "+(currentRound.reportPath||"—"),"ok");
-      $("#summaryFull").textContent=currentRound.synthesis||"Общая сводка не создана; откройте полный отчёт.";
-      bumpSummaryBadge();
-      $("#runHint").textContent="Готово · отчёт в "+(currentRound.reportPath||".uni-council/");
-      updateReportLink();
-      loadHistory();break;}
-    case "error":log("Ошибка: "+(ev.msg||ev.error||"?"),"warn");break;
-  }
-}
-function updateSigCount(){
-  const list=activeNames||AGENTS.filter(a=>state[a.name]&&state[a.name].on).map(a=>a.name);
-  const got=list.filter(n=>state[n]&&state[n].sig).length;
-  $("#sigCount").textContent=`${got}/${list.length}`;
-}
-
-/* ---------------- ссылка на отчёт (во вкладке «Итог») ---------------- */
-function updateReportLink(){
-  const a=$("#reportLink");
-  if(currentRound.reportPath&&currentRound.id){
-    a.style.display="inline-flex";
-    a.textContent="📄 "+currentRound.reportPath;
-    a.title="Открыть полный отчёт";
-  }else a.style.display="none";
-}
-$("#reportLink").onclick=()=>{if(currentRound.id)openReport(currentRound.id);};
-
-/* =====================================================================
-   Полный отчёт
-===================================================================== */
-function openReport(roundId){
-  reportViewing=true;newAnswersWhileViewing=0;hideNotify();
-  $("#reportTitle").textContent="Полный отчёт · "+roundId;
-  $("#reportBody").textContent="Загрузка…";
-  $("#reportDrawer").classList.add("show");
-  if(!BACKEND_OK){
-    $("#reportBody").textContent=demoReports[roundId]||"Отчёт не найден (демо-режим).";
-    return;
-  }
-  fetch(`/api/report?id=${encodeURIComponent(roundId)}`)
-    .then(r=>r.json())
-    .then(d=>{if(d.error)throw new Error(d.error);$("#reportBody").textContent=d.markdown||"(пусто)";})
-    .catch(e=>{$("#reportBody").textContent=demoReports[roundId]||("Ошибка: "+e.message);});
-}
-function closeReport(){reportViewing=false;hideNotify();$("#reportDrawer").classList.remove("show");}
-$("#reportClose").onclick=closeReport;
-$("#reportBack").onclick=closeReport;
-async function copyText(txt){
-  try{await navigator.clipboard.writeText(txt);return true;}
-  catch(e){
-    try{const ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";
-      document.body.append(ta);ta.select();const ok=document.execCommand("copy");ta.remove();return ok;}
-    catch(e2){return false;}
-  }
-}
-$("#reportCopyClose").onclick=async()=>{
-  const txt=$("#reportBody").textContent||"";
-  const ok=await copyText(txt);
-  closeReport();
-  log(ok?"Отчёт скопирован в буфер обмена":"Не удалось скопировать",ok?"ok":"warn");
-};
-$("#notifyGo").onclick=()=>{closeReport();switchTab("current");};
-$("#copySummary").onclick=async()=>{
-  const ok=await copyText($("#summaryFull").textContent||"");
-  log(ok?"Итог скопирован":"Не удалось скопировать",ok?"ok":"warn");
-};
-$("#openReport").onclick=()=>{if(currentRound.id)openReport(currentRound.id);else log("Сначала запустите раунд","warn");};
-function showNotify(msg){$("#notifyText").textContent=msg;$("#notify").classList.add("show");}
-function hideNotify(){$("#notify").classList.remove("show");}
-
-/* =====================================================================
-   Табы центра
-===================================================================== */
-function switchTab(name){
-  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===name));
-  document.querySelectorAll(".tabpane").forEach(p=>p.classList.remove("active"));
-  $("#paneCurrent").classList.toggle("active",name==="current");
-  $("#paneSummary").classList.toggle("active",name==="summary");
-  $("#paneLog").classList.toggle("active",name==="log");
-  if(name==="summary")clearSummaryBadge();
-}
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
-
-/* =====================================================================
-   История
-===================================================================== */
-function openHistory(){$("#historyDrawer").classList.add("show");loadHistory();}
-$("#historyBtn").onclick=openHistory;
-$("#historyClose").onclick=()=>$("#historyDrawer").classList.remove("show");
-async function loadHistory(){
-  const wrap=$("#history");
-  let items=null;
-  if(BACKEND_OK){
-    try{const res=await fetch("/api/history");if(res.ok)items=await res.json();}catch(e){}
-  }
-  if(!items)items=localHistory;
-  let items2=items;
-  const q=$("#histSearch").value.trim().toLowerCase();
-  const f=$("#histFilter").value;
-  if(q)items2=items2.filter(it=>(it.topic||"").toLowerCase().includes(q)||(it.round_id||"").toLowerCase().includes(q));
-  if(f==="ok")items2=items2.filter(it=>it.errors===0);
-  if(f==="err")items2=items2.filter(it=>it.errors>0);
-  wrap.innerHTML="";
-  if(!items2.length){wrap.innerHTML='<div class="empty" style="padding:14px">Нет раундов по фильтру</div>';return;}
-  for(const item of items2){
-    const row=el("div","history-item");
-    const title=el("b");title.textContent=item.topic||item.round_id;
-    const meta=el("span");
-    const ok=item.errors===0;
-    meta.innerHTML=`${esc(item.round_id)} · <span class="${ok?'ok':'err'}">подписи ${item.signatures} · ошибки ${item.errors}</span>`;
-    const del=el("span","del");del.textContent="🗑";del.title="Удалить раунд";
-    del.onclick=async e=>{
-      e.stopPropagation();
-      if(!confirm(`Удалить раунд ${item.round_id}?`))return;
-      if(BACKEND_OK){
-        try{const r=await fetch("/api/history/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({round_id:item.round_id})});
-          if(!r.ok)throw new Error(await r.text());}
-        catch(err){log("Не удалось удалить: "+err.message,"warn");return;}
-      }else{
-        localHistory=localHistory.filter(x=>x.round_id!==item.round_id);
-        delete demoReports[item.round_id];
-      }
-      log("Раунд удалён: "+item.round_id,"ok");loadHistory();
-    };
-    row.append(title,meta,del);
-    row.onclick=()=>openReport(item.round_id);
-    wrap.append(row);
-  }
-}
-$("#histSearch").oninput=loadHistory;
-$("#histFilter").onchange=loadHistory;
-$("#histClear").onclick=async()=>{
-  if(!confirm("Удалить ВСЕ сохранённые раунды?"))return;
-  if(BACKEND_OK){
-    try{const r=await fetch("/api/history/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({round_id:"__all__"})});
-      if(!r.ok)throw new Error(await r.text());}
-    catch(err){log("Не удалось очистить: "+err.message,"warn");return;}
-  }else{localHistory=[];for(const k in demoReports)delete demoReports[k];}
-  log("История очищена","ok");loadHistory();
-};
-
-/* =====================================================================
-   Настройки
-===================================================================== */
-const modal=$("#settingsModal");
-function defaultCfg(){return{browser_enabled:true,free_tier_only:true,min_interval_seconds:8,timeout_seconds:90,concurrency:3,
-  url_check:true,autonomous:{enabled:false,auto_start_session:false},
-  endpoints:{
-    Gemini:{base_url:"https://generativelanguage.googleapis.com/v1beta",api_key_set:false},
-    Groq:{base_url:"https://api.groq.com/openai/v1",api_key_set:false},
-    OpenRouter:{base_url:"https://openrouter.ai/api/v1",api_key_set:false},
-    HuggingFace:{base_url:"https://api-inference.huggingface.co",api_key_set:false},
-    Hermes:{base_url:"http://127.0.0.1:11434/v1",api_key_set:false}
-  }};}
-function storedCfg(){try{return JSON.parse(localStorage.getItem("uni_cfg")||"null")||defaultCfg();}catch(e){return defaultCfg();}}
-async function openSettings(){
-  if(BACKEND_OK){
-    try{const r=await fetch("/api/config");EP_CONFIG=await r.json();}catch(e){EP_CONFIG=storedCfg();}
-  }else EP_CONFIG=storedCfg();
-  $("#t_browser_enabled").classList.toggle("on",EP_CONFIG.browser_enabled!==false);
-  $("#t_free_tier_only").classList.toggle("on",EP_CONFIG.free_tier_only!==false);
-  $("#t_autonomous").classList.toggle("on",!!EP_CONFIG.autonomous?.enabled);
-  $("#t_auto_start").classList.toggle("on",!!EP_CONFIG.autonomous?.auto_start_session);
-  $("#t_url_check").classList.toggle("on",EP_CONFIG.url_check!==false);
-  $("#i_min_interval").value=EP_CONFIG.min_interval_seconds??8;
-  $("#i_timeout").value=EP_CONFIG.timeout_seconds??90;
-  $("#i_concurrency").value=EP_CONFIG.concurrency??3;
-  renderEndpoints(EP_CONFIG.endpoints||{});
-  renderThemeList();
-  modal.classList.add("show");switchMtab("general");
-}
-function renderEndpoints(ep){
-  const wrap=$("#endpoints");wrap.innerHTML="";
-  const entries=Object.entries(ep);
-  if(!entries.length){wrap.innerHTML='<div class="empty">Эндпоинты не настроены</div>';return;}
-  for(const[name,info]of entries){
-    const box=el("div","ep");
-    const t=el("div","ept");
-    t.innerHTML=`<span>${esc(name)}</span><span class="set">${info.api_key_set?"ключ установлен":"ключ пуст"}</span>`;
-    const r1=el("div","epr");
-    const l1=el("label");l1.textContent="Base URL";
-    const i1=el("input");i1.type="text";i1.value=info.base_url||"";i1.dataset.url=name;
-    r1.append(l1,i1);
-    const r2=el("div","epr");
-    const l2=el("label");l2.textContent="API key";
-    const i2=el("input");i2.type="password";i2.placeholder=info.api_key_set?"•••••• (не меняй, чтобы оставить)":"вставьте ключ";i2.dataset.key=name;
-    r2.append(l2,i2);
-    box.append(t,r1,r2);wrap.append(box);
-  }
-}
-function switchMtab(name){
-  document.querySelectorAll(".modal-tab").forEach(t=>t.classList.toggle("active",t.dataset.mtab===name));
-  document.querySelectorAll(".mtab").forEach(p=>p.style.display=p.dataset.mtab===name?"block":"none");
-}
-document.querySelectorAll(".modal-tab").forEach(t=>t.onclick=()=>switchMtab(t.dataset.mtab));
-["#t_browser_enabled","#t_free_tier_only","#t_autonomous","#t_auto_start","#t_url_check"].forEach(s=>{
-  $(s).onclick=()=>$(s).classList.toggle("on");
-});
-$("#settingsBtn").onclick=openSettings;
-$("#settingsCancel").onclick=()=>modal.classList.remove("show");
-modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show");};
-$("#settingsSave").onclick=async()=>{
-  const endpoints={};
-  for(const inp of document.querySelectorAll("#endpoints input[data-key]")){
-    const name=inp.dataset.key;
-    const key=inp.value.trim();
-    const urlEl=document.querySelector(`#endpoints input[data-url="${CSS.escape(name)}"]`);
-    const url=urlEl?urlEl.value.trim():"";
-    if($("#t_url_check").classList.contains("on")&&/[?&](api_key|key|token|secret|access_token)=/i.test(url)){
-      log(`Ошибка: Base URL ${name} содержит секрет в параметрах — сохранение отменено`,"warn");return;
-    }
-    endpoints[name]={base_url:url,api_key:key,api_key_set:!!key||(EP_CONFIG.endpoints?.[name]?.api_key_set||false)};
-  }
-  const payload={
-    browser_enabled:$("#t_browser_enabled").classList.contains("on"),
-    free_tier_only:$("#t_free_tier_only").classList.contains("on"),
-    min_interval_seconds:parseFloat($("#i_min_interval").value)||8,
-    timeout_seconds:parseFloat($("#i_timeout").value)||90,
-    concurrency:parseInt($("#i_concurrency").value)||3,
-    url_check:$("#t_url_check").classList.contains("on"),
-    autonomous_enabled:$("#t_autonomous").classList.contains("on"),
-    auto_start_session:$("#t_auto_start").classList.contains("on"),
-    endpoints
-  };
-  if(BACKEND_OK){
-    try{
-      const res=await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const body=await res.json().catch(()=>({}));
-      if(!res.ok)throw new Error(body.error||("HTTP "+res.status));
-      log("Настройки сохранены в локальный config.yaml","ok");
-    }catch(e){log("Ошибка сохранения: "+e.message,"warn");return;}
-  }else{
-    const cfg={...payload,autonomous:{enabled:payload.autonomous_enabled,auto_start_session:payload.auto_start_session}};
-    try{localStorage.setItem("uni_cfg",JSON.stringify(cfg));}catch(e){}
-    EP_CONFIG=cfg;
-    log("Демо-режим: настройки сохранены локально (ключи не сохраняются в браузере)","ok");
-  }
-  modal.classList.remove("show");
-  await loadParticipants();updateReadiness();renderAgents();
-};
-
-/* =====================================================================
-   Автоматизация (UI-состояние)
-===================================================================== */
-function setAuto(mode){
-  autoMode=mode;
-  $("#autoState").textContent=mode==="on"?"включена":mode==="paused"?"пауза":"выключена";
-  $("#autoTask").textContent=mode==="on"?"анализ → реализация → тестирование → ревью":"—";
-  $("#autoOn").classList.toggle("on",mode==="on");
-  $("#autoPause").classList.toggle("on",mode==="paused");
-  $("#autoStop").classList.toggle("on",mode==="off");
-  log("Автоматизация: "+$("#autoState").textContent,"ok");
-}
-$("#autoOn").onclick=()=>setAuto("on");
-$("#autoPause").onclick=()=>setAuto("paused");
-$("#autoStop").onclick=()=>setAuto("off");
-
-/* =====================================================================
-   Горячие клавиши / мобильное меню / привязки / старт
-===================================================================== */
-document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){
-    if($("#reportDrawer").classList.contains("show"))closeReport();
-    $("#historyDrawer").classList.remove("show");
-    $("#settingsModal").classList.remove("show");
-    $("#leftCol").classList.remove("show");
-  }
-});
-$("#menuBtn").onclick=()=>$("#leftCol").classList.toggle("show");
-$("#runBtn").onclick=()=>runRound();
-$("#runBtn2").onclick=()=>runRound();
-$("#runApiBtn").onclick=()=>runRound({apiOnly:true});
-
-/* старт */
-loadCustomThemes();
-applyTheme(currentTheme());
-discoverThemes();
-$("#template").value="status";
-$("#topic").value=TEMPLATES.status.topic;
-$("#brief").value=TEMPLATES.status.brief;
-loadParticipants();
-loadHistory();
-updatePlan();
-setInterval(()=>{refreshBrowserStatus();},20000); /* живая проверка CDP/вкладок */
-log("Консоль загружена · UNI v2.7");
+  setInterval(()=>{
+    i=(i+1)%seq.length;
+    favEl.href=seq[i]+'?t='+Date.now(); // ?t= обходит кэш браузера
+  },3600);
+})();
+showToast('UNI Platform v3.3: темы #c4e534/#032121 + авто-детект модели LM Studio');

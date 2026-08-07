@@ -1,56 +1,61 @@
-"""SmoothMouseDriver: единый API мыши для агента/инструментов/сценариев.
+"""Плавное «живое» управление курсором поверх PyAutoGUI.
 
-Фасад поверх человеческой математики движения (uni.human_motion) и win32-исполнителя
-(uni.human_mouse). Сохраняет публичный API, который использовали scenarios/xtoys.py
-и другие вызыватели: move_to / click / drag_to / wander / circle / draw / wiggle / cancel.
-
-Бейдж «🖱️ Uni» рядом с кликом — через uni.motion.label.CursorLabelOverlay.flash()
-(отдельное окно-бейдж не плодим; вспышка текстом таблички).
+Адаптировано из ТЗ «MVP xtoys browser mouse». Отличия от ТЗ (сохраняем
+реальный код репозитория):
+  * Клики и ввод текста НЕ дублируем — для них сценарий использует
+    существующий ComputerCapability (там уже плавный заезд + бейдж «UNI»
+    + блокировки). Здесь только движение кривой Безье + failsafe.
+  * На конечной точке движения вспыхивает бейдж «UNI» через
+    uni.action_badge (как в ComputerCapability), чтобы подпись была
+    видна и при «гулянии», а не только на клике.
 """
 
 from __future__ import annotations
 
 import asyncio
+import math
 
-import win32api
-import win32con
+import pyautogui
 
-from uni.human_mouse import HumanMouseController, HumanMouseSettings
-from uni.human_motion import MotionPoint
+from uni.motion.trajectory import (
+    Bounds,
+    MousePath,
+    Point,
+    build_circle_path,
+    build_move_path,
+    build_wander_path,
+    clamp,
+)
+
+_MIN_FRAME_DT = 1.0 / 240.0
 
 
 class SmoothMouseDriver:
-    """Водит системный курсор плавно: minimum-jerk + easing + микро-шум + overshoot.
+    """Водит системный курсор плавно: Безье, easing, человеческий шум.
 
-    Безопасность: при failsafe увод курсора в левый верхний угол прерывает
-    работу (pyautogui.FAILSAFE / win32 — см. HumanMouseController).
+    Безопасность: при failsafe=True резкий увод курсора в левый верхний угол
+    экрана прерывает работу (pyautogui.FailSafeException).
     """
 
-    def __init__(
-        self,
-        *,
-        label: object | None = None,
-        settings: HumanMouseSettings | None = None,
-        failsafe: bool = True,
-        speed: float = 1.0,
-        fps: int = 90,
-    ) -> None:
-        # HumanMouseController сам рулит pyautogui.FAILSAFE при первом вызове win32api.
-        if settings is None:
-            settings = HumanMouseSettings(move_duration=0.35 / max(0.1, speed))
-        self._ctrl = HumanMouseController(settings)
-        self.label = label  # CursorLabelOverlay (или None) — вспышки «клик» вместо окна-бейджа
+    def __init__(self, *, failsafe: bool = True, speed: float = 1.0, fps: int = 90) -> None:
+        pyautogui.FAILSAFE = failsafe
+        pyautogui.PAUSE = 0.0  # паузами рулим сами через asyncio
+        self._speed = clamp(speed, 0.1, 5.0)
+        self._fps = fps
+        self._busy = asyncio.Lock()
 
     # ---------- состояние ----------
     @property
     def position(self) -> tuple[int, int]:
-        return win32api.GetCursorPos()
+        x, y = pyautogui.position()
+        return int(x), int(y)
 
     @property
     def screen_size(self) -> tuple[int, int]:
-        return (win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1))
+        w, h = pyautogui.size()
+        return int(w), int(h)
 
-    # ---------- API (имена прежние, внутри — человеко-подобное движение) ----------
+    # ---------- API ----------
     async def move_to(
         self,
         x: float,
@@ -58,52 +63,63 @@ class SmoothMouseDriver:
         *,
         duration: float | None = None,
         humanize: bool = True,
-    ) -> bool:
-        """Плавно переместить курсор в точку (x, y). Возвращает успех верификации ±5px."""
-        if duration is not None:
-            self._ctrl.settings.move_duration = duration
-        return await self._ctrl.move_to_verified(int(x), int(y), tolerance=5)
-
-    async def click(self, x: float | None = None, y: float | None = None, *, button: str = "left") -> None:
-        if x is not None and y is not None:
-            await self.move_to(x, y)
-        if self.label is not None and hasattr(self.label, "flash"):
-            try:
-                self.label.flash(f"🖱️ клик·{button}")
-            except Exception:
-                pass
-        cx, cy = self.position
-        await self._ctrl.click(cx, cy, button)
+    ) -> None:
+        """Плавно переместить курсор в точку (x, y)."""
+        start = self.position
+        if duration is None:
+            duration = self._natural_duration(math.hypot(x - start[0], y - start[1]))
+        path = build_move_path(
+            start, (float(x), float(y)), duration, fps=self._fps, humanize=humanize
+        )
+        await self._play(path)
 
     async def wiggle(self, *, amplitude: int = 24, times: int = 3) -> None:
         """Помахать курсором на месте — жест «привет, это я»."""
         x, y = self.position
         for _ in range(times):
-            await self._ctrl.move_to(x - amplitude, y)
-            await self._ctrl.move_to(x + amplitude, y)
-        await self._ctrl.move_to(x, y)
+            await self.move_to(x - amplitude, y, duration=0.12, humanize=False)
+            await self.move_to(x + amplitude, y, duration=0.12, humanize=False)
+        await self.move_to(x, y, duration=0.12, humanize=False)
 
-    async def circle(self, center, radius: float, *, turns: float = 1.0, duration: float = 6.0) -> None:
-        from uni.human_motion import build_circle_path
+    async def circle(
+        self,
+        center: Point,
+        radius: float,
+        *,
+        turns: float = 1.0,
+        duration: float = 6.0,
+    ) -> None:
+        """Обвести курсором круг."""
+        path = build_circle_path(
+            center, radius, turns=turns, duration=duration / self._speed, fps=self._fps
+        )
+        await self._play(path)
 
-        pts = build_circle_path((center[0], center[1]), radius, turns=turns, steps=int(duration * 90))
-        await self._ctrl.play_points(pts, duration)
+    async def wander(self, bounds: Bounds, *, duration: float = 12.0) -> None:
+        """Плавно поводить курсором внутри bounds в течение duration секунд."""
+        path = build_wander_path(bounds, duration / self._speed, fps=self._fps)
+        await self._play(path)
 
-    async def wander(self, bounds, *, duration: float = 12.0) -> None:
-        from uni.human_motion import build_wander_path
-
-        pts = build_wander_path(bounds, duration, fps=90)
-        await self._ctrl.play_points(pts, duration)
-
-    async def draw(self, points: list[MotionPoint], duration: float) -> None:
-        """Проигрывает произвольную последовательность точек (шоу-фигуры)."""
-        await self._ctrl.play_points(points, duration)
-
-    async def drag_to(self, x: float, y: float, *, button: str = "left") -> None:
+    async def drag_to(self, x: float, y: float, *, duration: float = 1.2) -> None:
         """Плавный драг из текущей позиции в (x, y) — пригодится для игрушек."""
-        sx, sy = self.position
-        await self._ctrl.drag(sx, sy, int(x), int(y), button)
+        path = build_move_path(self.position, (float(x), float(y)), duration, fps=self._fps)
+        async with self._busy:
+            await asyncio.to_thread(pyautogui.mouseDown)
+            try:
+                await self._play_points(path)
+            finally:
+                await asyncio.to_thread(pyautogui.mouseUp)
 
-    def cancel(self) -> None:
-        """Прервать текущее движение (голос «стоп» / новая команда)."""
-        self._ctrl.cancel()
+    # ---------- внутреннее ----------
+    def _natural_duration(self, distance: float) -> float:
+        """«Человеческая» длительность: ~1400 px/с, ограничена [0.25, 2.5] с."""
+        return clamp(distance / 1400.0, 0.25, 2.5) / self._speed
+
+    async def _play(self, path: MousePath) -> None:
+        async with self._busy:
+            await self._play_points(path)
+
+    async def _play_points(self, path: MousePath) -> None:
+        for (px, py), delay in zip(path.points, path.delays):
+            pyautogui.moveTo(px, py, _pause=False)
+            await asyncio.sleep(max(delay / self._speed, _MIN_FRAME_DT))

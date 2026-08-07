@@ -41,8 +41,6 @@ class ToolExecutor:
         "computer.list_accessible_fields": ("computer", "list_accessible_fields"),
         "computer.list_visible_windows": ("computer", "list_visible_windows"),
         "computer.press": ("computer", "press"),
-        "computer.click_human": ("computer", "click_human"),
-        "computer.drag_human": ("computer", "drag_human"),
         "camera.start": ("camera", "start"),
         "camera.snapshot": ("camera", "snapshot"),
         "camera.stop": ("camera", "stop"),

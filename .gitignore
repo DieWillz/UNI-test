@@ -1,7 +1,4 @@
-# UNI — ignore rules (canonical repo root: C:\LLM\UNI)
-# Keep only uni/ package, docs, configs, tests, scripts tracked.
-
-# Python caches
+```
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -61,17 +58,11 @@ ALIASES
 /.uni-dev/coordination/*.tmp
 /.uni-dev/coordination/browser-profiles/
 
-# Local secret config (contains API keys) — never commit
-/config.yaml
-/.uni-council-browser-profile/
-
 # Broken/legacy integration tests
 /tests/integration/
 
-# Night-shift / runtime artefacts (Hermes NOC 2026-08-04)
-copilot-worktrees/
-.uni.pid
-config-old.yml
-agent-browser/
-uni/webui/for-chat/
-UNI_NIGHT_REPORT.md
+# Ignore local config files and secrets
+config.yaml
+uni/config.yaml
+.uni-local/
+

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import ctypes
-import logging
 import os
 import re
 import shutil
@@ -18,8 +17,6 @@ import sounddevice as sd
 import soundfile as sf
 from faster_whisper import WhisperModel
 from piper import PiperVoice
-
-logger = logging.getLogger(__name__)
 
 from uni.contracts import ToolResult
 from .base import Capability
@@ -409,7 +406,7 @@ class SpeechCapability(Capability):
             if self._log is not None:
                 self._log("TTS_ERROR", str(exc))
             else:
-                logger.exception("TTS error")
+                print(f"TTS error: {exc}")
             return False
 
     def _write_audio_file(self, audio: np.ndarray, sample_rate: int, path: Path, audio_format: str) -> None:

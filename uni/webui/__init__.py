@@ -1,4 +1,4 @@
-"""Пакет WebUI интерфейса UNI."""
+from __future__ import annotations
 
 from .server import run_webui
 

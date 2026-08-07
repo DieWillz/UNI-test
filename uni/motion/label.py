@@ -59,22 +59,6 @@ class CursorLabelOverlay:
     def set_text(self, text: str) -> None:
         self._post("text", text)
 
-    def flash(self, text: str, ms: int = 400) -> None:
-        """Вспышка текста: показать подпись с текстом на короткое время,
-        затем вернуть к базовому (заменяет отдельное окно-бейдж)."""
-        self._post("flash", f"{self._config.text} · {text}" if text else self._config.text)
-        self.show()
-        if ms > 0:
-            import threading
-
-            def _hide() -> None:
-                import time
-
-                time.sleep(ms / 1000.0)
-                self.hide()
-
-            threading.Timer(ms / 1000.0, _hide).start()
-
     def stop(self, timeout: float = 2.0) -> None:
         self._alive.clear()
         self._post("stop")
@@ -130,8 +114,6 @@ class CursorLabelOverlay:
                 elif command == "hide":
                     visible = False
                 elif command == "text" and payload is not None:
-                    label.configure(text=payload)
-                elif command == "flash" and payload is not None:
                     label.configure(text=payload)
 
             if not self._alive.is_set():

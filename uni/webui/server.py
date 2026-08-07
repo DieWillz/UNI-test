@@ -377,8 +377,13 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path in ("/favicon.ico",):
-            # B-04: заглушка, чтобы не было 404 в консоли браузера
-            self._send_204()
+            # B-04: отдаём реальную иконку вместо 204-заглушки, чтобы вкладка
+            # браузера не была без иконки.
+            fav = (_HERE / "favicon.ico").resolve()
+            if fav.is_file():
+                self._send_file_with_cache(fav, "image/x-icon")
+            else:
+                self._send_204()
             return
         if parsed.path in ("/", "/index.html"):
             if _FRONTEND.exists():

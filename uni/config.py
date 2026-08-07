@@ -39,7 +39,6 @@ class ComputerConfig(BaseModel):
     mouse_move_duration: float = Field(default=0.35, ge=0.0, le=2.0)
     action_badge: bool = True  # desktop «UNI» badge near pyautogui clicks
     action_badge_label: str = "UNI"
-    human_mouse: dict = Field(default_factory=lambda: {"move_duration": 0.35, "show_badge": True})
 
 class CameraConfig(BaseModel):
     enabled: bool = True
@@ -87,10 +86,6 @@ class XToysConfig(BaseModel):
     url: str = "https://xtoys.app"
     max_intensity: int = Field(default=50, ge=0, le=100)
     autonomous_physical: bool = Field(default=False)  # explicit opt-in to move the device unsupervised
-
-
-class SafetySettings(BaseModel):
-    autonomy_level: str = Field(default="off", pattern="^(off|observe|suggest|act)$")
 
 
 class DemoXToysSettings(BaseModel):
@@ -224,7 +219,6 @@ class Config(BaseModel):
     council: CouncilConfig = Field(default_factory=CouncilConfig)
     demo: DemoSettings = Field(default_factory=DemoSettings)
     context: ContextFeedConfig = Field(default_factory=ContextFeedConfig)
-    safety: SafetySettings = Field(default_factory=SafetySettings)
 
 def load_config(path: str = "config.yaml") -> Config:
     p = Path(path)

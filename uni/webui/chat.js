@@ -64,44 +64,6 @@ audioEl.addEventListener("error", stopSpeaking);
 // ---------- чат ----------
 async function send(text) {
   if (!text.trim()) return;
-  // XToys slash-команды
-  if (text.trim().startsWith('/')) {
-    const parts = text.trim().slice(1).split(' ');
-    const cmd = parts[0].toLowerCase();
-    const args = parts.slice(1);
-
-    if (cmd === 'oscillate' && args.length >= 2) {
-      const dur = parseInt(args[0]);
-      const inten = parseFloat(args[1]);
-      if (!isNaN(dur) && !isNaN(inten)) {
-        await fetch('/api/xtoys', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: 'oscillate', duration: dur, intensity: inten })
-        });
-        addMsg('sys', `🔄 Команда отправлена: oscillate ${dur}ms @ ${Math.round(inten*100)}%`);
-        return;
-      }
-    }
-    if (cmd === 'stop') {
-      await fetch('/api/xtoys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: 'stop' })
-      });
-      addMsg('sys', '⏹ Устройство остановлено');
-      return;
-    }
-    if (cmd === 'macro' && args.length >= 1) {
-      await fetch('/api/xtoys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: 'macro', name: args[0] })
-      });
-      addMsg('sys', `🎬 Макрос запущен: ${args[0]}`);
-      return;
-    }
-  }
   addMsg("user", text, "Вы");
   $("sendBtn").disabled = true;
   try {
@@ -178,9 +140,13 @@ async function grab(silent) {
   if (!silent) addMsg("sys", "📷 система: кадр с камеры получен");
   return d.image_b64;
 }
+$("camNotice").onclick = async () => {
+  const r = await fetch("/api/camera/notice", { method: "POST" });
+  addMsg("sys", r.ok ? "🔔 звуковое уведомление отправлено — камеру можно включать" : "уведомление не прошло");
+};
 $("camStart").onclick = async () => { await ensureCamera(); };
 $("camSnap").onclick = async () => {
-  const img = grab(false);
+  const img = await grab(false);
   if (img) send("Я сделала снимок с камеры, посмотри и скажи, что видишь.");
 };
 $("camStop").onclick = async () => {
@@ -250,80 +216,7 @@ $("hintsSave").onclick = async () => {
   };
 });
 
-// ---------- безопасность / автономность ----------
-async function refreshSafety() {
-  const r = await fetch("/api/safety").catch(() => null);
-  if (!r || !r.ok) return;
-  const d = await r.json();
-  $("autoLevel").value = d.autonomy_level;
-  document.body.classList.toggle("auto-active", !!d.autonomy_active);
-}
-$("autoLevel").onchange = async (e) => {
-  await fetch("/api/safety", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ autonomy_level: e.target.value }),
-  });
-  await refreshSafety();
-};
-
 // ---------- старт ----------
-ping(); refreshFeeds(); refreshSafety();
+ping(); refreshFeeds();
 setInterval(ping, 15000);
-setInterval(refreshSafety, 3000);
-
-// XToys панель управления
-const xtoysIntensity = $("xtoysIntensity");
-const xtoysDuration = $("xtoysDuration");
-
-if (xtoysIntensity && xtoysDuration) {
-    xtoysIntensity.oninput = () => { $("xtoysIntVal").textContent = xtoysIntensity.value + "%"; };
-    xtoysDuration.oninput = () => { $("xtoysDurVal").textContent = (xtoysDuration.value / 1000).toFixed(1) + "с"; };
-
-    async function xtoysCmd(duration, intensity) {
-        const int = parseInt(intensity) / 100;
-        try {
-            const r = await fetch('/api/xtoys', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: 'oscillate', duration, intensity: int })
-            });
-            const d = await r.json().catch(() => ({}));
-            addMsg('sys', r.ok ? `🔄 oscillate ${duration}ms @ ${Math.round(int*100)}%` : `Ошибка: ${d.error || r.status}`);
-        } catch (e) {
-            addMsg('sys', 'Ошибка XToys: ' + e.message);
-        }
-    }
-
-    $("xtoysStart").onclick = () => xtoysCmd(parseInt(xtoysDuration.value), parseInt(xtoysIntensity.value));
-    $("xtoysStop").onclick = async () => {
-        const r = await fetch('/api/xtoys', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: 'stop' })
-        });
-        addMsg('sys', r.ok ? '⏹ Устройство остановлено' : 'Ошибка остановки');
-    };
-    $("xtoysPulse").onclick = async () => {
-        const r = await fetch('/api/xtoys', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: 'macro', name: 'pulse' })
-        });
-        addMsg('sys', r.ok ? '💓 Макрос pulse запущен' : 'Ошибка макроса');
-    };
-    $("xtoysWave").onclick = async () => {
-        const r = await fetch('/api/xtoys', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: 'macro', name: 'wave' })
-        });
-        addMsg('sys', r.ok ? '🌊 Макрос wave запущен' : 'Ошибка макроса');
-    };
-    $("xtoysSend").onclick = () => {
-        const cmd = $("xtoysCommand").value.trim();
-        if (cmd) send("/" + cmd);
-        $("xtoysCommand").value = "";
-    };
-}
 })();
