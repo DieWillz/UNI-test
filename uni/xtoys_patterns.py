@@ -4,7 +4,7 @@ This layer sits ON TOP of ``XToysCapability`` (the low-level primitives
 ``set_intensity`` / ``ramp_intensity`` / ``select_pattern`` / ``read_intensity``
 that Codex maintains in ``uni/capabilities/xtoys.py``). It does NOT re-implement
 device control — it composes those primitives into time-based *scenarios* a
-mistress session can trigger: tease, build, pulse, wave, edge, release.
+automated session can trigger: ramp, climb, pulse, wave, hold, cooldown.
 
 Safety: every write is verified by reading the slider back (``read_intensity``).
 If the UI drift exceeds a tolerance the pattern halts and reports it. The
@@ -123,7 +123,7 @@ class XToysPatternEngine:
         self._stop = False
         self.state = PatternState(name=name, running=True, started_at=time.time())
         try:
-            if name in ("tease", "build", "pulse", "wave", "edge", "release"):
+            if name in ("ramp", "climb", "pulse", "wave", "hold", "cooldown"):
                 await getattr(self, f"_p_{name}")(duration, intensity)
             else:
                 # unknown -> just hold at intensity then release
@@ -138,7 +138,7 @@ class XToysPatternEngine:
         return self.status()
 
     # -- pattern definitions ---------------------------------------------------
-    async def _p_tease(self, duration: float, intensity: int) -> None:
+    async def _p_ramp(self, duration: float, intensity: int) -> None:
         """Slow climb to target, brief plateau, soft release."""
         self.state.step = "climb"
         await self._ramp(intensity, steps=8, step_s=duration / 16)
@@ -147,7 +147,7 @@ class XToysPatternEngine:
         self.state.step = "release"
         await self._ramp(0, steps=4, step_s=0.4)
 
-    async def _p_build(self, duration: float, intensity: int) -> None:
+    async def _p_climb(self, duration: float, intensity: int) -> None:
         """Stepped escalation with pauses between steps."""
         self.state.step = "steps"
         steps = 5
@@ -157,7 +157,7 @@ class XToysPatternEngine:
             target = _clamp(int(intensity * i / steps))
             await self._set(target)
             await self._hold(duration / (steps * 2))
-        self.state.step = "release"
+        self.state.step = "cooldown"
         await self._ramp(0, steps=3, step_s=0.5)
 
     async def _p_pulse(self, duration: float, intensity: int) -> None:
@@ -186,9 +186,9 @@ class XToysPatternEngine:
             await self._set(val)
             await asyncio.sleep(0.3)
 
-    async def _p_edge(self, duration: float, intensity: int) -> None:
-        """Hold near the brink with micro-drops (edge-of-orgasm feel)."""
-        self.state.step = "edge"
+    async def _p_hold(self, duration: float, intensity: int) -> None:
+        """Hold near the target with small periodic reductions."""
+        self.state.step = "hold"
         end = time.monotonic() + duration
         peak = _clamp(int(intensity * 0.9))
         drop = _clamp(int(intensity * 0.55))
@@ -198,14 +198,14 @@ class XToysPatternEngine:
             await self._set(drop)
             await asyncio.sleep(0.4)
 
-    async def _p_release(self, duration: float, intensity: int) -> None:
+    async def _p_cooldown(self, duration: float, intensity: int) -> None:
         """A short intense push then full stop."""
         self.state.step = "push"
         await self._ramp(intensity, steps=4, step_s=0.4)
         await self._hold(min(2.0, duration * 0.3))
-        self.state.step = "release"
+        self.state.step = "cooldown"
         await self._set(0)
 
 
 # Names exposed to the UI / API.
-PATTERN_NAMES = ["tease", "build", "pulse", "wave", "edge", "release"]
+PATTERN_NAMES = ["ramp", "climb", "pulse", "wave", "hold", "cooldown"]

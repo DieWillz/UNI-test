@@ -29,7 +29,7 @@
 <button class="nav-item" onclick="showView('participants',this)"><span class="ni">👥</span> Участники</button>
 <button class="nav-item" onclick="showView('qwen',this)"><span class="ni">🎛</span> Пульт QWN</button>
 <button class="nav-item" onclick="showView('browser',this)"><span class="ni">🌐</span> Браузер</button>
-<button class="nav-item" onclick="showView('xtoys',this)"><span class="ni">🔌</span> XToys <span class="badge-new">L4</span></button>
+<button class="nav-item" onclick="showView('xtoys',this)"><span class="ni">🔌</span> Dorch <span class="badge-new">L4</span></button>
 <button class="nav-item" onclick="showView('bridge',this)"><span class="ni">📁</span> Файловый мост</button>
 <button class="nav-item" onclick="showView('logs',this)"><span class="ni">📜</span> Логи сервера</button>
 <button class="nav-item" onclick="showView('settings',this)"><span class="ni">⚙</span> Настройки</button>
@@ -85,20 +85,20 @@
 <div class="qw-card"><div class="qw-h">Чат с Qwen (письмами)</div><div class="chat-feed" id="qwChat" style="min-height:120px"></div><input id="qwCin" class="tin" style="width:100%" placeholder="Сообщение…" onkeydown="if(event.key==='Enter')qwSendChat()"><button class="tbtn primary" onclick="qwSendChat()">Отправить</button></div>
 </div></div>
 <div class="view-wrap" id="view-browser"><div class="card" style="height:100%"><div class="ch">🌐 Браузер · мышка Uni</div><div class="cb" style="padding:0;display:flex;flex-direction:column;height:100%"><div class="b-toolbar"><button class="tbtn" style="padding:3px 7px">←</button><button class="tbtn" style="padding:3px 7px">→</button><button class="tbtn" style="padding:3px 7px">↻</button><input value="https://chat.deepseek.com" readonly><button class="tbtn" style="padding:3px 7px">📷</button></div><div class="b-content"><div class="b-line l"></div><div class="b-line m"></div><div class="b-line s"></div><div class="b-line m"></div><div class="b-line l"></div><div class="m-overlay"><div class="u-cursor" id="uniCursor" style="left:30%;top:40%"><svg viewBox="0 0 24 24" fill="none"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 01.35-.15h6.87a.5.5 0 00.35-.85L6.35 2.85a.5.5 0 00-.85.35z" fill="var(--accent)" stroke="#032121" stroke-width="1.5"/></svg><div class="c-label">мышка Uni</div></div></div></div></div></div></div>
-<div class="view-wrap" id="view-xtoys"><div class="card" style="max-width:580px"><div class="ch">🔌 XToys · Fredorch Rotary через Intiface <span class="pill p-warn" id="xStatus">статус: отключено</span></div><div class="cb" style="display:flex;flex-direction:column;gap:12px">
+<div class="view-wrap" id="view-xtoys"><div class="card" style="max-width:580px"><div class="ch">🔌 Dorch · Rotary Control через Intiface <span class="pill p-warn" id="xStatus">статус: отключено</span></div><div class="cb" style="display:flex;flex-direction:column;gap:12px">
 <div style="display:flex;gap:6px;align-items:center"><button class="tbtn primary" id="autoBtn" onclick="toggleAutoMode()">⚡ Авто-режим</button><button class="tbtn" onclick="xtoysSessionStop()">■ Стоп</button><span class="pill p-warn" id="autoStatus">выкл</span></div>
 <div class="x-slider"><label><span>Интенсивность машинки</span><span id="xtIntVal">45%</span></label><input type="range" min="0" max="100" value="45" id="xtIntensity" oninput="document.getElementById('xtIntVal').textContent=this.value+'%'" onchange="xtoysSetIntensity()"></div>
 <div style="font-size:11px;color:var(--text3)">Статус сессии: <span id="xtSessionStatus">выключена</span></div>
-<div style="font-size:10px;color:var(--text3)">Авто-режим = ЮНИ говорит и крутит машинку синхронно. Управление через xtoys.app (Intiface).</div>
+<div style="font-size:10px;color:var(--text3)">Авто-режим синхронизирует речь Юни и профиль движения через Intiface.</div>
 <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
 <div style="font-weight:600;font-size:11px;color:var(--text2)">🎚 Паттерны управления машинкой</div>
 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-<button class="tbtn" onclick="xtoysPattern('tease')">Tease</button>
-<button class="tbtn" onclick="xtoysPattern('build')">Build</button>
+<button class="tbtn" onclick="xtoysPattern('ramp')">Ramp</button>
+<button class="tbtn" onclick="xtoysPattern('climb')">Climb</button>
 <button class="tbtn" onclick="xtoysPattern('pulse')">Pulse</button>
 <button class="tbtn" onclick="xtoysPattern('wave')">Wave</button>
-<button class="tbtn" onclick="xtoysPattern('edge')">Edge</button>
-<button class="tbtn" onclick="xtoysPattern('release')">Release</button>
+<button class="tbtn" onclick="xtoysPattern('hold')">Hold</button>
+<button class="tbtn" onclick="xtoysPattern('cooldown')">Cooldown</button>
 <button class="tbtn" onclick="xtoysPatternStop()">■ Стоп паттерн</button>
 </div>
 <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--text3)">
