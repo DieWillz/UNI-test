@@ -30,6 +30,7 @@ def test_tts_payload_is_bounded_and_normalized():
         "qwen_ref_audio": "",
         "qwen_ref_text": "",
         "qwen_model_size": "1.7B",
+        "qwen_seed": 1800013838,
     }
 
 

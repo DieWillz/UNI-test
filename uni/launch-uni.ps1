@@ -1,7 +1,9 @@
 $ErrorActionPreference = "SilentlyContinue"
-$portOpen = Test-NetConnection -ComputerName 127.0.0.1 -Port 8787 -InformationLevel Quiet
+$portOpen = Test-NetConnection -ComputerName 127.0.0.1 -Port 8790 -InformationLevel Quiet
 if (-not $portOpen) {
-    Start-Process -FilePath "py" -ArgumentList "-3.12", "-m", "uni.webui.server" -WorkingDirectory "C:\LLM\UNI" -WindowStyle Hidden
+    $env:PYTHONPATH = "C:\LLM\UNI"
+    $env:UNI_WEBUI_PORT = "8790"
+    Start-Process -FilePath "C:\LLM\python312\python.exe" -ArgumentList "C:\LLM\UNI\uni\webui\server.py" -WorkingDirectory "C:\LLM\UNI\uni" -WindowStyle Hidden
     Start-Sleep -Seconds 2
 }
-Start-Process "http://127.0.0.1:8787"
+Start-Process "http://127.0.0.1:8790"

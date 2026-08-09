@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import re
+import urllib.error
+import urllib.request
 from typing import Any
 
 from uni.browser_session import BrowserSession
@@ -353,6 +357,46 @@ class XToysCapability(Capability):
             ),
         )
 
+    async def _uni_xtoys_api(self, path: str, payload: dict[str, Any] | None = None, *, method: str = "POST") -> ToolResult:
+        base = os.environ.get("UNI_WEBUI_API", "http://127.0.0.1:8790").rstrip("/")
+        def call() -> dict[str, Any]:
+            data = None if payload is None else json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(base + path, data=data, method=method, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=15) as response:
+                return json.loads(response.read().decode("utf-8"))
+        try:
+            result = await asyncio.to_thread(call)
+            return ToolResult(success=bool(result.get("ok", True)), data=result, message=result.get("message") or "XToys: команда выполнена")
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = json.loads(exc.read().decode("utf-8")).get("error")
+            except Exception:
+                detail = f"HTTP {exc.code}"
+            return ToolResult(success=False, message=f"XToys: {detail}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"XToys local API: {exc}")
+
+    async def motion_start(self, **kwargs) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/motion/start", kwargs)
+
+    async def motion_stop(self) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/motion/stop")
+
+    async def motion_status(self) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/motion/status", method="GET")
+
+    async def remote_session_start(self, max_intensity: float = 40, ttl: float = 1800) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/remote/session/start", {"max_intensity": max_intensity, "ttl": ttl})
+
+    async def remote_session_stop(self) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/remote/session/stop")
+
+    async def remote_status(self) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/remote/status", method="GET")
+
+    async def emergency_stop(self) -> ToolResult:
+        return await self._uni_xtoys_api("/api/xtoys/emergency-stop")
+
     async def execute(self, action: str, **kwargs) -> ToolResult:
         device = str(kwargs.get("device", ""))
         if action == "open":
@@ -371,4 +415,18 @@ class XToysCapability(Capability):
             return await self.select_pattern(str(kwargs.get("pattern", "")), device)
         if action == "get_status":
             return await self.get_status(device)
+        if action == "motion_start":
+            return await self.motion_start(**kwargs)
+        if action == "motion_stop":
+            return await self.motion_stop()
+        if action == "motion_status":
+            return await self.motion_status()
+        if action == "remote_session_start":
+            return await self.remote_session_start(float(kwargs.get("max_intensity", 40)), float(kwargs.get("ttl", 1800)))
+        if action == "remote_session_stop":
+            return await self.remote_session_stop()
+        if action == "remote_status":
+            return await self.remote_status()
+        if action == "emergency_stop":
+            return await self.emergency_stop()
         return ToolResult(success=False, message=f"Неизвестное действие xtoys.{action}")

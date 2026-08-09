@@ -24,6 +24,7 @@ import numpy as np
 
 @dataclass
 class MotionSettings:
+    source: str = "screen"
     left: int = 0
     top: int = 0
     width: int = 640
@@ -84,6 +85,7 @@ class MotionToyController:
     def status(self) -> dict:
         return {
             "running": self._running,
+            "source": self._settings.source if self._settings is not None else "screen",
             "region": self._region,
             "value": round(self._last_value, 2),
             "error": self._error,
@@ -109,7 +111,6 @@ class MotionToyController:
 
     def _capture_loop(self) -> None:
         import cv2
-        import mss
 
         s = self._settings
         region = self._region
@@ -121,12 +122,26 @@ class MotionToyController:
         }
         prev_gray = None
         prev_out = 0.0
+        camera = None
+        sct = None
         try:
-            with mss.mss() as sct:
-                while self._running:
+            if s.source == "camera":
+                camera = cv2.VideoCapture(0)
+                if not camera.isOpened():
+                    raise RuntimeError("камера не открыта")
+            else:
+                import mss
+                sct = mss.mss()
+            while self._running:
                     start = time.time()
-                    img = np.array(sct.grab(monitor))
-                    gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+                    if camera is not None:
+                        ok, img = camera.read()
+                        if not ok:
+                            raise RuntimeError("не удалось получить кадр камеры")
+                        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    else:
+                        img = np.array(sct.grab(monitor))
+                        gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
 
                     if prev_gray is not None:
                         flow = cv2.calcOpticalFlowFarneback(
@@ -185,3 +200,8 @@ class MotionToyController:
             except Exception:
                 pass
             self._running = False
+        finally:
+            if camera is not None:
+                camera.release()
+            if sct is not None:
+                sct.close()

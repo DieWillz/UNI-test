@@ -126,6 +126,7 @@ def set_current_role(name: str) -> None:
     """Persist the selected role name."""
     if not name:
         raise ValueError("role name required")
+    RoleLoader().load(name)
     _current_marker().write_text(name, encoding="utf-8")
 
 

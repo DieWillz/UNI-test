@@ -15,6 +15,7 @@ and streams progress events as they happen.
 """
 from __future__ import annotations
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -33,6 +34,7 @@ from uni.config import load_config
 from uni.council.participants import load_participants
 from uni.council.round import CouncilRound
 from uni.autonomous_session import AutonomousSession
+from uni.contracts import ToolResult
 from uni.intiface_bridge import IntifaceBridge
 from uni.xtoys_patterns import XToysPatternEngine, PATTERN_NAMES
 from uni.xtoys_control_coordinator import ToyControlCoordinator, MANUAL, MOTION, REMOTE, PATTERN, AUTONOMOUS
@@ -57,6 +59,21 @@ _XTOYS_PATTERN: XToysPatternEngine | None = None
 # ===== ToyControlCoordinator: единый шлюз управления устройством =====
 _TOY_COORDINATOR: ToyControlCoordinator | None = None
 _MOTION: MotionToyController | None = None
+_REMOTE_TIMER: threading.Timer | None = None
+
+
+def _remote_timeout_stop() -> None:
+    """Fail closed when a remote controller stops sending heartbeats."""
+    global _TOY_COORDINATOR
+    coordinator = _TOY_COORDINATOR
+    if coordinator is None:
+        return
+    session = coordinator.remote_session
+    if session is not None:
+        session.connected = False
+    loop = getattr(coordinator, "_loop", None)
+    if loop is not None and not loop.is_closed():
+        asyncio.run_coroutine_threadsafe(coordinator.release(REMOTE), loop)
 
 
 def _safe_project_path(rel: str) -> Path:
@@ -128,6 +145,10 @@ def _tts_payload(body: dict[str, Any]) -> dict[str, Any]:
     qwen_ref_audio = str(body.get("qwen_ref_audio", "")).strip()
     if provider == "qwen_vc" and not qwen_ref_audio:
         qwen_ref_audio = str(Path(__file__).with_name("text.wav"))
+    try:
+        qwen_seed = int(body.get("qwen_seed", 1800013838))
+    except (TypeError, ValueError):
+        qwen_seed = 1800013838
     return {
         "provider": provider,
         "voice": str(body.get("voice", "")).strip()[:300],
@@ -139,6 +160,7 @@ def _tts_payload(body: dict[str, Any]) -> dict[str, Any]:
         "qwen_ref_audio": qwen_ref_audio[:2000],
         "qwen_ref_text": str(body.get("qwen_ref_text", "")).strip()[:2000],
         "qwen_model_size": str(body.get("qwen_model_size", "1.7B")).strip()[:20],
+        "qwen_seed": max(-1, min(2_147_483_647, qwen_seed)),
     }
 
 
@@ -215,6 +237,7 @@ def _qwen_vc_tts(request: dict[str, Any]) -> tuple[bytes, str]:
     ref_audio = request.get("qwen_ref_audio") or ""
     ref_text = request.get("qwen_ref_text") or ""
     model_size = request.get("qwen_model_size") or "1.7B"
+    seed = int(request.get("qwen_seed", 1800013838))
     # If the reference text is empty but a matching .txt sits next to the wav,
     # read it automatically (the user keeps text.wav + text.txt together).
     if not ref_text and ref_audio:
@@ -228,6 +251,16 @@ def _qwen_vc_tts(request: dict[str, Any]) -> tuple[bytes, str]:
         raise RuntimeError("Qwen VC: не указан путь к референс-аудио (поле qwen_ref_audio)")
     if not Path(ref_audio).is_file():
         raise RuntimeError(f"Qwen VC: файл референса не найден: {ref_audio}")
+    ref_stat = Path(ref_audio).stat()
+    cache_key = hashlib.sha256(json.dumps({
+        "text": request["text"], "model": model_size, "seed": seed,
+        "reference": str(Path(ref_audio).resolve()), "size": ref_stat.st_size,
+        "mtime": ref_stat.st_mtime_ns,
+    }, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    cache_dir = Path(__import__("tempfile").gettempdir()) / "uni_qwen_tts_cache"
+    cache_file = cache_dir / f"{cache_key}.wav"
+    if cache_file.is_file() and cache_file.stat().st_size > 44:
+        return cache_file.read_bytes(), "audio/wav"
     client = Client(endpoint)
     # Real Gradio API (verified against the running server's /generate_unified_tts):
     #   text_input, tts_engine='Qwen Voice Clone', audio_format='wav',
@@ -253,7 +286,7 @@ def _qwen_vc_tts(request: dict[str, Any]) -> tuple[bytes, str]:
         qwen_language="Russian",
         qwen_xvector_only=False,
         qwen_clone_model_size=model_size,
-        qwen_seed=-1,
+        qwen_seed=seed,
     )
     result = client.predict(**params, api_name=api_name)
     # Gradio predict returns the audio file path (str) or (path, ...) tuple.
@@ -263,8 +296,13 @@ def _qwen_vc_tts(request: dict[str, Any]) -> tuple[bytes, str]:
         result = result.get("path") or result.get("name")
     if isinstance(result, str) and os.path.isfile(result):
         with open(result, "rb") as fh:
-            return fh.read(), "audio/wav"
+            data = fh.read()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(data)
+        return data, "audio/wav"
     if isinstance(result, bytes):
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(result)
         return result, "audio/wav"
     raise RuntimeError(f"Qwen VC: неожиданный ответ сервера: {type(result)}")
 
@@ -608,6 +646,13 @@ class _Handler(BaseHTTPRequestHandler):
             # B-01: 301 редирект на единый SPA-интерфейс
             self._redirect("/", code=301)
             return
+        if parsed.path in ("/remote-control", "/remote-control.html"):
+            page = _HERE / "remote-control.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"remote controller missing", "text/plain")
+            return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
@@ -787,6 +832,20 @@ class _Handler(BaseHTTPRequestHandler):
                 "running": False, "name": "", "last_value": 0, "step": "", "error": ""
             })
             return
+        if parsed.path == "/api/xtoys/motion/status":
+            self._json(200, _MOTION.status() if _MOTION is not None else {"running": False, "region": {}, "value": 0, "error": None})
+            return
+        if parsed.path == "/api/xtoys/control/status":
+            status = self._toy_coordinator().status()
+            self._json(200, status)
+            return
+        if parsed.path == "/api/xtoys/remote/status":
+            coordinator = self._toy_coordinator()
+            session = coordinator.remote_session
+            if session is not None and session.is_expired():
+                coordinator.end_remote_session()
+            self._json(200, coordinator.status().get("remote") or {"active": False, "connected": False})
+            return
         # Autonomous UI bridge: stream phrases (text + audio_url) to the WebUI.
         if parsed.path == "/api/autonomous/stream":
             agent = self._get_chat_agent()
@@ -840,7 +899,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        global _INTIFACE, _XTOYS_PATTERN
+        global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER
         if self.path == "/api/round/start":
             try:
                 payload = _read_body(self)
@@ -938,14 +997,21 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 body = self._read_json_body()
                 name = str(body.get("role", "")).strip()
-                from uni.roles.loader import set_current_role
+                from uni.roles.loader import RoleLoader, set_current_role
 
-                set_current_role(name)
+                role = RoleLoader().load(name)
                 agent = self._get_chat_agent()
-                loaded = False
                 if agent is not None:
-                    loaded = agent.event_loop._load_role_prompt(name)
-                self._json(200, {"ok": True, "role": name, "prompt_loaded": loaded})
+                    agent.role = role
+                    agent.event_loop.role_prompt = role.system_prompt
+                    autonomous = getattr(agent, "autonomous", None)
+                    if autonomous is not None and hasattr(autonomous, "role_prompt"):
+                        autonomous.role_prompt = role.system_prompt
+                global _XT_SESSION
+                if _XT_SESSION is not None:
+                    _XT_SESSION._role_prompt = role.system_prompt
+                set_current_role(name)
+                self._json(200, {"ok": True, "role": name, "prompt_loaded": bool(role.system_prompt)})
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -1063,6 +1129,16 @@ class _Handler(BaseHTTPRequestHandler):
                 if session.active:
                     self._json(200, {"ok": True, "already_running": True})
                     return
+                if _XTOYS_PATTERN is not None:
+                    _XTOYS_PATTERN.stop()
+                    _XTOYS_PATTERN = None
+                if _MOTION is not None and _MOTION.status().get("running"):
+                    self._xt_run(_MOTION.stop(), timeout=8)
+                coordinator = self._toy_coordinator()
+                self._xt_run(coordinator.stop(), timeout=5)
+                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
+                    self._json(409, {"error": "аварийный стоп активен"})
+                    return
                 # fire-and-forget: session.start() opens the browser/xtoys and may
                 # take a while; the UI polls /status instead of blocking here.
                 self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
@@ -1075,6 +1151,7 @@ class _Handler(BaseHTTPRequestHandler):
                 agent = self._get_chat_agent()
                 session = self._xt_session(agent)
                 msg = self._xt_run(session.stop())
+                self._xt_run(self._toy_coordinator().release(AUTONOMOUS), timeout=5)
                 self._json(200, {"ok": True, "running": False, "message": msg})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -1087,7 +1164,7 @@ class _Handler(BaseHTTPRequestHandler):
                 session = self._xt_session(agent)
                 if session.active:
                     msg = session.set_manual_override(value)
-                res = self._xt_run(self._run_xtoys_device_tool("xtoys.set_intensity", {"value": value}))
+                res = self._xt_run(self._run_xtoys_device_tool("xtoys.set_intensity", {"value": value}, MANUAL))
                 if not session.active:
                     msg = getattr(res, "message", "ok")
                 ok = bool(getattr(res, "success", False))
@@ -1102,6 +1179,160 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(200, {"active": session.active, "status": session.status_text()})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # ===== Motion-to-Toy =====
+        if self.path == "/api/xtoys/motion/region":
+            try:
+                body = self._read_json_body()
+                coordinator = self._toy_coordinator()
+                if _MOTION is None:
+                    _MOTION = MotionToyController(coordinator)
+                _MOTION.set_region(body)
+                self._json(200, {"ok": True, "region": _MOTION.status()["region"]})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/motion/start":
+            try:
+                if _INTIFACE is None or not _INTIFACE.connected:
+                    self._json(503, {"error": "Сначала подключите Intiface"})
+                    return
+                body = self._read_json_body()
+                coordinator = self._toy_coordinator()
+                if _MOTION is None:
+                    _MOTION = MotionToyController(coordinator)
+                region = body.get("region") or {}
+                if region:
+                    _MOTION.set_region(region)
+                settings = MotionSettings(
+                    source="camera" if body.get("source") == "camera" else "screen",
+                    left=int((_MOTION.status().get("region") or {}).get("left", 0)),
+                    top=int((_MOTION.status().get("region") or {}).get("top", 0)),
+                    width=int((_MOTION.status().get("region") or {}).get("width", 0)),
+                    height=int((_MOTION.status().get("region") or {}).get("height", 0)),
+                    threshold=float(body.get("threshold", 2.6)),
+                    gain=float(body.get("gain", 10.0)),
+                    smoothing=max(0.0, min(1.0, float(body.get("smoothing", 0.95)))),
+                    period_ms=max(50, min(1000, int(body.get("period_ms", 140)))),
+                    max_intensity=max(0.0, min(100.0, float(body.get("max_intensity", 70)))),
+                    gamma=max(0.2, min(5.0, float(body.get("gamma", 3.7)))),
+                )
+                if _XTOYS_PATTERN is not None:
+                    _XTOYS_PATTERN.stop()
+                    _XTOYS_PATTERN = None
+                session = self._xt_session(self._get_chat_agent())
+                if session.active:
+                    self._xt_run(session.stop(), timeout=10)
+                self._xt_run(coordinator.stop(), timeout=5)
+                if not self._xt_run(coordinator.acquire(MOTION), timeout=5):
+                    self._json(409, {"error": "машинка занята другим режимом"})
+                    return
+                self._xt_run(_MOTION.start(settings), timeout=5)
+                self._json(200, {"ok": True, **_MOTION.status()})
+            except Exception as exc:
+                try:
+                    self._xt_run(self._toy_coordinator().release(MOTION), timeout=5)
+                except Exception:
+                    pass
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/motion/stop":
+            try:
+                if self.headers.get("Content-Length"):
+                    self._read_json_body()
+                if _MOTION is not None:
+                    self._xt_run(_MOTION.stop(), timeout=8)
+                self._xt_run(self._toy_coordinator().release(MOTION), timeout=5)
+                self._json(200, {"ok": True})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # ===== Local, owner-approved remote control =====
+        if self.path == "/api/xtoys/remote/session/start":
+            try:
+                if _INTIFACE is None or not _INTIFACE.connected:
+                    self._json(503, {"error": "Сначала подключите Intiface"})
+                    return
+                body = self._read_json_body()
+                coordinator = self._toy_coordinator()
+                self._xt_run(coordinator.stop(), timeout=5)
+                session = coordinator.create_remote_session(
+                    max_intensity=max(0, min(100, float(body.get("max_intensity", 40)))),
+                    ttl=max(60, min(3600, float(body.get("ttl", 1800)))),
+                )
+                host = self.headers.get("Host", "127.0.0.1:8787")
+                self._json(200, {"ok": True, "url": f"http://{host}/remote-control#token={session.token}", "expires_in": session.ttl})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/remote/session/stop":
+            try:
+                if self.headers.get("Content-Length"):
+                    self._read_json_body()
+                if _REMOTE_TIMER is not None:
+                    _REMOTE_TIMER.cancel()
+                    _REMOTE_TIMER = None
+                coordinator = self._toy_coordinator()
+                coordinator.end_remote_session()
+                self._xt_run(coordinator.release(REMOTE), timeout=5)
+                self._json(200, {"ok": True})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path in ("/api/xtoys/remote/control", "/api/xtoys/remote/heartbeat"):
+            try:
+                origin = self.headers.get("Origin", "").rstrip("/")
+                host = self.headers.get("Host", "")
+                if origin and origin not in {f"http://{host}", f"https://{host}"}:
+                    self._json(403, {"error": "remote origin rejected"})
+                    return
+                body = self._read_json_body()
+                token = self.headers.get("Authorization", "").removeprefix("Bearer ").strip() or str(body.get("token", ""))
+                coordinator = self._toy_coordinator()
+                session = coordinator.remote_session
+                if session is None or session.is_expired() or not token or not __import__("hmac").compare_digest(token, session.token):
+                    self._json(403, {"error": "remote session invalid or expired"})
+                    return
+                sequence = int(body.get("sequence", session.sequence + 1))
+                if sequence <= session.sequence:
+                    self._json(409, {"error": "stale command"})
+                    return
+                session.sequence = sequence
+                session.connected = True
+                session.last_heartbeat = time.time()
+                if self.path.endswith("/control"):
+                    value = max(0.0, min(session.max_intensity, float(body.get("value", 0))))
+                    if not self._xt_run(coordinator.set_intensity(REMOTE, value), timeout=5):
+                        self._json(409, {"error": "машинка занята другим режимом"})
+                        return
+                if _REMOTE_TIMER is not None:
+                    _REMOTE_TIMER.cancel()
+                _REMOTE_TIMER = threading.Timer(2.5, _remote_timeout_stop)
+                _REMOTE_TIMER.daemon = True
+                _REMOTE_TIMER.start()
+                self._json(200, {"ok": True, "value": coordinator.current_value, "max_intensity": session.max_intensity})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/emergency-stop":
+            try:
+                if self.headers.get("Content-Length"):
+                    self._read_json_body()
+                if _MOTION is not None:
+                    self._xt_run(_MOTION.stop(), timeout=8)
+                if _XTOYS_PATTERN is not None:
+                    _XTOYS_PATTERN.stop()
+                    _XTOYS_PATTERN = None
+                self._xt_run(self._toy_coordinator().emergency_stop(), timeout=8)
+                self._json(200, {"ok": True})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/emergency-reset":
+            if self.headers.get("Content-Length"):
+                self._read_json_body()
+            self._toy_coordinator().reset_emergency()
+            self._json(200, {"ok": True})
             return
         # ===== Intiface (Buttplug) direct bridge =====
         if self.path == "/api/intiface/connect":
@@ -1134,15 +1365,17 @@ class _Handler(BaseHTTPRequestHandler):
                 value = int(body.get("value", 0))
                 if _INTIFACE is None:
                     _INTIFACE = IntifaceBridge("ws://127.0.0.1:12345")
-                res = self._xt_run(_INTIFACE.oscillate(value), timeout=10)
-                self._json(200, res)
+                res = self._xt_run(self._run_xtoys_device_tool("xtoys.set_intensity", {"value": value}, MANUAL), timeout=10)
+                self._json(200 if res.success else 409, {"ok": res.success, "value": value, "error": None if res.success else res.message})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
         if self.path == "/api/intiface/stop":
             try:
                 if _INTIFACE is not None:
-                    res = self._xt_run(_INTIFACE.stop(), timeout=10)
+                    coordinator = self._toy_coordinator()
+                    self._xt_run(coordinator.stop(), timeout=10)
+                    res = {"ok": True}
                 else:
                     res = {"ok": True}
                 self._json(200, res)
@@ -1178,9 +1411,19 @@ class _Handler(BaseHTTPRequestHandler):
                     self._json(503, {"error": "Сначала подключите Intiface"})
                     return
                 if _XTOYS_PATTERN is None:
-                    _XTOYS_PATTERN = XToysPatternEngine(run_tool=self._run_xtoys_device_tool)
+                    _XTOYS_PATTERN = XToysPatternEngine(run_tool=lambda name, args: self._run_xtoys_device_tool(name, args, PATTERN))
+                coordinator = self._toy_coordinator()
+                if _MOTION is not None and _MOTION.status().get("running"):
+                    self._xt_run(_MOTION.stop(), timeout=8)
+                session = self._xt_session(self._get_chat_agent())
+                if session.active:
+                    self._xt_run(session.stop(), timeout=10)
+                self._xt_run(coordinator.stop(), timeout=5)
+                if not self._xt_run(coordinator.acquire(PATTERN), timeout=5):
+                    self._json(409, {"error": "аварийный стоп активен"})
+                    return
                 # fire-and-forget: pattern runs in the agent's live loop
-                self._xt_fire(_XTOYS_PATTERN.run(name, duration, intensity))
+                self._xt_fire(self._run_pattern(_XTOYS_PATTERN, name, duration, intensity))
                 self._json(200, {"ok": True, "running": name, "message": f"паттерн «{name}» запущен"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -1191,7 +1434,7 @@ class _Handler(BaseHTTPRequestHandler):
                     _XTOYS_PATTERN.stop()
                     _XTOYS_PATTERN = None
                 if _INTIFACE is not None and _INTIFACE.connected:
-                    self._xt_run(_INTIFACE.stop(), timeout=5)
+                    self._xt_run(self._toy_coordinator().release(PATTERN), timeout=5)
                 self._json(200, {"ok": True, "message": "паттерн остановлен"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -1263,7 +1506,7 @@ class _Handler(BaseHTTPRequestHandler):
             role = getattr(getattr(cfg, "autonomous", None), "role_prompt", "") or ""
             role_prompt = role
         _XT_SESSION = AutonomousSession(
-            run_tool=self._run_xtoys_device_tool,
+            run_tool=lambda name, args: self._run_xtoys_device_tool(name, args, AUTONOMOUS),
             speak=(lambda t: speech.speak(t)) if speech is not None else (lambda t: False),
             chat=agent.brain.chat,
             role_prompt=role_prompt or "Ты — властная госпожа в автономной сессии с секс-машинкой.",
@@ -1271,22 +1514,44 @@ class _Handler(BaseHTTPRequestHandler):
         )
         return _XT_SESSION
 
-    async def _run_xtoys_device_tool(self, name: str, args: dict[str, Any]) -> ToolResult:
+    def _toy_coordinator(self) -> ToyControlCoordinator:
+        global _INTIFACE, _TOY_COORDINATOR
+        if _INTIFACE is None:
+            _INTIFACE = IntifaceBridge("ws://127.0.0.1:12345")
+        agent = self._get_chat_agent()
+        loop = getattr(agent, "_loop", None)
+        if _TOY_COORDINATOR is None or getattr(_TOY_COORDINATOR, "_bridge", None) is not _INTIFACE:
+            _TOY_COORDINATOR = ToyControlCoordinator(_INTIFACE, loop=loop)
+        elif loop is not None:
+            _TOY_COORDINATOR._loop = loop
+        return _TOY_COORDINATOR
+
+    async def _run_pattern(self, engine: XToysPatternEngine, name: str, duration: float, intensity: int) -> None:
+        try:
+            await engine.run(name, duration, intensity)
+        finally:
+            await self._toy_coordinator().release(PATTERN)
+
+    async def _run_xtoys_device_tool(self, name: str, args: dict[str, Any], source: str = MANUAL) -> ToolResult:
         """Route all panel/session/pattern device control through Intiface."""
         global _INTIFACE
         action = name.rsplit(".", 1)[-1]
         if _INTIFACE is None or not _INTIFACE.connected:
             return ToolResult(success=False, message="Intiface не подключён")
+        coordinator = self._toy_coordinator()
         if action in {"set_intensity", "ramp_intensity"}:
-            result = await _INTIFACE.oscillate(int(args.get("value", 0)))
+            value = int(args.get("value", 0))
+            ok = await coordinator.set_intensity(source, value)
+            result = {"ok": ok, "value": coordinator.current_value, "error": None if ok else "источник управления занят или аварийно остановлен"}
         elif action == "read_intensity":
-            result = {"ok": True, "value": _INTIFACE.current_value}
+            result = {"ok": True, "value": coordinator.current_value}
         elif action == "get_status":
             result = {"ok": True, "visible_text": "connected " + " ".join(_INTIFACE.status()["devices"])}
         elif action == "open":
             result = {"ok": True}
         elif action == "stop":
-            result = await _INTIFACE.stop()
+            await coordinator.release(source)
+            result = {"ok": True, "value": 0}
         else:
             return ToolResult(success=False, message=f"Неподдерживаемое действие Intiface: {action}")
         return ToolResult(
@@ -1386,9 +1651,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
         # подстановка роли, если фронтенд передал role и агент её поддерживает
         role = (body.get("role") or "").strip()
-        if role and hasattr(agent, "event_loop") and hasattr(agent.event_loop, "_load_role_prompt"):
+        if role and hasattr(agent, "event_loop"):
             try:
-                agent.event_loop._load_role_prompt(role)
+                from uni.roles.loader import RoleLoader
+                loaded_role = RoleLoader().load(role)
+                agent.role = loaded_role
+                agent.event_loop.role_prompt = loaded_role.system_prompt
             except Exception:
                 pass  # некритично — продолжаем с текущей ролью
         # Стиль из внешних фидов (только как подсказка тона), если включено.
@@ -1677,4 +1945,4 @@ def run_webui(host: str = "127.0.0.1", port: int = _DEFAULT_PORT) -> None:
 
 
 if __name__ == "__main__":
-    run_webui()
+    run_webui(port=int(os.environ.get("UNI_WEBUI_PORT", _DEFAULT_PORT)))

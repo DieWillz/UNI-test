@@ -17,7 +17,7 @@ from uni.capabilities.vision import VisionCapability
 from uni.capabilities.xtoys import XToysCapability
 from uni.config import Config
 from uni.event_loop import EventLoop
-from uni.roles.loader import RoleLoader
+from uni.roles.loader import RoleLoader, get_current_role
 from uni.session_log import SessionLogger
 from uni.tools import ToolExecutor
 from uni.working_memory import WorkingMemory
@@ -73,7 +73,11 @@ class Agent:
         )
         self.speech = speech
         speech._session_logger = self.session_logger
-        self.role = RoleLoader().load(config.agent.default_role)
+        loader = RoleLoader()
+        try:
+            self.role = loader.load(get_current_role())
+        except (FileNotFoundError, ValueError):
+            self.role = loader.load(config.agent.default_role)
         cc = config.capabilities.computer
         computer = ComputerCapability(
             use_uia=cc.use_uia,

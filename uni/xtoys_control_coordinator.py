@@ -72,7 +72,7 @@ class ToyControlCoordinator:
         self.current_value: float = 0.0
         self.max_intensity: float = 100.0
         self.last_command_at: float = 0.0
-        self.emergency_stop: bool = False
+        self.emergency_stopped: bool = False
         self.remote_session: Optional[RemoteSession] = None
         self._last_send: float = 0.0
         self._on_change: Optional[Callable[[dict], None]] = None
@@ -120,7 +120,7 @@ class ToyControlCoordinator:
     # ---- управление источниками ----
     async def acquire(self, source: str) -> bool:
         async with self._lock:
-            if self.emergency_stop:
+            if self.emergency_stopped:
                 return False
             if self.active_source == source:
                 return True
@@ -147,7 +147,7 @@ class ToyControlCoordinator:
 
     async def set_intensity(self, source: str, value: float) -> bool:
         async with self._lock:
-            if self.emergency_stop:
+            if self.emergency_stopped:
                 return False
             # Только активный (или явно захватывающий) источник управляет.
             if self.active_source is not None and self.active_source != source:
@@ -173,13 +173,12 @@ class ToyControlCoordinator:
         async with self._lock:
             if source is None or self.active_source == source:
                 self._send(0.0)
-                if source is not None:
-                    self.active_source = None
+                self.active_source = None
                 self._notify()
 
     async def emergency_stop(self) -> None:
         async with self._lock:
-            self.emergency_stop = True
+            self.emergency_stopped = True
             self._send(0.0)
             self.active_source = None
             self.remote_session = None
@@ -187,7 +186,7 @@ class ToyControlCoordinator:
 
     def reset_emergency(self) -> None:
         """Снять аварийный стоп (только вручную владельцем)."""
-        self.emergency_stop = False
+        self.emergency_stopped = False
         self._notify()
 
     # ---- удалённая сессия ----
@@ -217,7 +216,7 @@ class ToyControlCoordinator:
             "active_source": self.active_source,
             "current_value": round(self.current_value, 2),
             "max_intensity": round(self.max_intensity, 2),
-            "emergency_stop": self.emergency_stop,
+            "emergency_stop": self.emergency_stopped,
             "last_command_at": self.last_command_at,
             "remote": (
                 {
