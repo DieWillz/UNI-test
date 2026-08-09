@@ -2,6 +2,7 @@ let FS=localStorage.getItem('uni_fs')||'http://127.0.0.1:8000';
 let HRM=localStorage.getItem('uni_hrm')||'http://127.0.0.1:8787';
 let LMS=localStorage.getItem('uni_lms')||'http://127.0.0.1:1234';
 let LMS_MODEL='';
+let currentRolePrompt='';
 const COLORS={QWN:'#16a34a',DPS:'#2563eb',GMN:'#ea580c',MST:'#4f46e5',GRK:'#ca8a04',CLD:'#7c3aed',GPT:'#0891b2',KMI:'#dc2626',ZAI:'#059669',HRM:'#dc2626',LMS:'#6b7280',USR:'#f59e0b'};
 const BASE_PARTS=[{n:'DeepSeek',c:'DPS',m:'browser',src:'chat.deepseek.com'},{n:'QWEN',c:'QWN',m:'browser',src:'chat.qwen.ai'},{n:'Claude',c:'CLD',m:'browser',src:'claude.ai'},{n:'ChatGPT',c:'GPT',m:'codex',src:'codex.local'},{n:'Grok',c:'GRK',m:'browser',src:'grok.com'},{n:'Gemini',c:'GMN',m:'api',src:'gemini.google.com'},{n:'Mistral',c:'MST',m:'browser',src:'chat.mistral.ai'},{n:'Kimi',c:'KMI',m:'browser',src:'kimi.com'},{n:'Hermes',c:'HRM',m:'api',src:'hermes.local'},{n:'OpenRouter',c:'OR',m:'free',src:'openrouter.ai'}];
 let liveParts={},seenReplies=new Set(),micOn=false,recog=null;
@@ -78,7 +79,8 @@ let reply=null,err=null;
 if(LMS_MODEL){
 try{
 const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),20000);
-const r=await fetch(LMS+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:LMS_MODEL,messages:[{role:'system',content:'Ты — ЮНИ, локальный ассистент проекта UNI. Роль: '+($('uniRole')?$('uniRole').value:'assistant')+'. Отвечай на русском, кратко, честно.'},{role:'user',content:text}],stream:false}),signal:ctrl.signal});
+const sysPrompt=currentRolePrompt||('Ты — ЮНИ, локальный ассистент проекта UNI. Роль: '+($('uniRole')?$('uniRole').value:'assistant')+'. Отвечай на русском, кратко, честно.');
+const r=await fetch(LMS+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:LMS_MODEL,messages:[{role:'system',content:sysPrompt},{role:'user',content:text}],stream:false}),signal:ctrl.signal});
 clearTimeout(to);
 if(r.ok){const d=await r.json();reply=d.choices&&d.choices[0]&&d.choices[0].message?d.choices[0].message.content:null;if(!reply)err='LM Studio вернул пустой ответ'}
 else{const t=await r.text().catch(()=>'');err='LM Studio HTTP '+r.status+': '+t.slice(0,160)}
@@ -110,8 +112,40 @@ if(dd.ok){clearInterval(iv);const body=dd.content.replace(/^(from|to|title):.*$/
 if(tries>24){clearInterval(iv);feeds.forEach(f=>addMsg(f,'sys','⚠ Ответа от Qwen нет 2 минуты. Возможно, вкладка Qwen спит — диспетчер AHK разбудит.'))}
 },5000);
 }
-function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='ru-RU';speechSynthesis.speak(u)}catch(e){}}
-function uniSendMain(){const i=$('mainInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('mainFeed')].filter(Boolean).concat([$('sideFeed')].filter(Boolean)))}
+let _ttsAudio=null,_ttsEngines={};
+const TTS_VOICE_FALLBACKS={silero:[['xenia','Xenia — спокойная'],['kseniya','Kseniya — ясная'],['baya','Baya — мягкая'],['eugene','Eugene — мужской'],['aidar','Aidar — глубокий мужской']],piper:[['ru_RU-irina-medium.onnx','Irina Medium — офлайн']],browser:[['','Системный русский голос']],xtts:[['default','XTTS-v2 — голос сервера']],fish:[['default','Fish Audio — выразительный']]};
+function ttsPref(){return{provider:localStorage.getItem('uni_tts_provider')||'silero',voice:localStorage.getItem('uni_tts_voice')||'xenia',endpoint:localStorage.getItem('uni_tts_endpoint')||'',rate:Number(localStorage.getItem('uni_tts_rate')||1),pitch:Number(localStorage.getItem('uni_tts_pitch')||0),volume:Number(localStorage.getItem('uni_tts_volume')||1),testText:localStorage.getItem('uni_tts_test_text')||'Привет! Я Юни. Рада тебя слышать — давай сделаем что-нибудь интересное.'}}
+function saveTtsPref(){
+const p=$('ttsProvider').value,v=$('ttsVoice').value,endpoint=$('ttsEndpoint').value.trim(),rate=Number($('ttsRate').value),pitch=Number($('ttsPitch').value),volume=Number($('ttsVolume').value);
+localStorage.setItem('uni_tts_provider',p);localStorage.setItem('uni_tts_voice',v);localStorage.setItem('uni_tts_endpoint',endpoint);localStorage.setItem('uni_tts_rate',rate);localStorage.setItem('uni_tts_pitch',pitch);localStorage.setItem('uni_tts_volume',volume);localStorage.setItem('uni_tts_test_text',$('ttsTestText').value);
+$('ttsRateValue').textContent=rate.toFixed(2)+'×';$('ttsPitchValue').textContent=(pitch>0?'+':'')+pitch;$('ttsVolumeValue').textContent=Math.round(volume*100)+'%';
+}
+function setVoiceOptions(provider,selected){const list=(_ttsEngines[provider]&&_ttsEngines[provider].voices||[]).map(x=>[x.id,x.label]);const voices=list.length?list:(TTS_VOICE_FALLBACKS[provider]||[]);$('ttsVoice').innerHTML=voices.map(x=>'<option value="'+esc(x[0])+'">'+esc(x[1])+'</option>').join('');if(voices.some(x=>x[0]===selected))$('ttsVoice').value=selected;}
+function onTtsProviderChange(){const p=$('ttsProvider').value,old=ttsPref();setVoiceOptions(p,old.provider===p?old.voice:'');$('ttsEndpointRow').style.display=(p==='xtts'||p==='fish')?'flex':'none';const info=_ttsEngines[p];$('ttsEngineDetail').textContent=info?(info.available?'● '+info.detail:'○ '+info.detail):'Состояние движка пока не проверено';saveTtsPref();}
+async function loadTtsSettings(){const pr=ttsPref();$('ttsProvider').value=pr.provider;$('ttsEndpoint').value=pr.endpoint;$('ttsRate').value=pr.rate;$('ttsPitch').value=pr.pitch;$('ttsVolume').value=pr.volume;$('ttsTestText').value=pr.testText;try{const r=await fetch(HRM+'/api/tts/engines');if(r.ok){const d=await r.json();(d.engines||[]).forEach(x=>_ttsEngines[x.id]=x)}}catch(e){}setVoiceOptions(pr.provider,pr.voice);onTtsProviderChange();$('ttsTestStatus').textContent='готов';}
+function stopVoice(){if(_ttsAudio){_ttsAudio.pause();_ttsAudio.currentTime=0;_ttsAudio=null}try{speechSynthesis.cancel()}catch(e){}const st=$('ttsTestStatus');if(st){st.textContent='остановлено';st.className='pill'}}
+function browserSpeak(t,pr){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ru-RU';u.rate=pr.rate;u.pitch=Math.max(0,Math.min(2,1+pr.pitch/12));u.volume=Math.max(0,Math.min(1,pr.volume));const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ru'));if(pr.voice){const found=voices.find(v=>v.name===pr.voice);if(found)u.voice=found}speechSynthesis.speak(u);return true}catch(e){showToast('❌ Голос браузера: '+e.message);return false}}
+async function requestSpeech(t,testing){const pr=ttsPref(),st=$('ttsTestStatus');if(testing){st.textContent='синтез…';st.className='pill p-warn'}
+try{const r=await fetch(HRM+(testing?'/api/tts/test':'/api/tts'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,provider:pr.provider,voice:pr.voice,endpoint:pr.endpoint,rate:pr.rate,pitch:pr.pitch,volume:pr.volume})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));stopVoice();if(d.browser){browserSpeak(t,pr)}else if(d.audio_url){_ttsAudio=new Audio(new URL(d.audio_url,HRM).href);_ttsAudio.volume=Math.max(0,Math.min(1,pr.volume));await _ttsAudio.play()}else throw new Error('сервер не вернул аудио');if(testing){st.textContent='голос работает ✓';st.className='pill p-ok';if(d.controls_note)$('ttsEngineDetail').textContent=d.controls_note}return true}catch(e){if(testing){st.textContent='ошибка: '+e.message;st.className='pill p-err'}showToast('❌ TTS: '+e.message);return false}}
+function testVoice(){saveTtsPref();const t=$('ttsTestText').value.trim()||ttsPref().testText;requestSpeech(t,true)}
+function speak(t){if(t&&t.trim())requestSpeech(t.trim(),false)}
+/* ===== Лёгкий непрерывный голос в чате (без устройств/vision) ===== */
+let _voiceTimer=null;
+async function voiceLoopTick(){
+try{
+const prompt=(currentRolePrompt?currentRolePrompt+'\n':'')+'Скажи ОДНУ короткую (1-2 предложения) фразу в своём образе, продолжай диалог. Без пояснений, только реплика.';
+const ctrl=new AbortController();
+const r=await fetch(LMS+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:LMS_MODEL,messages:[{role:'system',content:prompt},{role:'user',content:'говори'}],stream:false}),signal:ctrl.signal});
+const d=await r.json();
+let text='';
+if(d&&d.choices&&d.choices[0]&&d.choices[0].message)text=d.choices[0].message.content;
+if(text&&text.trim()){const feed=$('sideFeed');if(feed){const m=document.createElement('div');m.className='msg uni';m.innerHTML='<div class="who">ЮНИ · '+now()+'</div>'+esc(text.trim());feed.appendChild(m);feed.scrollTop=feed.scrollHeight;}speak(text.trim());}
+}catch(e){/* тихо пропускаем сбой сети */}
+}
+function toggleVoiceAuto(){const on=!window._voiceAutoOn;if(on)startVoiceLoop();else stopVoiceLoop();window._voiceAutoOn=on;const b=$('voiceAutoBtn'),s=$('voiceAutoStatus');if(b)b.textContent=on?'⏸ Стоп голоса':'🎙 Голосовой авторежим';if(s){s.textContent=on?'вкл':'выкл';s.className='pill '+(on?'p-ok':'p-warn');}}
+function startVoiceLoop(){if(_voiceTimer)return;const sec=Math.max(4,parseInt($('voiceLoopSec').value||'12',10)||12);voiceLoopTick();_voiceTimer=setInterval(voiceLoopTick,sec*1000);showToast('🔁 Непрерывный голос включён');}
+function stopVoiceLoop(){if(_voiceTimer){clearInterval(_voiceTimer);_voiceTimer=null;showToast('⏸ Непрерывный голос выключен');}}
+
 function uniSendSide(){const i=$('sideInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('sideFeed')])}
 function toggleMic(){
 if(!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)){showToast('❌ Браузер не поддерживает голосовой ввод');return}
@@ -179,12 +213,96 @@ const r=await api(HRM+'/api/roles');const d=await r.json();
 if(!d.roles||!d.roles.length){return}
 const sel=$('uniRole');sel.innerHTML=d.roles.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
 if(d.current)sel.value=d.current;
+// жёстко подхватываем system-промпт выбранной роли из файла
+try{const pr=await api(HRM+'/api/role/prompt?role='+encodeURIComponent(sel.value));const pd=await pr.json();if(pd&&pd.prompt)currentRolePrompt=pd.prompt}catch(e){}
 }catch(e){showToast('⚠ Не удалось загрузить роли (Hermes 8787)')}
 }
 async function setRole(name){
 if(!name)return;
-try{await fetch(HRM+'/api/role/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:name})});showToast('🎭 Роль: '+name)}catch(e){showToast('⚠ Роль не сохранена: '+e.message)}
+try{await fetch(HRM+'/api/role/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:name})});
+// жёстко подхватываем system-промпт роли из файла
+try{const pr=await api(HRM+'/api/role/prompt?role='+encodeURIComponent(name));const pd=await pr.json();if(pd&&pd.prompt)currentRolePrompt=pd.prompt}catch(e){}
+showToast('🎭 Роль: '+name)}catch(e){showToast('⚠ Роль не сохранена: '+e.message)}
 }
+/* ===== Автономный режим: слушаем SSE и показываем/озвучиваем фразы ЮНИ ===== */
+function initAutonomousStream(){
+const feed=$('sideFeed');if(!feed)return;
+if(window._autonomousES)return; // уже подписаны
+try{
+const es=new EventSource(HRM+'/api/autonomous/stream');
+window._autonomousES=es;
+es.onmessage=ev=>{try{
+const d=JSON.parse(ev.data);
+if(d&&d.type==='phrase'){
+const m=document.createElement('div');m.className='msg uni';
+m.innerHTML='<div class="who">ЮНИ · '+now()+'</div>'+esc(d.text);
+feed.appendChild(m);feed.scrollTop=feed.scrollHeight;
+if(d.audio_url){const a=new Audio(d.audio_url);a.play().catch(()=>{});}
+else if($('speakChk').checked)speak(d.text);
+}
+}catch(e){}};
+es.onerror=()=>{/* сервер не запущен авто-режим — тихо ждём */};
+}catch(e){}
+}
+/* ===== Кнопка «Авто-режим» на вкладке XToys ===== */
+function toggleAutoMode(){
+const btn=$('autoBtn'),st=$('autoStatus');
+const starting=!window._autoOn;
+fetch(HRM+(starting?'/api/xtoys/session/start':'/api/xtoys/session/stop'),{method:'POST'})
+.then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))
+.then(d=>{
+window._autoOn=starting;
+if(btn)btn.textContent=starting?'⏸ Стоп сессии':'⚡ Авто-режим';
+if(st){st.textContent=starting?'вкл':'выкл';st.className='pill '+(starting?'p-ok':'p-warn');}
+if(starting)showToast('⚡ Сессия: ЮНИ говорит и крутит машинку');
+else showToast('⏸ Сессия остановлена');
+if(starting)xtoysSessionPoll();
+})
+.catch(e=>{showToast('⚠ Сессия: '+e.message);});
+}
+function xtoysSessionStop(){
+fetch(HRM+'/api/xtoys/session/stop',{method:'POST'}).then(()=>{window._autoOn=false;const btn=$('autoBtn'),st=$('autoStatus');if(btn)btn.textContent='⚡ Авто-режим';if(st){st.textContent='выкл';st.className='pill p-warn';}}).catch(()=>{});
+}
+function xtoysSetIntensity(){
+const v=parseInt($('xtIntensity').value||'0',10)||0;
+fetch(HRM+'/api/xtoys/session/intensity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})})
+.then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(d&&d.message)showToast('🎚 '+d.message);}).catch(()=>showToast('⚠ не удалось задать интенсивность'));
+}
+let _xtPoll=null;
+function xtoysSessionPoll(){
+if(_xtPoll)clearInterval(_xtPoll);
+_xtPoll=setInterval(()=>{fetch(HRM+'/api/xtoys/session/status').then(r=>r.ok?r.json():Promise.reject()).then(d=>{const s=$('xtSessionStatus');if(s&&d)s.textContent=d.status;}).catch(()=>{});},2000);
+}
+function intifaceConnect(){
+const url=$('intifaceUrl').value.trim()||'ws://127.0.0.1:12345';
+fetch(HRM+'/api/intiface/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
+.then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status+(r.status===404?' (сервер старый — перезапусти start-uni.bat)':''))))
+.then(d=>{
+if(d&&d.connecting){showToast('🔌 подключение к Intiface…');intifacePoll();}
+else if(d&&d.ok){showToast('🔌 Intiface подключён'+(d.devices?(': '+d.devices.join(', ')):''));intifacePoll();}
+else{const st=$('intifaceStatus');if(st){st.textContent='ошибка';st.className='pill p-err';}showToast('⚠ Intiface: '+(d&&d.error?d.error:'не удалось'));}
+})
+.catch(e=>showToast('⚠ Intiface connect: '+e.message));
+}
+let _intfPoll=null;
+function intifacePoll(){
+if(_intfPoll)clearInterval(_intfPoll);
+_intfPoll=setInterval(()=>{
+fetch(HRM+'/api/intiface/status').then(r=>r.ok?r.json():Promise.reject()).then(d=>{
+const st=$('intifaceStatus');
+if(d&&d.connected){if(st){st.textContent='подключено';st.className='pill p-ok';}if(d.devices)$('intifaceDevices').textContent=d.devices.join(', ');}
+else if(st&&st.textContent!=='ошибка'){st.textContent='отключено';st.className='pill p-warn';}
+if(d&&d.last_error&&st){st.textContent='ошибка';st.className='pill p-err';}
+}).catch(()=>{});
+},2000);
+}
+function intifaceDisconnect(){fetch(HRM+'/api/intiface/disconnect',{method:'POST'}).then(()=>{const st=$('intifaceStatus');if(st){st.textContent='отключено';st.className='pill p-warn';}}).catch(()=>{});}
+function intifaceOscillate(){
+const v=parseInt($('oscRange').value||'0',10)||0;
+fetch(HRM+'/api/intiface/oscillate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})})
+.then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(d&&!d.ok)showToast('⚠ Oscillate: '+(d.error||'нет'));}).catch(e=>showToast('⚠ Oscillate: '+e.message));
+}
+function intifaceStop(){fetch(HRM+'/api/intiface/stop',{method:'POST'}).then(()=>{}).catch(()=>{});}
 async function fbExec(){
 const op=$('fbOp').value,path=$('fbPath').value,part=$('fbPart').value,content=$('fbContent').value,out=$('fbResult');
 out.textContent='['+now()+'] '+op+' '+path+'\n';
@@ -207,7 +325,7 @@ function moveCursor(x,y){const c=$('uniCursor');c.classList.add('moving');c.styl
 setInterval(()=>{if($('view-browser').classList.contains('active'))moveCursor(15+Math.random()*70,15+Math.random()*60)},5000);
 setInterval(()=>{pingServers();loadLogs();loadMail()},15000);
 setTheme(localStorage.getItem('uni_theme')||'light');
-pingServers();runRollCall();loadLogs();loadBoard();loadMail();loadDocs();loadStats();renderRules();loadRoles();
+pingServers();runRollCall();loadLogs();loadBoard();loadMail();loadDocs();loadStats();renderRules();loadRoles();initAutonomousStream();loadTtsSettings();
 document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='l'){e.preventDefault();startRound()}});
 /* ===== Анимированная favicon: U → N → i (смена href у <link rel=icon>) ===== */
 (function(){

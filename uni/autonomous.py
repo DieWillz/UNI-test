@@ -49,7 +49,7 @@ class AutonomousController:
         self._error_count = 0
         self._conductor_until = 0.0  # prefetch deadline
         self._monologue_queue: list[str] = []
-
+        self._running = False  # autonomous background loop active flag
     # -- safety: instant stop (synchronous-ish, no queue) ---------------------
     def emergency_stop(self) -> None:
         """Immediately drop device to zero and silence speech. Not routed via tasks."""
@@ -108,16 +108,41 @@ class AutonomousController:
             try:
                 phrase = await self._next_phrase_async()
                 console.print(f"[magenta]ГОСПОЖА:[/magenta] {phrase}")
+                # Push to WebUI (browser plays audio + shows text in the right chat)
+                await self._emit_phrase(phrase)
+                # Also speak locally if a TTS device is available (best effort)
                 await self._speak(phrase)
             except Exception as exc:
                 logger.warning("Autonomous speech step failed: %s", exc)
             await asyncio.sleep(self.acfg.speech_interval_seconds)
+
+    async def _emit_phrase(self, text: str) -> None:
+        """Push a phrase (+ synthesized audio when available) to the WebUI bridge."""
+        if self.state.ui_events is None:
+            return
+        audio_url = None
+        speech = self.agent.capabilities.get("speech")
+        if speech is not None and hasattr(speech, "synthesize_to_wav"):
+            try:
+                wav = await speech.synthesize_to_wav(text)
+                if wav is not None:
+                    audio_url = f"/api/autonomous/audio/{wav.name}"
+            except Exception as exc:  # TTS optional — text still goes to UI
+                logger.warning("Autonomous TTS failed (text-only fallback): %s", exc)
+        try:
+            await self.state.ui_events.put(
+                {"type": "phrase", "text": text, "audio_url": audio_url}
+            )
+        except Exception:
+            pass
+
 
     async def _next_phrase_async(self) -> str:
         """Use prefetched LLM line if present, else fallback pool (no blocking wait)."""
         if self._monologue_queue:
             return self._monologue_queue.pop(0)
         return self._next_phrase()
+
 
     def _next_phrase(self) -> str:
         """Deterministic, role-flavored phrase driven by current device state."""
@@ -255,12 +280,39 @@ class AutonomousController:
                 logger.warning("Autonomous conductor step failed: %s", exc)
 
     # -- lifecycle ---------------------------------------------------------------
-    async def start(self) -> None:
-        # First, ensure XToys page is open and device is acknowledged.
+    def start(self) -> None:
+        """Start the autonomous mode in a dedicated background thread with its own
+        asyncio event loop. Safe to call from a sync HTTP handler. Idempotent."""
+        if self._running:
+            return
+        # UI bridge: create the event queue so phrases reach the WebUI.
+        if self.state.ui_events is None:
+            self.state.ui_events = asyncio.Queue()
+        self._running = True
+        self._stop_ev = threading.Event()
+        self._bg_thread = threading.Thread(target=self._bg_run, name="uni.autonomous", daemon=True)
+        self._bg_thread.start()
+
+    def _bg_run(self) -> None:
+        """Entry point for the background thread: own asyncio loop, kept alive."""
+        try:
+            asyncio.run(self._bg_loop())
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"autonomous background loop died: {exc}")
+        finally:
+            self._running = False
+
+    async def _bg_loop(self) -> None:
+        # Fresh stop event bound to this loop.
+        self.state.stopped_event = asyncio.Event()
+        # First, ensure XToys page is open — only when device motion is allowed.
+        # Voice-only mode (autonomous_physical=False) must NOT touch XToys.
         xtoys = self.agent.capabilities.get("xtoys")
-        if xtoys is not None:
-            await self._run_tool("xtoys.open", {})
         if self.device_allowed and xtoys is not None:
+            try:
+                await self._run_tool("xtoys.open", {})
+            except Exception as exc:
+                logger.warning(f"xtoys.open skipped: {exc}")
             await self._run_tool("xtoys.set_verified_physical", {"verified": True})
             await self._run_tool("xtoys.ramp_intensity", {"value": 0, "steps": 3})
         self._tasks.add(asyncio.create_task(self._vision_loop(), name="uni.vision"))
@@ -268,6 +320,20 @@ class AutonomousController:
         self._tasks.add(asyncio.create_task(self._device_loop(), name="uni.device"))
         self._tasks.add(asyncio.create_task(self._conductor_loop(), name="uni.conductor"))
         self._tasks.add(asyncio.create_task(self._input_watcher(), name="uni.input"))
+        # Keep the loop alive until stop is requested.
+        await self.state.stopped_event.wait()
+        # Cleanup: drop device to zero (if allowed) then cancel all loops.
+        if self.device_allowed:
+            xtoys = self.agent.capabilities.get("xtoys")
+            if xtoys is not None:
+                try:
+                    await self._run_tool("xtoys.ramp_intensity", {"value": 0, "steps": 2})
+                except Exception:
+                    pass
+        for task in list(self._tasks):
+            task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
 
     async def _input_watcher(self) -> None:
         """Best-effort stop channel: text 'стоп'/'красный' or Ctrl-C/ESC."""
@@ -297,25 +363,16 @@ class AutonomousController:
             stopped.set()
 
     async def run(self) -> None:
-        await self.start()
-        console.print("[bold cyan]Автономный режим запущен. ESC/стоп — на экстренную остановку.[/bold cyan]")
-        try:
-            while self.state.running:
-                await asyncio.sleep(0.5)
-        finally:
-            await self.stop()
+        await self._bg_loop()
 
     async def stop(self) -> None:
         self.state.request_stop()
-        # emergency: drop device to zero
+        self._running = False
+        # emergency: drop device to zero (best-effort, only if allowed)
         xtoys = self.agent.capabilities.get("xtoys")
-        if xtoys is not None:
+        if xtoys is not None and self.device_allowed:
             try:
                 await self._run_tool("xtoys.ramp_intensity", {"value": 0, "steps": 2})
             except Exception:
                 pass
-        for task in list(self._tasks):
-            task.cancel()
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()

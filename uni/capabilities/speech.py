@@ -409,6 +409,27 @@ class SpeechCapability(Capability):
                 print(f"TTS error: {exc}")
             return False
 
+    async def synthesize_to_wav(self, text: str, out_path: Path | None = None) -> Path | None:
+        """Synthesize `text` to a WAV file (no local playback). Returns path or None on failure.
+
+        Used by the autonomous mode to push audio to the WebUI (browser plays it)."""
+        if not text.strip():
+            return None
+        try:
+            await self._init_tts()
+            audio, sample_rate = await asyncio.to_thread(self._synthesize_audio_safe, text.strip())
+            if out_path is None:
+                out_path = Path(tempfile.gettempdir()) / f"uni_tts_{int(time.time() * 1000)}.wav"
+            self._write_audio_file(audio, sample_rate, out_path, "wav")
+            return out_path
+        except Exception as exc:
+            if self._log is not None:
+                self._log("TTS_ERROR", str(exc))
+            else:
+                print(f"TTS error: {exc}")
+            return None
+
+
     def _write_audio_file(self, audio: np.ndarray, sample_rate: int, path: Path, audio_format: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         if audio_format == "wav":

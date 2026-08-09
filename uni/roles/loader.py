@@ -54,6 +54,10 @@ class RoleLoader:
 
         # Build full system prompt
         full_prompt = self._build_system_prompt(system_prompt, behavior, constraints)
+        # Fallback: if no explicit "System Prompt" section, use the whole body
+        # (many role files describe the persona directly without that heading).
+        if not full_prompt.strip() and body.strip():
+            full_prompt = body.strip()
 
         return Role(
             name=name,
@@ -91,6 +95,38 @@ class RoleLoader:
         if constraints:
             parts.append(f"## Ограничения\n{constraints}")
         return "\n\n".join(parts)
+
+
+def list_roles() -> list[str]:
+    """Return role names available as *.md files in the roles dir (minus __init__)."""
+    here = Path(__file__).resolve().parent
+    names = []
+    for f in here.glob("*.md"):
+        if f.name.startswith("_"):
+            continue
+        names.append(f.stem)
+    return sorted(names)
+
+
+def _current_marker() -> Path:
+    return Path(__file__).resolve().parent / ".current"
+
+
+def get_current_role() -> str:
+    """Return the currently selected role name (falls back to 'assistant')."""
+    marker = _current_marker()
+    if marker.exists():
+        name = marker.read_text(encoding="utf-8").strip()
+        if name:
+            return name
+    return "assistant"
+
+
+def set_current_role(name: str) -> None:
+    """Persist the selected role name."""
+    if not name:
+        raise ValueError("role name required")
+    _current_marker().write_text(name, encoding="utf-8")
 
 
 def get_default_role() -> str:

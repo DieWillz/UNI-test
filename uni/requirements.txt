@@ -3,11 +3,19 @@ pydantic>=2.0
 pydantic-settings>=2.0
 pyyaml>=6.0
 rich>=13.0
+numpy>=1.26
+sounddevice>=0.5
+soundfile>=0.12
+faster-whisper>=1.1
+piper-tts>=1.6
+torch>=2.6
+openai>=1.0
 
 # Зависимости следующих билдов (закомментированы — раскомментировать по мере готовности):
 # openai              # Build 2 — Brain Client (DeepSeek)
-# faster-whisper      # Build 5 — Speech STT (Nemotron)
-# piper-tts           # Build 5 — Speech TTS (Nemotron)
+# Optional high-expression engines are intentionally separate services:
+# - XTTS-v2: set UNI_XTTS_URL or enter its OpenAI-compatible URL in WebUI.
+# - Fish Audio: set UNI_FISH_TTS_URL/FISH_AUDIO_API_KEY or enter a local URL.
 # pyautogui           # Build 6 — Computer (Nemotron)
 # comtypes            # Build 6 — Windows UI Automation (Nemotron)
 # pillow              # Build 6 — Screenshots (Nemotron)

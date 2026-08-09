@@ -755,3 +755,26 @@ tasks:
       - Qwen Studio and Qwen Coder are represented as separate participants
       - browser automation remains explicitly enabled or disabled in settings
       - targeted tests and architecture audit pass
+
+  - id: WEBUI-TTS-001
+    title: Repair chat speech and add configurable natural voice engines
+    status: complete
+    owner_role: coordinator_implementation
+    depends_on: [WEBUI-003, VOICE-SILERO-001]
+    allowed_paths:
+      - .uni-dev/tasks.yaml
+      - uni/webui
+      - uni/capabilities/speech.py
+      - uni/config.py
+      - uni/requirements.txt
+      - tests/council/test_webui_tts.py
+      - tests/fasttrack/test_speech_synthesis.py
+    acceptance:
+      - normal chat replies play the audio URL returned by the TTS endpoint
+      - Silero and Piper voices are selectable and testable in the WebUI
+      - rate pitch volume and test text are persisted and applied where supported
+      - TTS errors are visible and never silently reported as success
+      - loaded local engines are reused instead of initialized per utterance
+      - XTTS v2 and Fish Audio are optional engines with truthful availability diagnostics
+      - audio responses use the correct content type and remain bounded to temporary UNI files
+      - targeted tests architecture audit and a live local synthesis check pass

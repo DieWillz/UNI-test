@@ -16,8 +16,12 @@ and streams progress events as they happen.
 from __future__ import annotations
 import asyncio
 import json
+import os
 import re
 import shutil
+import threading
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -28,10 +32,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uni.config import load_config
 from uni.council.participants import load_participants
 from uni.council.round import CouncilRound
+from uni.autonomous_session import AutonomousSession
+from uni.intiface_bridge import IntifaceBridge
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
 _FRONTEND = _HERE / "index.html"
+
+# ===== XToys autonomous session (device timeline + synced speech) =====
+# Runs in its own background thread + asyncio loop so the HTTP handler stays sync.
+_XT_SESSION: AutonomousSession | None = None
+_XT_LOOP: asyncio.AbstractEventLoop | None = None
+_XT_THREAD: Any = None
+
+# ===== Intiface (Buttplug) direct bridge =====
+_INTIFACE: IntifaceBridge | None = None
 
 
 def _safe_project_path(rel: str) -> Path:
@@ -59,6 +74,110 @@ _CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво
 # которая возникала при asyncio.run() внутри каждого обработчика.
 _AGENT_LOOP = None
 _AGENT_THREAD = None
+
+# Reuse heavyweight local TTS models between requests.  Access is serialized because
+# both Silero and Piper model objects are not guaranteed to be thread-safe.
+_TTS_ENGINES: dict[tuple[str, str], Any] = {}
+_TTS_ENGINE_LOCK = threading.RLock()
+
+_TTS_VOICES = {
+    "silero": [
+        {"id": "xenia", "label": "Xenia — спокойная"},
+        {"id": "kseniya", "label": "Kseniya — ясная"},
+        {"id": "baya", "label": "Baya — мягкая"},
+        {"id": "eugene", "label": "Eugene — мужской"},
+        {"id": "aidar", "label": "Aidar — глубокий мужской"},
+    ],
+    "piper": [{"id": "ru_RU-irina-medium.onnx", "label": "Irina Medium — офлайн"}],
+    "browser": [{"id": "", "label": "Системный русский голос браузера"}],
+    "xtts": [{"id": "default", "label": "XTTS-v2 — голос по референсу сервера"}],
+    "fish": [{"id": "default", "label": "Fish Audio — выразительный"}],
+}
+
+
+def _bounded_float(value: Any, default: float, low: float, high: float) -> float:
+    try:
+        return max(low, min(high, float(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _tts_payload(body: dict[str, Any]) -> dict[str, Any]:
+    provider = str(body.get("provider", "silero")).strip().lower()
+    if provider not in _TTS_VOICES:
+        raise ValueError(f"unknown TTS provider: {provider}")
+    text = str(body.get("text", "")).strip()
+    if not text:
+        raise ValueError("text required")
+    if len(text) > 8_000:
+        raise ValueError("TTS text exceeds 8000 characters")
+    return {
+        "provider": provider,
+        "voice": str(body.get("voice", "")).strip()[:300],
+        "text": text,
+        "rate": _bounded_float(body.get("rate"), 1.0, 0.5, 2.0),
+        "pitch": _bounded_float(body.get("pitch"), 0.0, -12.0, 12.0),
+        "volume": _bounded_float(body.get("volume"), 1.0, 0.0, 1.5),
+        "endpoint": str(body.get("endpoint", "")).strip()[:500],
+    }
+
+
+def _external_tts(request: dict[str, Any]) -> tuple[bytes, str]:
+    """Call an optional OpenAI-compatible XTTS/Fish HTTP service."""
+    provider = request["provider"]
+    endpoint = request["endpoint"] or os.environ.get(
+        "UNI_XTTS_URL" if provider == "xtts" else "UNI_FISH_TTS_URL", ""
+    )
+    if not endpoint:
+        raise RuntimeError(
+            f"{provider.upper()} endpoint не настроен; укажите URL в панели или переменную окружения"
+        )
+    parsed = urlparse(endpoint)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("TTS endpoint must use http or https")
+    url = endpoint.rstrip("/")
+    if not url.endswith(("/v1/audio/speech", "/v1/tts")):
+        url += "/v1/audio/speech" if provider == "xtts" else "/v1/tts"
+    payload = {
+        "model": "xtts-v2" if provider == "xtts" else "s2",
+        "input": request["text"],
+        "text": request["text"],
+        "voice": request["voice"] or "default",
+        "speed": request["rate"],
+        "pitch": request["pitch"],
+        "volume": request["volume"],
+        "format": "wav",
+    }
+    headers = {"Content-Type": "application/json", "Accept": "audio/wav,audio/mpeg,application/json"}
+    token = os.environ.get("UNI_XTTS_API_KEY" if provider == "xtts" else "FISH_AUDIO_API_KEY", "")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as response:
+            data = response.read(40 * 1024 * 1024 + 1)
+            content_type = response.headers.get("Content-Type", "audio/wav").split(";", 1)[0]
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2000).decode("utf-8", "replace")
+        raise RuntimeError(f"{provider.upper()} HTTP {exc.code}: {detail}") from exc
+    if len(data) > 40 * 1024 * 1024:
+        raise RuntimeError("TTS response exceeds 40 MB")
+    if "json" in content_type:
+        decoded = json.loads(data.decode("utf-8"))
+        encoded = decoded.get("audio") or decoded.get("data")
+        if not isinstance(encoded, str):
+            raise RuntimeError("TTS JSON response has no audio field")
+        import base64
+        data = base64.b64decode(encoded)
+        content_type = str(decoded.get("content_type") or "audio/wav")
+    if not data:
+        raise RuntimeError("TTS service returned empty audio")
+    return data, "audio/mpeg" if "mpeg" in content_type or "mp3" in content_type else "audio/wav"
 
 
 def _ensure_agent_loop() -> asyncio.AbstractEventLoop | None:
@@ -341,7 +460,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # Клиент разорвал соединение (например, отменил fetch при навигации) —
+            # это не ошибка сервера, просто гасим, чтобы не засорять лог.
+            pass
 
     def _json(self, code: int, value: Any) -> None:
         self._send(code, json.dumps(value, ensure_ascii=False).encode("utf-8"))
@@ -398,6 +522,21 @@ class _Handler(BaseHTTPRequestHandler):
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
+            return
+
+        if parsed.path == "/api/tts/engines":
+            engines = []
+            for provider, voices in _TTS_VOICES.items():
+                available = True
+                detail = "готов"
+                if provider == "xtts":
+                    available = bool(os.environ.get("UNI_XTTS_URL"))
+                    detail = "URL можно указать в панели" if not available else "UNI_XTTS_URL настроен"
+                elif provider == "fish":
+                    available = bool(os.environ.get("UNI_FISH_TTS_URL"))
+                    detail = "URL можно указать в панели" if not available else "UNI_FISH_TTS_URL настроен"
+                engines.append({"id": provider, "voices": voices, "available": available, "detail": detail})
+            self._json(200, {"engines": engines})
             return
 
         # B-03: статика кешируется (max-age); браузер добавляет ?v= для инвалидации.
@@ -537,6 +676,50 @@ class _Handler(BaseHTTPRequestHandler):
                 "mode": "live" if xtoys is not None else "emulated",
             })
             return
+        # Autonomous UI bridge: stream phrases (text + audio_url) to the WebUI.
+        if parsed.path == "/api/autonomous/stream":
+            agent = self._get_chat_agent()
+            state = getattr(agent, "state", None) if agent is not None else None
+            queue = getattr(state, "ui_events", None) if state is not None else None
+            if queue is None:
+                self._json(503, {"error": "автономный режим не запущен"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            async def _stream_autonomous():
+                while True:
+                    try:
+                        event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    except asyncio.TimeoutError:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                        continue
+                    line = json.dumps(event, ensure_ascii=False)
+                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+
+            try:
+                asyncio.run(_stream_autonomous())
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        if parsed.path.startswith("/api/autonomous/audio/"):
+            fname = parsed.path.rsplit("/", 1)[-1]
+            # Serve only from the temp directory (no path traversal).
+            import tempfile as _tf
+
+            cand = Path(_tf.gettempdir()) / fname
+            if cand.exists() and cand.is_file() and fname.startswith("uni_tts_"):
+                content_type = "audio/mpeg" if cand.suffix.casefold() == ".mp3" else "audio/wav"
+                self._send_file_with_cache(cand, content_type, no_cache=True)
+            else:
+                self._send(404, b"not found", "text/plain")
+            return
         # B-02: SPA fallback — любой non-API путь (например, deep-link вкладки)
         # отдаёт index.html, чтобы фронтенд восстановил состояние из location.hash.
         if parsed.path and not parsed.path.startswith("/api/"):
@@ -546,6 +729,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
+        global _INTIFACE
         if self.path == "/api/round/start":
             try:
                 payload = _read_body(self)
@@ -654,6 +838,200 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        # TTS bridge: text -> browser SpeechSynthesis, local cached model, or optional
+        # OpenAI-compatible XTTS/Fish service.
+        if self.path in ("/api/tts", "/api/tts/test"):
+            try:
+                body = self._read_json_body()
+                if self.path == "/api/tts/test" and not str(body.get("text", "")).strip():
+                    body["text"] = "Привет. Это проверка выбранного голоса Юни."
+                request = _tts_payload(body)
+                provider = request["provider"]
+                voice = request["voice"]
+                if provider == "browser":
+                    self._json(200, {"ok": True, "browser": True, "controls_applied": ["rate", "pitch", "volume"]})
+                    return
+                if provider in {"xtts", "fish"}:
+                    data, content_type = _external_tts(request)
+                    suffix = ".mp3" if content_type == "audio/mpeg" else ".wav"
+                    import tempfile as _tf
+                    out = Path(_tf.gettempdir()) / f"uni_tts_{int(time.time() * 1000)}{suffix}"
+                    out.write_bytes(data)
+                    self._json(200, {
+                        "ok": True,
+                        "audio_url": f"/api/autonomous/audio/{out.name}",
+                        "content_type": content_type,
+                        "controls_applied": ["rate", "pitch", "volume"],
+                    })
+                    return
+
+                from uni.capabilities.speech import SpeechCapability
+                selected_voice = voice or ("ru_RU-irina-medium.onnx" if provider == "piper" else "xenia")
+                # One Silero v5 model contains all supported speakers; only Piper
+                # needs a separate cache entry per ONNX voice file.
+                key = (provider, "v5_5_ru" if provider == "silero" else selected_voice)
+                with _TTS_ENGINE_LOCK:
+                    sp = _TTS_ENGINES.get(key)
+                    if sp is None:
+                        sp = SpeechCapability(
+                            tts_provider=provider,
+                            tts_voice=selected_voice,
+                            silero_speaker=selected_voice if provider == "silero" else "xenia",
+                            silero_sample_rate=48000,
+                        )
+                        _TTS_ENGINES[key] = sp
+                    if provider == "silero":
+                        sp.silero_speaker = selected_voice
+                    wav = asyncio.run(sp.synthesize_to_wav(request["text"]))
+                if wav is None:
+                    self._json(502, {"error": "TTS не вернул аудио"})
+                    return
+                if request["volume"] != 1.0:
+                    import soundfile as sf
+                    audio, sample_rate = sf.read(wav, dtype="float32")
+                    sf.write(wav, (audio * request["volume"]).clip(-1.0, 1.0), sample_rate, subtype="PCM_16")
+                self._json(200, {
+                    "ok": True,
+                    "audio_url": f"/api/autonomous/audio/{wav.name}",
+                    "content_type": "audio/wav",
+                    "controls_applied": ["volume"],
+                    "controls_note": "Темп и высота доступны для Browser, XTTS и Fish; локальные Silero/Piper применяют громкость.",
+                })
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # Runtime autonomous start/stop (driven by the XToys "Автоматический режим" button).
+        if self.path == "/api/autonomous/start":
+            try:
+                agent = self._get_chat_agent()
+                ctrl = getattr(agent, "autonomous", None)
+                if ctrl is None:
+                    self._json(503, {"error": "автономный контроллер недоступен"})
+                    return
+                if getattr(ctrl, "_running", False):
+                    self._json(200, {"ok": True, "already_running": True})
+                    return
+                ctrl.start()  # launches a background thread with its own asyncio loop
+                self._json(200, {"ok": True, "running": True})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/autonomous/stop":
+            try:
+                agent = self._get_chat_agent()
+                ctrl = getattr(agent, "autonomous", None)
+                if ctrl is None:
+                    self._json(503, {"error": "автономный контроллер недоступен"})
+                    return
+                asyncio.run(ctrl.stop())
+                self._json(200, {"ok": True, "running": False})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # ===== XToys autonomous session: device timeline + synced speech =====
+        if self.path == "/api/xtoys/session/start":
+            try:
+                agent = self._get_chat_agent()
+                session = self._xt_session(agent)
+                if session.active:
+                    self._json(200, {"ok": True, "already_running": True})
+                    return
+                # fire-and-forget: session.start() opens the browser/xtoys and may
+                # take a while; the UI polls /status instead of blocking here.
+                self._xt_fire(session.start(open_xtoys=True, confirm_ready=True))
+                self._json(200, {"ok": True, "running": True, "message": "запуск сессии…"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/session/stop":
+            try:
+                agent = self._get_chat_agent()
+                session = self._xt_session(agent)
+                msg = self._xt_run(session.stop())
+                self._json(200, {"ok": True, "running": False, "message": msg})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/session/intensity":
+            try:
+                body = self._read_json_body()
+                value = int(body.get("value", 0))
+                agent = self._get_chat_agent()
+                session = self._xt_session(agent)
+                if session.active:
+                    msg = session.set_manual_override(value)
+                else:
+                    res = self._xt_run(agent.tool_executor.execute("xtoys.set_intensity", {"value": value}))
+                    msg = getattr(res, "message", "ok")
+                self._json(200, {"ok": True, "value": value, "message": msg})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/session/status":
+            try:
+                agent = self._get_chat_agent()
+                session = self._xt_session(agent)
+                self._json(200, {"active": session.active, "status": session.status_text()})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # ===== Intiface (Buttplug) direct bridge =====
+        if self.path == "/api/intiface/connect":
+            try:
+                url = (self._read_json_body().get("url") or "ws://127.0.0.1:12345") if self.headers.get("Content-Length") else "ws://127.0.0.1:12345"
+                if _INTIFACE is None:
+                    _INTIFACE = IntifaceBridge(url)
+                else:
+                    _INTIFACE.url = url
+                agent = self._get_chat_agent()
+                # fire-and-forget: connect may take a moment; UI polls /status.
+                self._xt_fire(_INTIFACE.connect())
+                self._json(200, {"ok": True, "connecting": True, "message": "подключение к Intiface…"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/intiface/disconnect":
+            try:
+                if _INTIFACE is not None:
+                    res = self._xt_run(_INTIFACE.disconnect(), timeout=10)
+                else:
+                    res = {"ok": True, "connected": False}
+                self._json(200, res)
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/intiface/oscillate":
+            try:
+                body = self._read_json_body()
+                value = int(body.get("value", 0))
+                if _INTIFACE is None:
+                    _INTIFACE = IntifaceBridge("ws://127.0.0.1:12345")
+                res = self._xt_run(_INTIFACE.oscillate(value), timeout=10)
+                self._json(200, res)
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/intiface/stop":
+            try:
+                if _INTIFACE is not None:
+                    res = self._xt_run(_INTIFACE.stop(), timeout=10)
+                else:
+                    res = {"ok": True}
+                self._json(200, res)
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/intiface/status":
+            try:
+                if _INTIFACE is None:
+                    self._json(200, {"connected": False, "url": "ws://127.0.0.1:12345", "devices": [], "last_error": ""})
+                else:
+                    self._json(200, _INTIFACE.status())
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         # --- гибридный слой «отправка заданий участникам» ---
         if self.path == "/api/round":
             from uni.webui.council_api import create_round
@@ -693,6 +1071,50 @@ class _Handler(BaseHTTPRequestHandler):
             return {}
 
     # ---------- UNI Chat Hub (мультимодальный чат) ----------
+    def _xt_session(self, agent):
+        """Create/cache the XToys autonomous session bound to this agent.
+
+        Drives the device through the xtoys capability (xtoys.app → Intiface) and
+        speaks via the speech capability — no raw browser socket involved.
+        """
+        global _XT_SESSION
+        if _XT_SESSION is not None and getattr(_XT_SESSION, "state", None) is not None:
+            return _XT_SESSION
+        speech = agent.capabilities.get("speech")
+        cfg = getattr(agent, "config", None)
+        max_int = 50
+        role_prompt = ""
+        if cfg is not None:
+            max_int = getattr(getattr(cfg, "capabilities", None), "xtoys", None)
+            max_int = getattr(max_int, "max_intensity", 50) if max_int else 50
+            role = getattr(getattr(cfg, "autonomous", None), "role_prompt", "") or ""
+            role_prompt = role
+        _XT_SESSION = AutonomousSession(
+            run_tool=lambda name, args: agent.tool_executor.execute(name, args),
+            speak=(lambda t: speech.speak(t)) if speech is not None else (lambda t: False),
+            chat=agent.brain.chat,
+            role_prompt=role_prompt or "Ты — властная госпожа в автономной сессии с секс-машинкой.",
+            max_intensity=max_int,
+        )
+        return _XT_SESSION
+
+    def _xt_run(self, coro, timeout: float = 90):
+        """Schedule a coroutine on the agent's live loop; used for quick calls."""
+        agent = self._get_chat_agent()
+        loop = getattr(agent, "_loop", None)
+        if loop is None:
+            raise RuntimeError("agent runtime loop недоступен")
+        return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout=timeout)
+
+    def _xt_fire(self, coro):
+        """Fire-and-forget a coroutine on the agent's live loop (no blocking wait)."""
+        agent = self._get_chat_agent()
+        loop = getattr(agent, "_loop", None)
+        if loop is None:
+            raise RuntimeError("agent runtime loop недоступен")
+        asyncio.run_coroutine_threadsafe(coro, loop)
+        return None
+
     def _get_chat_agent(self):
         global _CHAT_AGENT
         if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):

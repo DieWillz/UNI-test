@@ -1,41 +1,16 @@
 @echo off
-REM UNI single-instance launcher. ANSI, no BOM.
-setlocal
-set "ROOT=%~dp0"
-set "PIDFILE=%ROOT%.uni.pid"
-set "PY=C:\LLM\python312\python.exe"
+set UNI_DIR=C:\LLM\UNI
+set PY=C:\LLM\python312\python.exe
+set PYTHONPATH=C:\LLM\UNI
 
-if not exist "%PY%" (
-  echo Python not found: %PY%
-  pause
-  exit /b 1
-)
+cd /d %UNI_DIR%
 
-cd /d "%ROOT%"
+del /s /q %UNI_DIR%\uni\*.pyc >nul 2>&1
+for /r %UNI_DIR%\uni %%f in (*.pyc) do del /q "%%f" >nul 2>&1
 
-REM --- single-instance: если .uni.pid есть и процесс жив - выходим ---
-if exist "%PIDFILE%" (
-  set /p OLD_PID=<%PIDFILE%
-  tasklist /FI "PID eq %OLD_PID%" 2>nul | find "%OLD_PID%" >nul
-  if not errorlevel 1 (
-    echo UNI already running (PID %OLD_PID%). Exiting.
-    pause
-    exit /b 0
-  )
-  del "%PIDFILE%" 2>nul
-)
+start "" %PY% -m uni.webui
 
-REM --- записываем PID запущенного python ---
-for /f %%p in ('"%PY%" -c "import os;print(os.getpid())"') do set "MYPID=%%p"
-echo %MYPID%> "%PIDFILE%"
+timeout /t 3 >nul
+start "" http://127.0.0.1:8787/
 
-set PYTHONPATH=%ROOT%;%PYTHONPATH%
-echo Session UNI started (PID %MYPID%)
-"%PY%" -m uni --webui --text
-set EXITCODE=%errorlevel%
-del "%PIDFILE%" 2>nul
-if not %EXITCODE%==0 (
-  echo UNI exited with code %EXITCODE%
-  pause
-)
-endlocal
+exit
