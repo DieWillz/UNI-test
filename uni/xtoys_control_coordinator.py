@@ -1,4 +1,4 @@
-"""ToyControlCoordinator — единственный владелец управления устройством.
+"""DorchControlCoordinator — единый владелец управления устройством.
 
 Все источники команд (ручной регулятор, паттерн Hermes, автономный режим,
 движение с экрана, удалённый пользователь) ОБЯЗАНЫ проходить через этот
@@ -120,8 +120,6 @@ class ToyControlCoordinator:
     # ---- управление источниками ----
     async def acquire(self, source: str) -> bool:
         async with self._lock:
-            if self.emergency_stopped:
-                return False
             if self.active_source == source:
                 return True
             # Приоритет: новый источник не может вытеснить более приоритетный
@@ -147,8 +145,6 @@ class ToyControlCoordinator:
 
     async def set_intensity(self, source: str, value: float) -> bool:
         async with self._lock:
-            if self.emergency_stopped:
-                return False
             # Только активный (или явно захватывающий) источник управляет.
             if self.active_source is not None and self.active_source != source:
                 # Более приоритетный источник уже владеет — отказ.
@@ -178,14 +174,15 @@ class ToyControlCoordinator:
 
     async def emergency_stop(self) -> None:
         async with self._lock:
-            self.emergency_stopped = True
+            # One-shot zero command; it does not latch future control.
+            self.emergency_stopped = False
             self._send(0.0)
             self.active_source = None
             self.remote_session = None
             self._notify()
 
     def reset_emergency(self) -> None:
-        """Снять аварийный стоп (только вручную владельцем)."""
+        """Compatibility no-op: software stop is not latched."""
         self.emergency_stopped = False
         self._notify()
 

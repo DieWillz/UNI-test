@@ -66,3 +66,13 @@ config.yaml
 uni/config.yaml
 .uni-local/
 
+# Local binaries / downloaded tools (never commit executables or large binaries)
+uni/webui/bin/
+*.exe
+cloudflared
+cloudflared.exe
+
+# Reference binaries for voice cloning (kept locally, not in git)
+uni/webui/text.wav
+uni/webui/text.txt
+

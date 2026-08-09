@@ -127,7 +127,7 @@ select,.tin{background:var(--bg3);border:1px solid var(--border);color:var(--tex
 @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}.qwen-grid{grid-template-columns:1fr}.set-grid{grid-template-columns:1fr}}
 @media(max-width:800px){#sidebar{display:none}.stats-grid{grid-template-columns:1fr}}
 
-/* XToys: полноэкранная панель без внутренних полос прокрутки. */
+/* Dorch: полноэкранная панель без внутренних полос прокрутки. */
 #view-xtoys{overflow:hidden;padding:8px;gap:7px;min-height:0}
 #view-xtoys .xt-head{height:34px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
 #view-xtoys .xt-head>div{display:flex;align-items:center;gap:8px}
@@ -150,9 +150,10 @@ select,.tin{background:var(--bg3);border:1px solid var(--border);color:var(--tex
 #view-xtoys .xt-fields .tin{display:block;width:100%;margin-top:2px;padding:3px 5px}
 #view-xtoys .xt-url{flex:1;min-width:110px;width:auto}
 #view-xtoys .x-btn{padding:6px}
-#view-xtoys .xt-camera{height:105px;display:flex;align-items:center;justify-content:center;background:var(--bg3);border:1px solid var(--border);border-radius:7px;overflow:hidden;color:var(--text3);font-size:10px}
+#view-xtoys .xt-camera{height:220px;min-height:180px;display:flex;align-items:center;justify-content:center;background:var(--bg3);border:1px solid var(--border);border-radius:7px;overflow:hidden;color:var(--text3);font-size:10px}
 #view-xtoys .danger-text{color:var(--danger)}
-@media(max-height:760px){#view-xtoys .xt-camera{height:70px}#view-xtoys .stat-card{padding:5px 8px}#view-xtoys .xt-card .cb{gap:5px;padding:6px}}
+#view-xtoys .xt-room-chat{height:62px;overflow-y:auto;padding:5px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:10px;color:var(--text2)}
+@media(max-height:760px){#view-xtoys .xt-camera{height:140px;min-height:120px}#view-xtoys .stat-card{padding:5px 8px}#view-xtoys .xt-card .cb{gap:5px;padding:6px}}
 
 /* v3.3 реорганизация */
 .brand-ver{font-size:9px;color:var(--text3);font-weight:700;background:var(--bg3);padding:2px 6px;border-radius:5px;margin-left:4px}

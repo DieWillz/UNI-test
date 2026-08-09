@@ -1,4 +1,4 @@
-"""Autonomous mistress session: continuous dirty talk + device intensity timeline.
+"""Autonomous Dorch session: status-aware speech and device intensity timeline.
 
 Start: «начни сессию» / «режим госпожи» / «автономный режим»
 Stop:  «стоп» / «красный» / «остановись» / «останови сессию»
@@ -29,7 +29,7 @@ LogFn = Callable[[str, object], None]
 InterruptFn = Callable[[], Awaitable[None]]
 
 DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
-    "tease": [
+    "ramp": [
         (8.0, 15),
         (6.0, 25),
         (5.0, 10),
@@ -39,7 +39,7 @@ DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
         (12.0, 40),
         (8.0, 30),
     ],
-    "build": [
+    "climb": [
         (8.0, 30),
         (10.0, 45),
         (8.0, 55),
@@ -69,7 +69,7 @@ DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
         (6.0, 100),
         (10.0, 40),
     ],
-    "aftercare": [
+    "cooldown": [
         (12.0, 25),
         (10.0, 15),
         (12.0, 10),
@@ -79,24 +79,24 @@ DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
     ],
 }
 
-PHASE_ORDER = ["tease", "build", "pulse", "peak", "aftercare"]
+PHASE_ORDER = ["ramp", "climb", "pulse", "peak", "cooldown"]
 
-OPERATIONAL_PROMPT = "Ты — властная госпожа в автономной сессии с секс-машинкой."
+OPERATIONAL_PROMPT = "Ты — оператор Dorch в автономной демонстрации управления устройством."
 
 FALLBACK_LINES = [
-    "Терпи. Я сейчас вдавлю тебя этой машинкой глубже.",
-    "Слышишь как я трахаю тебя? Ты тупая дырка и я превращу тебя в настоящую девку.",
-    "Ещё быстрее. Не смей сжиматься — принимай. Твою пиздёнку надо тренировать",
-    "Хорошая шлюшка. Стонешь уже от одних оборотов.",
-    "Я прибавляю скорость. Будешь брать всё, что дам.",
-    "Слишком быстро? Слишком глубоко? Мне похую шалава!",
+    "Dorch работает стабильно; текущая команда соответствует выбранной фазе.",
+    "Плавно меняю интенсивность и отслеживаю фактический статус подключения.",
+    "Перехожу к следующему участку профиля движения.",
+    "Устройство получает команду; продолжаю выбранный режим.",
+    "Корректирую скорость по текущему состоянию Dorch.",
+    "Завершаю цикл плавным снижением интенсивности.",
 ]
 
 
 @dataclass
 class SessionState:
     active: bool = False
-    phase: str = "tease"
+    phase: str = "ramp"
     target_intensity: int = 0
     applied_intensity: int = 0
     last_applied_intensity: int = -1
@@ -108,7 +108,7 @@ class SessionState:
     last_error: str = ""
     consecutive_errors: int = 0
     device_ready: bool = False
-    aftercare_cycles: int = 0
+    cooldown_cycles: int = 0
     override_until: float = 0.0
     override_value: int | None = None
     ending: bool = False
@@ -175,7 +175,7 @@ class AutonomousSession:
             self._stop_event.clear()
             self.state = SessionState(
                 active=True,
-                phase="tease",
+                phase="ramp",
                 started_at=time.monotonic(),
                 phase_started_at=time.monotonic(),
             )
@@ -285,7 +285,7 @@ class AutonomousSession:
         )
 
     def _arm_segment(self) -> None:
-        curve = DEFAULT_CURVES.get(self.state.phase, DEFAULT_CURVES["tease"])
+        curve = DEFAULT_CURVES.get(self.state.phase, DEFAULT_CURVES["ramp"])
         idx = self.state.curve_index % len(curve)
         duration, intensity = curve[idx]
         self.state.target_intensity = self._clamp(intensity)
@@ -293,7 +293,7 @@ class AutonomousSession:
         self.state.curve_index = idx + 1
 
     def _maybe_advance_phase(self) -> bool:
-        """Advance phase. Returns True if session should end after aftercare."""
+        """Advance phase. Returns True when the cooldown phase completes."""
         elapsed = time.monotonic() - self.state.phase_started_at
         if elapsed < self.phase_seconds:
             return False
@@ -301,9 +301,9 @@ class AutonomousSession:
             i = PHASE_ORDER.index(self.state.phase)
         except ValueError:
             i = 0
-        if self.state.phase == "aftercare":
-            self.state.aftercare_cycles += 1
-            if self.state.aftercare_cycles >= 1:
+        if self.state.phase == "cooldown":
+            self.state.cooldown_cycles += 1
+            if self.state.cooldown_cycles >= 1:
                 return True
             self.state.phase_started_at = time.monotonic()
             self.state.curve_index = 0
@@ -380,10 +380,27 @@ class AutonomousSession:
 
     async def _generate_line(self) -> str:
         intensity = self.state.applied_intensity
+        connected = self.state.device_ready
+        active_source = "autonomous"
+        try:
+            live = await self._run_tool("xtoys.get_status", {})
+            data = getattr(live, "data", None) or {}
+            if getattr(live, "success", False):
+                intensity = int(round(float(data.get("value", intensity))))
+                connected = bool(data.get("connected", connected))
+                active_source = str(data.get("active_source") or active_source)
+                self.state.applied_intensity = intensity
+        except Exception:
+            pass
         phase = self.state.phase
         system = (
             OPERATIONAL_PROMPT
             + f"\nФаза: {phase}. Интенсивность сейчас: {intensity}% (макс {self.max_intensity}%)."
+        )
+        system += (
+            f"\nФактический статус: цель {self.state.target_intensity}%, команда {intensity}%, "
+            f"Intiface {'подключён' if connected else 'отключён'}, источник {active_source}. "
+            "Оцени текущий статус и согласуй с ним реплику. Не выдумывай физическую обратную связь устройства."
         )
         try:
             response = await asyncio.wait_for(

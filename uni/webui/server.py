@@ -20,8 +20,10 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import threading
 import time
+import queue
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -53,13 +55,80 @@ _XT_THREAD: Any = None
 # ===== Intiface (Buttplug) direct bridge =====
 _INTIFACE: IntifaceBridge | None = None
 
-# ===== XToys orchestration patterns (tease/build/pulse/wave/edge/release) =====
+# ===== Dorch neutral motion profiles =====
 _XTOYS_PATTERN: XToysPatternEngine | None = None
 
 # ===== ToyControlCoordinator: единый шлюз управления устройством =====
 _TOY_COORDINATOR: ToyControlCoordinator | None = None
 _MOTION: MotionToyController | None = None
 _REMOTE_TIMER: threading.Timer | None = None
+_REMOTE_ROOM_LOCK = threading.RLock()
+_REMOTE_ROOM_EVENTS: list[dict[str, Any]] = []
+_REMOTE_ROOM_NEXT_ID = 1
+_REMOTE_GATEWAY = None
+_REMOTE_GATEWAY_THREAD = None
+_PUBLIC_TUNNEL_PROCESS: subprocess.Popen | None = None
+_PUBLIC_TUNNEL_URL = ""
+
+
+def _ensure_remote_gateway() -> None:
+    global _REMOTE_GATEWAY, _REMOTE_GATEWAY_THREAD
+    if _REMOTE_GATEWAY is not None:
+        return
+    _REMOTE_GATEWAY = ThreadingHTTPServer(("127.0.0.1", 8788), _RemoteGatewayHandler)
+    _REMOTE_GATEWAY_THREAD = threading.Thread(target=_REMOTE_GATEWAY.serve_forever, daemon=True, name="uni-remote-gateway")
+    _REMOTE_GATEWAY_THREAD.start()
+
+
+def _start_public_tunnel() -> str:
+    global _PUBLIC_TUNNEL_PROCESS, _PUBLIC_TUNNEL_URL
+    if _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None and _PUBLIC_TUNNEL_URL:
+        return _PUBLIC_TUNNEL_URL
+    _ensure_remote_gateway()
+    binary = _HERE / "bin" / "cloudflared.exe"
+    if not binary.is_file():
+        raise RuntimeError("cloudflared.exe не установлен")
+    process = subprocess.Popen(
+        [str(binary), "tunnel", "--url", "http://127.0.0.1:8788", "--no-autoupdate"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    _PUBLIC_TUNNEL_PROCESS = process
+    _PUBLIC_TUNNEL_URL = ""
+    lines: queue.Queue[str] = queue.Queue()
+    def _read_output() -> None:
+        if process.stdout is None:
+            return
+        for line in process.stdout:
+            lines.put(line)
+    threading.Thread(target=_read_output, daemon=True, name="uni-cloudflared-log").start()
+    deadline = time.time() + 25.0
+    while time.time() < deadline and process.poll() is None:
+        try:
+            line = lines.get(timeout=0.5)
+        except queue.Empty:
+            continue
+        match = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+        if match:
+            _PUBLIC_TUNNEL_URL = match.group(0)
+            return _PUBLIC_TUNNEL_URL
+    if process.poll() is None:
+        process.terminate()
+    _PUBLIC_TUNNEL_PROCESS = None
+    raise RuntimeError("cloudflared не выдал публичный адрес")
+
+
+def _stop_public_tunnel() -> None:
+    global _PUBLIC_TUNNEL_PROCESS, _PUBLIC_TUNNEL_URL
+    process = _PUBLIC_TUNNEL_PROCESS
+    _PUBLIC_TUNNEL_PROCESS = None
+    _PUBLIC_TUNNEL_URL = ""
+    if process is not None and process.poll() is None:
+        process.terminate()
 
 
 def _remote_timeout_stop() -> None:
@@ -653,6 +722,13 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"remote controller missing", "text/plain")
             return
+        if parsed.path in ("/camera-preview", "/camera-preview.html"):
+            page = _HERE / "camera-preview.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"camera preview missing", "text/plain")
+            return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
@@ -899,7 +975,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER
+        global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
         if self.path == "/api/round/start":
             try:
                 payload = _read_body(self)
@@ -1194,9 +1270,6 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/xtoys/motion/start":
             try:
-                if _INTIFACE is None or not _INTIFACE.connected:
-                    self._json(503, {"error": "Сначала подключите Intiface"})
-                    return
                 body = self._read_json_body()
                 coordinator = self._toy_coordinator()
                 if _MOTION is None:
@@ -1250,9 +1323,6 @@ class _Handler(BaseHTTPRequestHandler):
         # ===== Local, owner-approved remote control =====
         if self.path == "/api/xtoys/remote/session/start":
             try:
-                if _INTIFACE is None or not _INTIFACE.connected:
-                    self._json(503, {"error": "Сначала подключите Intiface"})
-                    return
                 body = self._read_json_body()
                 coordinator = self._toy_coordinator()
                 self._xt_run(coordinator.stop(), timeout=5)
@@ -1260,6 +1330,9 @@ class _Handler(BaseHTTPRequestHandler):
                     max_intensity=max(0, min(100, float(body.get("max_intensity", 40)))),
                     ttl=max(60, min(3600, float(body.get("ttl", 1800)))),
                 )
+                with _REMOTE_ROOM_LOCK:
+                    _REMOTE_ROOM_EVENTS = []
+                    _REMOTE_ROOM_NEXT_ID = 1
                 host = self.headers.get("Host", "127.0.0.1:8787")
                 self._json(200, {"ok": True, "url": f"http://{host}/remote-control#token={session.token}", "expires_in": session.ttl})
             except Exception as exc:
@@ -1274,10 +1347,79 @@ class _Handler(BaseHTTPRequestHandler):
                     _REMOTE_TIMER = None
                 coordinator = self._toy_coordinator()
                 coordinator.end_remote_session()
+                _stop_public_tunnel()
+                with _REMOTE_ROOM_LOCK:
+                    _REMOTE_ROOM_EVENTS = []
+                    _REMOTE_ROOM_NEXT_ID = 1
                 self._xt_run(coordinator.release(REMOTE), timeout=5)
                 self._json(200, {"ok": True})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/remote/public/start":
+            try:
+                if self.headers.get("Content-Length"):
+                    self._read_json_body()
+                coordinator = self._toy_coordinator()
+                session = coordinator.remote_session
+                if session is None or session.is_expired():
+                    self._json(409, {"error": "сначала создайте Remote-сессию"})
+                    return
+                public_base = _start_public_tunnel()
+                self._json(200, {"ok": True, "url": f"{public_base}/remote-control#token={session.token}"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/remote/public/stop":
+            if self.headers.get("Content-Length"):
+                self._read_json_body()
+            _stop_public_tunnel()
+            self._json(200, {"ok": True})
+            return
+        if self.path == "/api/xtoys/remote/public/status":
+            if self.headers.get("Content-Length"):
+                self._read_json_body()
+            running = _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None
+            self._json(200, {"ok": True, "running": running, "base_url": _PUBLIC_TUNNEL_URL if running else ""})
+            return
+        if self.path == "/api/xtoys/remote/room":
+            try:
+                body = self._read_json_body()
+                token = self.headers.get("Authorization", "").removeprefix("Bearer ").strip() or str(body.get("token", ""))
+                coordinator = self._toy_coordinator()
+                session = coordinator.remote_session
+                if session is None or session.is_expired() or not token or not __import__("hmac").compare_digest(token, session.token):
+                    self._json(403, {"error": "remote session invalid or expired"})
+                    return
+                role = str(body.get("role", "")).strip()
+                if role not in {"owner", "controller"}:
+                    self._json(400, {"error": "invalid room role"})
+                    return
+                action = str(body.get("action", "poll"))
+                if action == "send":
+                    kind = str(body.get("kind", ""))
+                    if kind not in {"offer", "answer", "ice", "chat", "hangup"}:
+                        self._json(400, {"error": "invalid room event"})
+                        return
+                    payload = body.get("payload")
+                    encoded = json.dumps(payload, ensure_ascii=False)
+                    if len(encoded.encode("utf-8")) > 131072:
+                        self._json(413, {"error": "room event too large"})
+                        return
+                    target = "controller" if role == "owner" else "owner"
+                    with _REMOTE_ROOM_LOCK:
+                        event = {"id": _REMOTE_ROOM_NEXT_ID, "kind": kind, "from": role, "target": target, "payload": payload, "time": time.time()}
+                        _REMOTE_ROOM_NEXT_ID += 1
+                        _REMOTE_ROOM_EVENTS.append(event)
+                        del _REMOTE_ROOM_EVENTS[:-500]
+                    self._json(200, {"ok": True, "id": event["id"]})
+                    return
+                after = max(0, int(body.get("after", 0)))
+                with _REMOTE_ROOM_LOCK:
+                    events = [event for event in _REMOTE_ROOM_EVENTS if event["id"] > after and event["target"] == role]
+                self._json(200, {"ok": True, "events": events[-100:]})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
         if self.path in ("/api/xtoys/remote/control", "/api/xtoys/remote/heartbeat"):
             try:
@@ -1391,7 +1533,7 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
-        # ===== XToys orchestration patterns (tease/build/pulse/wave/edge/release) =====
+        # ===== Dorch neutral motion profiles =====
         if self.path == "/api/xtoys/pattern/list":
             try:
                 self._json(200, {"patterns": PATTERN_NAMES})
@@ -1542,11 +1684,23 @@ class _Handler(BaseHTTPRequestHandler):
         if action in {"set_intensity", "ramp_intensity"}:
             value = int(args.get("value", 0))
             ok = await coordinator.set_intensity(source, value)
+            if not ok and source == AUTONOMOUS:
+                await coordinator.stop()
+                await coordinator.acquire(AUTONOMOUS)
+                ok = await coordinator.set_intensity(AUTONOMOUS, value)
             result = {"ok": ok, "value": coordinator.current_value, "error": None if ok else "источник управления занят или аварийно остановлен"}
         elif action == "read_intensity":
             result = {"ok": True, "value": coordinator.current_value}
         elif action == "get_status":
-            result = {"ok": True, "visible_text": "connected " + " ".join(_INTIFACE.status()["devices"])}
+            intiface_status = _INTIFACE.status()
+            result = {
+                "ok": True,
+                "visible_text": "connected " + " ".join(intiface_status["devices"]),
+                "connected": bool(intiface_status.get("connected")),
+                "devices": intiface_status.get("devices", []),
+                "value": coordinator.current_value,
+                "active_source": coordinator.active_source,
+            }
         elif action == "open":
             result = {"ok": True}
         elif action == "stop":
@@ -1695,7 +1849,10 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
-        self._json(200, {"ok": True, "started": bool(getattr(res, "success", False))})
+        if not getattr(res, "success", False):
+            self._json(409, {"error": getattr(res, "message", "camera start failed")})
+            return
+        self._json(200, {"ok": True, "started": True})
 
     def _handle_camera_stop(self) -> None:
         agent = self._get_chat_agent()
@@ -1717,10 +1874,15 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "camera capability unavailable"})
             return
         try:
-            res = _run_async(camera.capture_atomic())
+            res = _run_async(camera.capture_base64_frame())
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        finally:
+            try:
+                _run_async(camera.stop())
+            except Exception:
+                pass
         if not getattr(res, "success", False):
             self._json(409, {"error": getattr(res, "message", "capture failed")})
             return
@@ -1799,7 +1961,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(200, {"ok": bool(getattr(res, "success", False)), "message": "stopped"})
             elif cmd == "macro":
                 name = str(data.get("name", ""))
-                allowed = {"pulse", "wave", "tease", "punish"}
+                allowed = {"ramp", "climb", "pulse", "wave", "hold", "cooldown"}
                 if name in allowed:
                     res = _run_async(xtoys.select_pattern(name))
                     self._json(200, {"ok": bool(getattr(res, "success", False)), "message": f"macro {name}"})
@@ -1926,6 +2088,32 @@ def _delete_history(round_id: str) -> int:
             except OSError:
                 pass
     return count
+
+
+class _RemoteGatewayHandler(_Handler):
+    """Public surface restricted to the token-protected Remote room."""
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+        if path in ("/", "/remote-control", "/remote-control.html"):
+            page = _HERE / "remote-control.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"remote controller missing", "text/plain")
+            return
+        self._send(404, b"not found", "text/plain")
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if path in {
+            "/api/xtoys/remote/control",
+            "/api/xtoys/remote/heartbeat",
+            "/api/xtoys/remote/room",
+        }:
+            self.path = path
+            return super().do_POST()
+        self._send(404, b"not found", "text/plain")
 
 
 def run_webui(host: str = "127.0.0.1", port: int = _DEFAULT_PORT) -> None:
