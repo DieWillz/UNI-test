@@ -127,6 +127,33 @@ select,.tin{background:var(--bg3);border:1px solid var(--border);color:var(--tex
 @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}.qwen-grid{grid-template-columns:1fr}.set-grid{grid-template-columns:1fr}}
 @media(max-width:800px){#sidebar{display:none}.stats-grid{grid-template-columns:1fr}}
 
+/* XToys: полноэкранная панель без внутренних полос прокрутки. */
+#view-xtoys{overflow:hidden;padding:8px;gap:7px;min-height:0}
+#view-xtoys .xt-head{height:34px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+#view-xtoys .xt-head>div{display:flex;align-items:center;gap:8px}
+#view-xtoys .xt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;flex-shrink:0}
+#view-xtoys .stat-card{padding:7px 10px;min-width:0}
+#view-xtoys .stat-info{min-width:0}
+#view-xtoys .stat-info h2{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view-xtoys .stat-info p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view-xtoys .xt-dashboard{display:grid;grid-template-columns:1fr 1.15fr 1.1fr;gap:7px;flex:1;min-height:0}
+#view-xtoys .xt-card{min-width:0;min-height:0;height:100%}
+#view-xtoys .xt-card .ch{padding:7px 10px;flex-shrink:0}
+#view-xtoys .xt-card .cb{padding:8px;overflow:hidden;display:flex;flex-direction:column;gap:7px;min-height:0}
+#view-xtoys .xt-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+#view-xtoys .xt-section{font-size:10px;font-weight:700;color:var(--text2);padding-top:6px;border-top:1px solid var(--border)}
+#view-xtoys .xt-note{font-size:10px;color:var(--text3);line-height:1.25}
+#view-xtoys .xt-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+#view-xtoys .xt-fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+#view-xtoys .xt-fields.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+#view-xtoys .xt-fields label{font-size:9px;color:var(--text3);min-width:0}
+#view-xtoys .xt-fields .tin{display:block;width:100%;margin-top:2px;padding:3px 5px}
+#view-xtoys .xt-url{flex:1;min-width:110px;width:auto}
+#view-xtoys .x-btn{padding:6px}
+#view-xtoys .xt-camera{height:105px;display:flex;align-items:center;justify-content:center;background:var(--bg3);border:1px solid var(--border);border-radius:7px;overflow:hidden;color:var(--text3);font-size:10px}
+#view-xtoys .danger-text{color:var(--danger)}
+@media(max-height:760px){#view-xtoys .xt-camera{height:70px}#view-xtoys .stat-card{padding:5px 8px}#view-xtoys .xt-card .cb{gap:5px;padding:6px}}
+
 /* v3.3 реорганизация */
 .brand-ver{font-size:9px;color:var(--text3);font-weight:700;background:var(--bg3);padding:2px 6px;border-radius:5px;margin-left:4px}
 .pipeline-inline{border-bottom:none!important;background:transparent!important;padding:0!important;margin-bottom:4px}
