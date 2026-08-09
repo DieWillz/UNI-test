@@ -34,6 +34,9 @@ from uni.council.participants import load_participants
 from uni.council.round import CouncilRound
 from uni.autonomous_session import AutonomousSession
 from uni.intiface_bridge import IntifaceBridge
+from uni.xtoys_patterns import XToysPatternEngine, PATTERN_NAMES
+from uni.xtoys_control_coordinator import ToyControlCoordinator, MANUAL, MOTION, REMOTE, PATTERN, AUTONOMOUS
+from uni.xtoys_motion import MotionToyController, MotionSettings
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
@@ -47,6 +50,13 @@ _XT_THREAD: Any = None
 
 # ===== Intiface (Buttplug) direct bridge =====
 _INTIFACE: IntifaceBridge | None = None
+
+# ===== XToys orchestration patterns (tease/build/pulse/wave/edge/release) =====
+_XTOYS_PATTERN: XToysPatternEngine | None = None
+
+# ===== ToyControlCoordinator: единый шлюз управления устройством =====
+_TOY_COORDINATOR: ToyControlCoordinator | None = None
+_MOTION: MotionToyController | None = None
 
 
 def _safe_project_path(rel: str) -> Path:
@@ -92,6 +102,10 @@ _TTS_VOICES = {
     "browser": [{"id": "", "label": "Системный русский голос браузера"}],
     "xtts": [{"id": "default", "label": "XTTS-v2 — голос по референсу сервера"}],
     "fish": [{"id": "default", "label": "Fish Audio — выразительный"}],
+    "qwen_vc": [
+        {"id": "cloned", "label": "Клонированный голос (Qwen VC)"},
+        {"id": "default", "label": "Qwen Voice Clone — стандартный"},
+    ],
 }
 
 
@@ -111,6 +125,9 @@ def _tts_payload(body: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("text required")
     if len(text) > 8_000:
         raise ValueError("TTS text exceeds 8000 characters")
+    qwen_ref_audio = str(body.get("qwen_ref_audio", "")).strip()
+    if provider == "qwen_vc" and not qwen_ref_audio:
+        qwen_ref_audio = str(Path(__file__).with_name("text.wav"))
     return {
         "provider": provider,
         "voice": str(body.get("voice", "")).strip()[:300],
@@ -119,6 +136,9 @@ def _tts_payload(body: dict[str, Any]) -> dict[str, Any]:
         "pitch": _bounded_float(body.get("pitch"), 0.0, -12.0, 12.0),
         "volume": _bounded_float(body.get("volume"), 1.0, 0.0, 1.5),
         "endpoint": str(body.get("endpoint", "")).strip()[:500],
+        "qwen_ref_audio": qwen_ref_audio[:2000],
+        "qwen_ref_text": str(body.get("qwen_ref_text", "")).strip()[:2000],
+        "qwen_model_size": str(body.get("qwen_model_size", "1.7B")).strip()[:20],
     }
 
 
@@ -178,6 +198,75 @@ def _external_tts(request: dict[str, Any]) -> tuple[bytes, str]:
     if not data:
         raise RuntimeError("TTS service returned empty audio")
     return data, "audio/mpeg" if "mpeg" in content_type or "mp3" in content_type else "audio/wav"
+
+
+def _qwen_vc_tts(request: dict[str, Any]) -> tuple[bytes, str]:
+    """Clone a voice via a Qwen Voice-Clone Gradio server (e.g. localhost:7860).
+
+    The user runs their own Gradio TTS server; we call its unified TTS endpoint
+    with the reference audio they supplied in the panel. Failures raise so the
+    caller returns HTTP 502 — this path never crashes the whole server.
+    """
+    from gradio_client import Client, handle_file
+
+    endpoint = request.get("endpoint") or "http://127.0.0.1:7860"
+    if "://" not in endpoint:
+        endpoint = "http://" + endpoint
+    ref_audio = request.get("qwen_ref_audio") or ""
+    ref_text = request.get("qwen_ref_text") or ""
+    model_size = request.get("qwen_model_size") or "1.7B"
+    # If the reference text is empty but a matching .txt sits next to the wav,
+    # read it automatically (the user keeps text.wav + text.txt together).
+    if not ref_text and ref_audio:
+        candidate = Path(ref_audio).with_suffix(".txt")
+        if candidate.is_file():
+            try:
+                ref_text = candidate.read_text(encoding="utf-8", errors="ignore").strip()
+            except Exception:
+                pass
+    if not ref_audio:
+        raise RuntimeError("Qwen VC: не указан путь к референс-аудио (поле qwen_ref_audio)")
+    if not Path(ref_audio).is_file():
+        raise RuntimeError(f"Qwen VC: файл референса не найден: {ref_audio}")
+    client = Client(endpoint)
+    # Real Gradio API (verified against the running server's /generate_unified_tts):
+    #   text_input, tts_engine='Qwen Voice Clone', audio_format='wav',
+    #   qwen_ref_audio_param, qwen_ref_text_param, qwen_language_param='Russian',
+    #   qwen_clone_model_size_param, qwen_seed_param=-1
+    api_name = "/generate_unified_tts"
+    api = next((item for item in client.endpoints.values() if item.api_name == api_name), None)
+    if api is None:
+        raise RuntimeError(f"Qwen VC: Gradio endpoint {api_name} не найден")
+    # This unified form marks even hidden controls of other engines as required.
+    # Seed the call with the server's own defaults, then override only Qwen VC.
+    params = {
+        item["parameter_name"]: item.get("parameter_default")
+        for item in api.parameters_info
+    }
+    params.update(
+        text_input=request["text"],
+        tts_engine="Qwen Voice Clone",
+        audio_format="wav",
+        qwen_mode="voice_clone",
+        qwen_ref_audio=handle_file(ref_audio),
+        qwen_ref_text=ref_text,
+        qwen_language="Russian",
+        qwen_xvector_only=False,
+        qwen_clone_model_size=model_size,
+        qwen_seed=-1,
+    )
+    result = client.predict(**params, api_name=api_name)
+    # Gradio predict returns the audio file path (str) or (path, ...) tuple.
+    if isinstance(result, (tuple, list)):
+        result = result[0]
+    if isinstance(result, dict):
+        result = result.get("path") or result.get("name")
+    if isinstance(result, str) and os.path.isfile(result):
+        with open(result, "rb") as fh:
+            return fh.read(), "audio/wav"
+    if isinstance(result, bytes):
+        return result, "audio/wav"
+    raise RuntimeError(f"Qwen VC: неожиданный ответ сервера: {type(result)}")
 
 
 def _ensure_agent_loop() -> asyncio.AbstractEventLoop | None:
@@ -676,6 +765,28 @@ class _Handler(BaseHTTPRequestHandler):
                 "mode": "live" if xtoys is not None else "emulated",
             })
             return
+        if parsed.path == "/api/xtoys/session/status":
+            try:
+                agent = self._get_chat_agent()
+                session = self._xt_session(agent)
+                self._json(200, {"active": session.active, "status": session.status_text()})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if parsed.path == "/api/intiface/status":
+            try:
+                if _INTIFACE is None:
+                    self._json(200, {"connected": False, "url": "ws://127.0.0.1:12345", "devices": [], "last_error": ""})
+                else:
+                    self._json(200, _INTIFACE.status())
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if parsed.path == "/api/xtoys/pattern/status":
+            self._json(200, _XTOYS_PATTERN.status() if _XTOYS_PATTERN is not None else {
+                "running": False, "name": "", "last_value": 0, "step": "", "error": ""
+            })
+            return
         # Autonomous UI bridge: stream phrases (text + audio_url) to the WebUI.
         if parsed.path == "/api/autonomous/stream":
             agent = self._get_chat_agent()
@@ -729,7 +840,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        global _INTIFACE
+        global _INTIFACE, _XTOYS_PATTERN
         if self.path == "/api/round/start":
             try:
                 payload = _read_body(self)
@@ -865,6 +976,20 @@ class _Handler(BaseHTTPRequestHandler):
                     })
                     return
 
+                if provider == "qwen_vc":
+                    data, content_type = _qwen_vc_tts(request)
+                    suffix = ".wav" if content_type == "audio/wav" else ".mp3"
+                    import tempfile as _tf
+                    out = Path(_tf.gettempdir()) / f"uni_tts_{int(time.time() * 1000)}{suffix}"
+                    out.write_bytes(data)
+                    self._json(200, {
+                        "ok": True,
+                        "audio_url": f"/api/autonomous/audio/{out.name}",
+                        "content_type": content_type,
+                        "controls_applied": ["rate", "pitch", "volume"],
+                    })
+                    return
+
                 from uni.capabilities.speech import SpeechCapability
                 selected_voice = voice or ("ru_RU-irina-medium.onnx" if provider == "piper" else "xenia")
                 # One Silero v5 model contains all supported speakers; only Piper
@@ -940,7 +1065,7 @@ class _Handler(BaseHTTPRequestHandler):
                     return
                 # fire-and-forget: session.start() opens the browser/xtoys and may
                 # take a while; the UI polls /status instead of blocking here.
-                self._xt_fire(session.start(open_xtoys=True, confirm_ready=True))
+                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
                 self._json(200, {"ok": True, "running": True, "message": "запуск сессии…"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -962,10 +1087,11 @@ class _Handler(BaseHTTPRequestHandler):
                 session = self._xt_session(agent)
                 if session.active:
                     msg = session.set_manual_override(value)
-                else:
-                    res = self._xt_run(agent.tool_executor.execute("xtoys.set_intensity", {"value": value}))
+                res = self._xt_run(self._run_xtoys_device_tool("xtoys.set_intensity", {"value": value}))
+                if not session.active:
                     msg = getattr(res, "message", "ok")
-                self._json(200, {"ok": True, "value": value, "message": msg})
+                ok = bool(getattr(res, "success", False))
+                self._json(200 if ok else 502, {"ok": ok, "value": value, "message": msg, "error": None if ok else msg})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -1032,6 +1158,53 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        # ===== XToys orchestration patterns (tease/build/pulse/wave/edge/release) =====
+        if self.path == "/api/xtoys/pattern/list":
+            try:
+                self._json(200, {"patterns": PATTERN_NAMES})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/pattern/start":
+            try:
+                body = self._read_json_body()
+                name = str(body.get("name", "")).strip().lower()
+                duration = float(body.get("duration", 20.0))
+                intensity = int(body.get("intensity", 70))
+                if name not in PATTERN_NAMES:
+                    self._json(400, {"error": f"unknown pattern: {name}", "available": PATTERN_NAMES})
+                    return
+                if _INTIFACE is None or not _INTIFACE.connected:
+                    self._json(503, {"error": "Сначала подключите Intiface"})
+                    return
+                if _XTOYS_PATTERN is None:
+                    _XTOYS_PATTERN = XToysPatternEngine(run_tool=self._run_xtoys_device_tool)
+                # fire-and-forget: pattern runs in the agent's live loop
+                self._xt_fire(_XTOYS_PATTERN.run(name, duration, intensity))
+                self._json(200, {"ok": True, "running": name, "message": f"паттерн «{name}» запущен"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/pattern/stop":
+            try:
+                if _XTOYS_PATTERN is not None:
+                    _XTOYS_PATTERN.stop()
+                    _XTOYS_PATTERN = None
+                if _INTIFACE is not None and _INTIFACE.connected:
+                    self._xt_run(_INTIFACE.stop(), timeout=5)
+                self._json(200, {"ok": True, "message": "паттерн остановлен"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/pattern/status":
+            try:
+                if _XTOYS_PATTERN is None:
+                    self._json(200, {"running": False, "name": "", "last_value": 0, "step": "", "error": ""})
+                else:
+                    self._json(200, _XTOYS_PATTERN.status())
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         # --- гибридный слой «отправка заданий участникам» ---
         if self.path == "/api/round":
             from uni.webui.council_api import create_round
@@ -1090,13 +1263,37 @@ class _Handler(BaseHTTPRequestHandler):
             role = getattr(getattr(cfg, "autonomous", None), "role_prompt", "") or ""
             role_prompt = role
         _XT_SESSION = AutonomousSession(
-            run_tool=lambda name, args: agent.tool_executor.execute(name, args),
+            run_tool=self._run_xtoys_device_tool,
             speak=(lambda t: speech.speak(t)) if speech is not None else (lambda t: False),
             chat=agent.brain.chat,
             role_prompt=role_prompt or "Ты — властная госпожа в автономной сессии с секс-машинкой.",
             max_intensity=max_int,
         )
         return _XT_SESSION
+
+    async def _run_xtoys_device_tool(self, name: str, args: dict[str, Any]) -> ToolResult:
+        """Route all panel/session/pattern device control through Intiface."""
+        global _INTIFACE
+        action = name.rsplit(".", 1)[-1]
+        if _INTIFACE is None or not _INTIFACE.connected:
+            return ToolResult(success=False, message="Intiface не подключён")
+        if action in {"set_intensity", "ramp_intensity"}:
+            result = await _INTIFACE.oscillate(int(args.get("value", 0)))
+        elif action == "read_intensity":
+            result = {"ok": True, "value": _INTIFACE.current_value}
+        elif action == "get_status":
+            result = {"ok": True, "visible_text": "connected " + " ".join(_INTIFACE.status()["devices"])}
+        elif action == "open":
+            result = {"ok": True}
+        elif action == "stop":
+            result = await _INTIFACE.stop()
+        else:
+            return ToolResult(success=False, message=f"Неподдерживаемое действие Intiface: {action}")
+        return ToolResult(
+            success=bool(result.get("ok")),
+            data=result,
+            message=result.get("error") or f"Intiface {action}: {result.get('value', 'ok')}",
+        )
 
     def _xt_run(self, coro, timeout: float = 90):
         """Schedule a coroutine on the agent's live loop; used for quick calls."""
@@ -1152,7 +1349,10 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:  # агент без тяжёлых capability отвечает текстом
                 agent._init_error = f"{type(exc).__name__}: {exc}"
                 init_error["err"] = agent._init_error
-            # loop остаётся живым для последующих _run_async вызовов
+            # Keep processing run_coroutine_threadsafe() calls from HTTP handlers.
+            # Previously the thread returned here, leaving a valid-looking but
+            # stopped loop; XToys/Intiface commands were queued forever.
+            loop.run_forever()
 
         t = threading.Thread(target=_bootstrap, name="uni-agent-loop", daemon=True)
         t.start()

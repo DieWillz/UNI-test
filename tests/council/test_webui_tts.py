@@ -27,6 +27,9 @@ def test_tts_payload_is_bounded_and_normalized():
         "pitch": -12.0,
         "volume": 0.75,
         "endpoint": "",
+        "qwen_ref_audio": "",
+        "qwen_ref_text": "",
+        "qwen_model_size": "1.7B",
     }
 
 

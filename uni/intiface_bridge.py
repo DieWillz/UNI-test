@@ -33,6 +33,7 @@ class IntifaceBridge:
         self._task: asyncio.Task[None] | None = None
         self.connected = False
         self.last_error: str = ""
+        self.current_value = 0
 
     async def connect(self) -> dict[str, Any]:
         if self.connected and self.client is not None:
@@ -41,8 +42,6 @@ class IntifaceBridge:
             self.client = Client("UNI Panel", ProtocolSpec.v3)
             connector = WebsocketConnector(self.url)
             await self.client.connect(connector)
-            # Start the client's message pump (keeps ping/events flowing).
-            self._task = asyncio.create_task(self.client.run(), name="uni.intiface")
             # Give the server a moment to enumerate devices.
             await asyncio.sleep(1.0)
             self.connected = True
@@ -69,19 +68,22 @@ class IntifaceBridge:
         if self.client is None or not hasattr(self.client, "devices"):
             return []
         try:
-            return [getattr(d, "name", str(d)) for d in self.client.devices]
+            devices = self.client.devices
+            values = devices.values() if isinstance(devices, dict) else devices
+            return [getattr(d, "name", str(d)) for d in values]
         except Exception:
             return []
 
     def _pick_device(self):
         if self.client is None or not hasattr(self.client, "devices"):
             return None
-        devices = list(self.client.devices)
+        raw = self.client.devices
+        devices = list(raw.values()) if isinstance(raw, dict) else list(raw)
         return devices[0] if devices else None
 
     async def oscillate(self, value: int) -> dict[str, Any]:
         """Drive the machine: 0..100. Picks the first device and uses whatever
-        actuation it supports (oscillate > rotate > vibrate)."""
+        scalar actuator Intiface exposes for the device."""
         value = max(0, min(100, int(value)))
         if not self.connected or self.client is None:
             return {"ok": False, "error": "не подключено к Intiface"}
@@ -90,20 +92,22 @@ class IntifaceBridge:
             return {"ok": False, "error": "устройство не найдено (Connect на Intiface)"}
         try:
             speed = value / 100.0
-            sent = False
-            # Try capabilities in order of preference for a "machine" feel.
-            if getattr(device, "oscillate_cmd", None) is not None:
-                await device.oscillate_cmd(speed)
-                sent = True
-            elif getattr(device, "rotate_cmd", None) is not None:
-                await device.rotate_cmd(speed, clockwise=True)
-                sent = True
-            elif getattr(device, "vibrate_cmd", None) is not None:
-                await device.vibrate_cmd(speed)
-                sent = True
-            if not sent:
-                return {"ok": False, "error": "устройство не поддерживает oscillate/rotate/vibrate"}
-            return {"ok": True, "value": value, "device": getattr(device, "name", "?")}
+            actuators = list(getattr(device, "actuators", ()) or ())
+            actuator = next(
+                (item for item in actuators if str(getattr(item, "type", "")).casefold() == "oscillate"),
+                actuators[0] if actuators else None,
+            )
+            if actuator is None:
+                return {"ok": False, "error": "устройство не предоставляет Scalar/Oscillate actuator"}
+            await actuator.command(speed)
+            self.current_value = value
+            return {
+                "ok": True,
+                "value": value,
+                "device": getattr(device, "name", str(device)),
+                "feature": getattr(actuator, "description", "Oscillate"),
+                "steps": getattr(actuator, "step_count", None),
+            }
         except Exception as exc:  # noqa: BLE001
             self.last_error = str(exc)
             logger.warning(f"Intiface oscillate failed: {exc}")
@@ -116,14 +120,13 @@ class IntifaceBridge:
         if device is None:
             return {"ok": True, "note": "нет устройства"}
         try:
-            if getattr(device, "stop", None) is not None:
-                await device.stop()
-            elif getattr(device, "vibrate_cmd", None) is not None:
-                await device.vibrate_cmd(0.0)
-            elif getattr(device, "rotate_cmd", None) is not None:
-                await device.rotate_cmd(0.0, clockwise=True)
-            elif getattr(device, "oscillate_cmd", None) is not None:
-                await device.oscillate_cmd(0.0)
+            actuators = list(getattr(device, "actuators", ()) or ())
+            if actuators:
+                for actuator in actuators:
+                    await asyncio.wait_for(actuator.command(0.0), timeout=3.0)
+            else:
+                await asyncio.wait_for(device.stop(), timeout=3.0)
+            self.current_value = 0
             return {"ok": True}
         except Exception as exc:  # noqa: BLE001
             self.last_error = str(exc)
@@ -135,4 +138,5 @@ class IntifaceBridge:
             "url": self.url,
             "devices": self._device_names(),
             "last_error": self.last_error,
+            "value": self.current_value,
         }

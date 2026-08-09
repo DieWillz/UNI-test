@@ -13,7 +13,7 @@ function showToast(m){const t=$('toast');t.textContent=m;t.classList.add('show')
 function setTheme(v){document.documentElement.setAttribute('data-theme',v);localStorage.setItem('uni_theme',v);$('themeSel').value=v;$('themeBtn').textContent=v==='dark'?'☀ Тема':'🌙 Тема'}
 function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
 function toggleChatPanel(){$('chatPanel').classList.toggle('collapsed')}
-function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active')}
+function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='xtoys'){xtoysSessionPoll();intifacePoll();xtoysPatternPoll()}}
 function setStep(n){document.querySelectorAll('.pstep').forEach((el,i)=>{el.classList.remove('active','done');if(n>=0){if(i<n)el.classList.add('done');if(i===n)el.classList.add('active')}})}
 async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||2500);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e}}
 async function pingServers(){
@@ -113,20 +113,21 @@ if(tries>24){clearInterval(iv);feeds.forEach(f=>addMsg(f,'sys','⚠ Ответа
 },5000);
 }
 let _ttsAudio=null,_ttsEngines={};
-const TTS_VOICE_FALLBACKS={silero:[['xenia','Xenia — спокойная'],['kseniya','Kseniya — ясная'],['baya','Baya — мягкая'],['eugene','Eugene — мужской'],['aidar','Aidar — глубокий мужской']],piper:[['ru_RU-irina-medium.onnx','Irina Medium — офлайн']],browser:[['','Системный русский голос']],xtts:[['default','XTTS-v2 — голос сервера']],fish:[['default','Fish Audio — выразительный']]};
-function ttsPref(){return{provider:localStorage.getItem('uni_tts_provider')||'silero',voice:localStorage.getItem('uni_tts_voice')||'xenia',endpoint:localStorage.getItem('uni_tts_endpoint')||'',rate:Number(localStorage.getItem('uni_tts_rate')||1),pitch:Number(localStorage.getItem('uni_tts_pitch')||0),volume:Number(localStorage.getItem('uni_tts_volume')||1),testText:localStorage.getItem('uni_tts_test_text')||'Привет! Я Юни. Рада тебя слышать — давай сделаем что-нибудь интересное.'}}
+const TTS_VOICE_FALLBACKS={silero:[['xenia','Xenia — спокойная'],['kseniya','Kseniya — ясная'],['baya','Baya — мягкая'],['eugene','Eugene — мужской'],['aidar','Aidar — глубокий мужской']],piper:[['ru_RU-irina-medium.onnx','Irina Medium — офлайн']],browser:[['','Системный русский голос']],xtts:[['default','XTTS-v2 — голос сервера']],fish:[['default','Fish Audio — выразительный']],qwen_vc:[['cloned','Клонированный голос (Qwen VC)'],['default','Qwen Voice Clone — стандартный']]};
+function ttsPref(){return{provider:localStorage.getItem('uni_tts_provider')||'silero',voice:localStorage.getItem('uni_tts_voice')||'xenia',endpoint:localStorage.getItem('uni_tts_endpoint')||'',rate:Number(localStorage.getItem('uni_tts_rate')||1),pitch:Number(localStorage.getItem('uni_tts_pitch')||0),volume:Number(localStorage.getItem('uni_tts_volume')||1),qwenRefAudio:localStorage.getItem('uni_qwen_ref_audio')||'',qwenRefText:localStorage.getItem('uni_qwen_ref_text')||'',qwenModelSize:localStorage.getItem('uni_qwen_model_size')||'1.7B',testText:localStorage.getItem('uni_tts_test_text')||'Привет! Я Юни. Рада тебя слышать — давай сделаем что-нибудь интересное.'}}
 function saveTtsPref(){
 const p=$('ttsProvider').value,v=$('ttsVoice').value,endpoint=$('ttsEndpoint').value.trim(),rate=Number($('ttsRate').value),pitch=Number($('ttsPitch').value),volume=Number($('ttsVolume').value);
-localStorage.setItem('uni_tts_provider',p);localStorage.setItem('uni_tts_voice',v);localStorage.setItem('uni_tts_endpoint',endpoint);localStorage.setItem('uni_tts_rate',rate);localStorage.setItem('uni_tts_pitch',pitch);localStorage.setItem('uni_tts_volume',volume);localStorage.setItem('uni_tts_test_text',$('ttsTestText').value);
+const qa=$('qwenRefAudio')?$('qwenRefAudio').value.trim():'',qt=$('qwenRefText')?$('qwenRefText').value.trim():'',qm=$('qwenModelSize')?$('qwenModelSize').value.trim():'1.7B';
+localStorage.setItem('uni_tts_provider',p);localStorage.setItem('uni_tts_voice',v);localStorage.setItem('uni_tts_endpoint',endpoint);localStorage.setItem('uni_tts_rate',rate);localStorage.setItem('uni_tts_pitch',pitch);localStorage.setItem('uni_tts_volume',volume);localStorage.setItem('uni_qwen_ref_audio',qa);localStorage.setItem('uni_qwen_ref_text',qt);localStorage.setItem('uni_qwen_model_size',qm);localStorage.setItem('uni_tts_test_text',$('ttsTestText').value);
 $('ttsRateValue').textContent=rate.toFixed(2)+'×';$('ttsPitchValue').textContent=(pitch>0?'+':'')+pitch;$('ttsVolumeValue').textContent=Math.round(volume*100)+'%';
 }
 function setVoiceOptions(provider,selected){const list=(_ttsEngines[provider]&&_ttsEngines[provider].voices||[]).map(x=>[x.id,x.label]);const voices=list.length?list:(TTS_VOICE_FALLBACKS[provider]||[]);$('ttsVoice').innerHTML=voices.map(x=>'<option value="'+esc(x[0])+'">'+esc(x[1])+'</option>').join('');if(voices.some(x=>x[0]===selected))$('ttsVoice').value=selected;}
-function onTtsProviderChange(){const p=$('ttsProvider').value,old=ttsPref();setVoiceOptions(p,old.provider===p?old.voice:'');$('ttsEndpointRow').style.display=(p==='xtts'||p==='fish')?'flex':'none';const info=_ttsEngines[p];$('ttsEngineDetail').textContent=info?(info.available?'● '+info.detail:'○ '+info.detail):'Состояние движка пока не проверено';saveTtsPref();}
-async function loadTtsSettings(){const pr=ttsPref();$('ttsProvider').value=pr.provider;$('ttsEndpoint').value=pr.endpoint;$('ttsRate').value=pr.rate;$('ttsPitch').value=pr.pitch;$('ttsVolume').value=pr.volume;$('ttsTestText').value=pr.testText;try{const r=await fetch(HRM+'/api/tts/engines');if(r.ok){const d=await r.json();(d.engines||[]).forEach(x=>_ttsEngines[x.id]=x)}}catch(e){}setVoiceOptions(pr.provider,pr.voice);onTtsProviderChange();$('ttsTestStatus').textContent='готов';}
+function onTtsProviderChange(){const p=$('ttsProvider').value,old=ttsPref();setVoiceOptions(p,old.provider===p?old.voice:'');$('ttsEndpointRow').style.display=(p==='xtts'||p==='fish'||p==='qwen_vc')?'flex':'none';if(p==='qwen_vc'&&!$('ttsEndpoint').value.trim())$('ttsEndpoint').value='http://127.0.0.1:7860';['qwenVcRow','qwenVcRow2','qwenVcRow3'].forEach(id=>{const el=$(id);if(el)el.style.display=(p==='qwen_vc')?'flex':'none'});const info=_ttsEngines[p];$('ttsEngineDetail').textContent=info?(info.available?'● '+info.detail:'○ '+info.detail):'Состояние движка пока не проверено';saveTtsPref();}
+async function loadTtsSettings(){const pr=ttsPref();$('ttsProvider').value=pr.provider;$('ttsEndpoint').value=pr.endpoint;$('ttsRate').value=pr.rate;$('ttsPitch').value=pr.pitch;$('ttsVolume').value=pr.volume;$('ttsTestText').value=pr.testText;if($('qwenRefAudio'))$('qwenRefAudio').value=pr.qwenRefAudio;if($('qwenRefText'))$('qwenRefText').value=pr.qwenRefText;if($('qwenModelSize'))$('qwenModelSize').value=pr.qwenModelSize;try{const r=await fetch(HRM+'/api/tts/engines');if(r.ok){const d=await r.json();(d.engines||[]).forEach(x=>_ttsEngines[x.id]=x)}}catch(e){}setVoiceOptions(pr.provider,pr.voice);onTtsProviderChange();$('ttsTestStatus').textContent='готов';}
 function stopVoice(){if(_ttsAudio){_ttsAudio.pause();_ttsAudio.currentTime=0;_ttsAudio=null}try{speechSynthesis.cancel()}catch(e){}const st=$('ttsTestStatus');if(st){st.textContent='остановлено';st.className='pill'}}
 function browserSpeak(t,pr){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='ru-RU';u.rate=pr.rate;u.pitch=Math.max(0,Math.min(2,1+pr.pitch/12));u.volume=Math.max(0,Math.min(1,pr.volume));const voices=speechSynthesis.getVoices().filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ru'));if(pr.voice){const found=voices.find(v=>v.name===pr.voice);if(found)u.voice=found}speechSynthesis.speak(u);return true}catch(e){showToast('❌ Голос браузера: '+e.message);return false}}
 async function requestSpeech(t,testing){const pr=ttsPref(),st=$('ttsTestStatus');if(testing){st.textContent='синтез…';st.className='pill p-warn'}
-try{const r=await fetch(HRM+(testing?'/api/tts/test':'/api/tts'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,provider:pr.provider,voice:pr.voice,endpoint:pr.endpoint,rate:pr.rate,pitch:pr.pitch,volume:pr.volume})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));stopVoice();if(d.browser){browserSpeak(t,pr)}else if(d.audio_url){_ttsAudio=new Audio(new URL(d.audio_url,HRM).href);_ttsAudio.volume=Math.max(0,Math.min(1,pr.volume));await _ttsAudio.play()}else throw new Error('сервер не вернул аудио');if(testing){st.textContent='голос работает ✓';st.className='pill p-ok';if(d.controls_note)$('ttsEngineDetail').textContent=d.controls_note}return true}catch(e){if(testing){st.textContent='ошибка: '+e.message;st.className='pill p-err'}showToast('❌ TTS: '+e.message);return false}}
+try{const r=await fetch(HRM+(testing?'/api/tts/test':'/api/tts'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,provider:pr.provider,voice:pr.voice,endpoint:pr.endpoint,rate:pr.rate,pitch:pr.pitch,volume:pr.volume,qwen_ref_audio:pr.qwenRefAudio,qwen_ref_text:pr.qwenRefText,qwen_model_size:pr.qwenModelSize})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));stopVoice();if(d.browser){browserSpeak(t,pr)}else if(d.audio_url){_ttsAudio=new Audio(new URL(d.audio_url,HRM).href);_ttsAudio.volume=Math.max(0,Math.min(1,pr.volume));await _ttsAudio.play()}else throw new Error('сервер не вернул аудио');if(testing){st.textContent='голос работает ✓';st.className='pill p-ok';if(d.controls_note)$('ttsEngineDetail').textContent=d.controls_note}return true}catch(e){if(testing){st.textContent='ошибка: '+e.message;st.className='pill p-err'}showToast('❌ TTS: '+e.message);return false}}
 function testVoice(){saveTtsPref();const t=$('ttsTestText').value.trim()||ttsPref().testText;requestSpeech(t,true)}
 function speak(t){if(t&&t.trim())requestSpeech(t.trim(),false)}
 /* ===== Лёгкий непрерывный голос в чате (без устройств/vision) ===== */
@@ -143,7 +144,7 @@ if(text&&text.trim()){const feed=$('sideFeed');if(feed){const m=document.createE
 }catch(e){/* тихо пропускаем сбой сети */}
 }
 function toggleVoiceAuto(){const on=!window._voiceAutoOn;if(on)startVoiceLoop();else stopVoiceLoop();window._voiceAutoOn=on;const b=$('voiceAutoBtn'),s=$('voiceAutoStatus');if(b)b.textContent=on?'⏸ Стоп голоса':'🎙 Голосовой авторежим';if(s){s.textContent=on?'вкл':'выкл';s.className='pill '+(on?'p-ok':'p-warn');}}
-function startVoiceLoop(){if(_voiceTimer)return;const sec=Math.max(4,parseInt($('voiceLoopSec').value||'12',10)||12);voiceLoopTick();_voiceTimer=setInterval(voiceLoopTick,sec*1000);showToast('🔁 Непрерывный голос включён');}
+function startVoiceLoop(){if(_voiceTimer)return;const sec=Math.max(4,parseInt($('voiceLoopSec').value||'25',10)||25);voiceLoopTick();_voiceTimer=setInterval(voiceLoopTick,sec*1000);showToast('🔁 Непрерывный голос включён');}
 function stopVoiceLoop(){if(_voiceTimer){clearInterval(_voiceTimer);_voiceTimer=null;showToast('⏸ Непрерывный голос выключен');}}
 
 function uniSendSide(){const i=$('sideInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('sideFeed')])}
@@ -178,34 +179,6 @@ try{const es=new EventSource(HRM+'/api/round/progress');es.onmessage=e=>{try{con
 function qwStartRound(){startRound()}
 function qwSendChat(){const i=$('qwCin');const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('qwChat')])}
 function emergencyStop(){setStep(-1);$('stRound').textContent='остановлен';showToast('🛑 Аварийная остановка')}
-/* ===== XToys → Intiface (Buttplug JSON v4 over WebSocket) ===== */
-let xtWS=null,xtId=1,xtDevices=[],xtPat=null,intensity=0.45;
-function xtSend(type,msg){if(xtWS&&xtWS.readyState===1){const m={Id:++xtId};m[type]=msg;xtWS.send(JSON.stringify([m]))}}
-function xtoySet(s,cls){const m=$('xStatus');m.textContent='статус: '+s;m.className='pill '+(cls||'p-warn')}
-function xtoysConnect(){
-if(xtWS&&xtWS.readyState===1){try{xtWS.close()}catch(e){};return}
-const host=$('xtoysHost').value.trim()||'ws://127.0.0.1:12345';
-xtoySet('подключение…');
-try{xtWS=new WebSocket(host)}catch(e){xtoySet('ошибка: '+e.message,'p-err');return}
-xtWS.onopen=()=>{xtoySet('рукопожатие…');xtSend('RequestServerInfo',{ClientName:'UNI Panel',MessageVersion:3})};
-xtWS.onmessage=ev=>{let arr;try{arr=JSON.parse(ev.data)}catch(e){return}
-arr.forEach(m=>{if(m.ServerInfo){xtoySet('онлайн','p-ok');$('xtoysBtn').textContent='⏸ Отключить';xtSend('RequestDeviceList',{});renderXtDevices()}
-else if(m.DeviceAdded){const d=m.DeviceAdded;if(!xtDevices.find(x=>x.DeviceIndex===d.DeviceIndex))xtDevices.push(d);renderXtDevices();xtoySet('устройство: '+(d.DeviceName||'#'+d.DeviceIndex),'p-ok')}
-else if(m.DeviceRemoved){xtDevices=xtDevices.filter(x=>x.DeviceIndex!==m.DeviceRemoved.DeviceIndex);renderXtDevices()}
-else if(m.DeviceList){xtDevices=m.DeviceList.Devices||[];renderXtDevices()}
-else if(m.Error){const em=m.Error.ErrorMessage||JSON.stringify(m.Error);if(!/DeviceList|unknown message/i.test(em))showToast('⚠ Intiface: '+em.slice(0,120))}})};
-xtWS.onerror=()=>xtoySet('ошибка соединения','p-err');
-xtWS.onclose=()=>{xtoySet('отключено');$('xtoysBtn').textContent='🔌 Подключить';xtDevices=[];renderXtDevices();if(xtPat){clearInterval(xtPat);xtPat=null}}
-}
-function renderXtDevices(){
-const box=$('xtoysDevices');
-if(!xtDevices.length){box.innerHTML='<span style="color:var(--text3)">устройства не обнаружены</span>';return}
-box.innerHTML=xtDevices.map(d=>{const f=d.DeviceMessages||{};const caps=Object.keys(f).join(', ');return `<div style="padding:4px 0;border-top:1px solid var(--border)"><b>${esc(d.DeviceName||'device')}</b> (#${d.DeviceIndex})<br><span style="color:var(--text3)">${esc(caps)}</span></div>`}).join('')
-}
-function xtDeviceIdx(){const d=xtDevices.find(x=>(x.DeviceMessages&&(x.DeviceMessages.OscillateCmd||x.DeviceMessages.RotateCmd))||(x.DeviceName||'').toLowerCase().includes('rotary'));return d?d.DeviceIndex:null}
-function xtoyOsc(v){const i=xtDeviceIdx();if(i===null)return false;v=Math.max(0,Math.min(1,v));xtSend('OscillateCmd',{DeviceIndex:i,Speeds:[{Index:0,Intensity:v}]});return true}
-function xtoysSetIntensity(v){intensity=v;if(xtDeviceIdx()===null)return;xtoyOsc(v);xtoySet('поршень · '+Math.round(v*100)+'%','p-ok')}
-function xtoysStop(){if(xtPat){clearInterval(xtPat);xtPat=null}intensity=0;xtoyOsc(0);xtoySet('стоп','p-warn')}
 /* ===== Роли: подгрузка из uni/roles/*.md через Hermes API ===== */
 async function loadRoles(){
 try{
@@ -248,8 +221,9 @@ es.onerror=()=>{/* сервер не запущен авто-режим — ти
 function toggleAutoMode(){
 const btn=$('autoBtn'),st=$('autoStatus');
 const starting=!window._autoOn;
+btn.disabled=true;
 fetch(HRM+(starting?'/api/xtoys/session/start':'/api/xtoys/session/stop'),{method:'POST'})
-.then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))
+.then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d})
 .then(d=>{
 window._autoOn=starting;
 if(btn)btn.textContent=starting?'⏸ Стоп сессии':'⚡ Авто-режим';
@@ -258,20 +232,22 @@ if(starting)showToast('⚡ Сессия: ЮНИ говорит и крутит �
 else showToast('⏸ Сессия остановлена');
 if(starting)xtoysSessionPoll();
 })
-.catch(e=>{showToast('⚠ Сессия: '+e.message);});
+.catch(e=>{showToast('⚠ Сессия: '+e.message);})
+.finally(()=>{btn.disabled=false});
 }
 function xtoysSessionStop(){
-fetch(HRM+'/api/xtoys/session/stop',{method:'POST'}).then(()=>{window._autoOn=false;const btn=$('autoBtn'),st=$('autoStatus');if(btn)btn.textContent='⚡ Авто-режим';if(st){st.textContent='выкл';st.className='pill p-warn';}}).catch(()=>{});
+fetch(HRM+'/api/xtoys/session/stop',{method:'POST'}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));window._autoOn=false;const btn=$('autoBtn'),st=$('autoStatus');if(btn)btn.textContent='⚡ Авто-режим';if(st){st.textContent='выкл';st.className='pill p-warn';}$('xtSessionStatus').textContent='остановлена';showToast('■ XToys остановлен')}).catch(e=>showToast('⚠ Стоп XToys: '+e.message));
 }
 function xtoysSetIntensity(){
 const v=parseInt($('xtIntensity').value||'0',10)||0;
 fetch(HRM+'/api/xtoys/session/intensity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})})
-.then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(d&&d.message)showToast('🎚 '+d.message);}).catch(()=>showToast('⚠ не удалось задать интенсивность'));
+.then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||d.message||('HTTP '+r.status));return d}).then(d=>{if(d.message)showToast('🎚 '+d.message);}).catch(e=>showToast('⚠ Интенсивность: '+e.message));
 }
 let _xtPoll=null;
 function xtoysSessionPoll(){
 if(_xtPoll)clearInterval(_xtPoll);
-_xtPoll=setInterval(()=>{fetch(HRM+'/api/xtoys/session/status').then(r=>r.ok?r.json():Promise.reject()).then(d=>{const s=$('xtSessionStatus');if(s&&d)s.textContent=d.status;}).catch(()=>{});},2000);
+const poll=()=>fetch(HRM+'/api/xtoys/session/status').then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));return d}).then(d=>{const s=$('xtSessionStatus'),st=$('autoStatus'),btn=$('autoBtn');if(s)s.textContent=d.status||'неизвестно';window._autoOn=!!d.active;if(st){st.textContent=d.active?'вкл':'выкл';st.className='pill '+(d.active?'p-ok':'p-warn')}if(btn)btn.textContent=d.active?'⏸ Стоп сессии':'⚡ Авто-режим'}).catch(e=>{$('xtSessionStatus').textContent='ошибка: '+e.message});
+poll();_xtPoll=setInterval(poll,2000);
 }
 function intifaceConnect(){
 const url=$('intifaceUrl').value.trim()||'ws://127.0.0.1:12345';
@@ -287,22 +263,45 @@ else{const st=$('intifaceStatus');if(st){st.textContent='ошибка';st.classN
 let _intfPoll=null;
 function intifacePoll(){
 if(_intfPoll)clearInterval(_intfPoll);
-_intfPoll=setInterval(()=>{
+const poll=()=>{
 fetch(HRM+'/api/intiface/status').then(r=>r.ok?r.json():Promise.reject()).then(d=>{
 const st=$('intifaceStatus');
+if(d&&d.connected&&Number.isFinite(Number(d.value))){const v=Number(d.value);$('oscRange').value=v;$('oscVal').textContent=v+'%';$('xtIntensity').value=v;$('xtIntVal').textContent=v+'%';}
 if(d&&d.connected){if(st){st.textContent='подключено';st.className='pill p-ok';}if(d.devices)$('intifaceDevices').textContent=d.devices.join(', ');}
 else if(st&&st.textContent!=='ошибка'){st.textContent='отключено';st.className='pill p-warn';}
 if(d&&d.last_error&&st){st.textContent='ошибка';st.className='pill p-err';}
 }).catch(()=>{});
-},2000);
+};poll();_intfPoll=setInterval(poll,2000);
 }
-function intifaceDisconnect(){fetch(HRM+'/api/intiface/disconnect',{method:'POST'}).then(()=>{const st=$('intifaceStatus');if(st){st.textContent='отключено';st.className='pill p-warn';}}).catch(()=>{});}
+function xtoysPattern(name){
+const dur=parseFloat($('patDur').value||'20')||20;
+const inten=parseInt($('patInt').value||'70',10)||70;
+fetch(HRM+'/api/xtoys/pattern/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,duration:dur,intensity:inten})})
+.then(r=>r.ok?r.json():Promise.reject(new Error('HTTP '+r.status)))
+.then(d=>{showToast('🎚 паттерн «'+name+'» запущен ('+dur+'с, '+inten+'%)');xtoysPatternPoll();})
+.catch(e=>showToast('⚠ Паттерн: '+e.message));
+}
+function xtoysPatternStop(){
+fetch(HRM+'/api/xtoys/pattern/stop',{method:'POST'}).then(()=>{const s=$('xtPatternStatus');if(s)s.textContent='выключен';}).catch(()=>{});
+}
+let _patPoll=null;
+function xtoysPatternPoll(){
+if(_patPoll)clearInterval(_patPoll);
+const poll=()=>{
+fetch(HRM+'/api/xtoys/pattern/status').then(r=>r.ok?r.json():Promise.reject()).then(d=>{
+const s=$('xtPatternStatus');
+if(Number.isFinite(Number(d.last_value))){const v=Number(d.last_value);$('oscRange').value=v;$('oscVal').textContent=v+'%';$('xtIntensity').value=v;$('xtIntVal').textContent=v+'%';}
+if(s)s.textContent=d.running?(d.name+' · '+d.last_value+'% · '+d.step):'выключен';
+}).catch(()=>{});
+};poll();_patPoll=setInterval(poll,1500);
+}
+function intifaceDisconnect(){fetch(HRM+'/api/intiface/disconnect',{method:'POST'}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));if(_intfPoll){clearInterval(_intfPoll);_intfPoll=null}const st=$('intifaceStatus');if(st){st.textContent='отключено';st.className='pill p-warn'}$('intifaceDevices').textContent='—';showToast('Intiface отключён')}).catch(e=>showToast('⚠ Отключение: '+e.message));}
 function intifaceOscillate(){
 const v=parseInt($('oscRange').value||'0',10)||0;
 fetch(HRM+'/api/intiface/oscillate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})})
-.then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(d&&!d.ok)showToast('⚠ Oscillate: '+(d.error||'нет'));}).catch(e=>showToast('⚠ Oscillate: '+e.message));
+.then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));return d}).then(d=>showToast('▶ '+(d.device||'устройство')+': '+v+'%')).catch(e=>showToast('⚠ Oscillate: '+e.message));
 }
-function intifaceStop(){fetch(HRM+'/api/intiface/stop',{method:'POST'}).then(()=>{}).catch(()=>{});}
+function intifaceStop(){fetch(HRM+'/api/intiface/stop',{method:'POST'}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));$('oscRange').value=0;$('oscVal').textContent='0%';showToast('■ Устройство остановлено')}).catch(e=>showToast('⚠ Стоп: '+e.message));}
 async function fbExec(){
 const op=$('fbOp').value,path=$('fbPath').value,part=$('fbPart').value,content=$('fbContent').value,out=$('fbResult');
 out.textContent='['+now()+'] '+op+' '+path+'\n';

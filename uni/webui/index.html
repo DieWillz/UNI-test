@@ -91,6 +91,22 @@
 <div style="font-size:11px;color:var(--text3)">Статус сессии: <span id="xtSessionStatus">выключена</span></div>
 <div style="font-size:10px;color:var(--text3)">Авто-режим = ЮНИ говорит и крутит машинку синхронно. Управление через xtoys.app (Intiface).</div>
 <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+<div style="font-weight:600;font-size:11px;color:var(--text2)">🎚 Паттерны управления машинкой</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+<button class="tbtn" onclick="xtoysPattern('tease')">Tease</button>
+<button class="tbtn" onclick="xtoysPattern('build')">Build</button>
+<button class="tbtn" onclick="xtoysPattern('pulse')">Pulse</button>
+<button class="tbtn" onclick="xtoysPattern('wave')">Wave</button>
+<button class="tbtn" onclick="xtoysPattern('edge')">Edge</button>
+<button class="tbtn" onclick="xtoysPattern('release')">Release</button>
+<button class="tbtn" onclick="xtoysPatternStop()">■ Стоп паттерн</button>
+</div>
+<div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--text3)">
+<label>Длительность <input id="patDur" class="tin" style="width:46px;padding:1px 4px" value="20"> с</label>
+<label>Макс. интенсивность <input id="patInt" class="tin" style="width:46px;padding:1px 4px" value="70"> %</label>
+</div>
+<div style="font-size:10px;color:var(--text3)">Статус паттерна: <span id="xtPatternStatus">выключен</span></div>
+<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
 <div style="font-weight:600;font-size:11px;color:var(--text2)">🔌 Прямое подключение к Intiface (buttplug)</div>
 <div style="display:flex;gap:6px;align-items:center;margin-top:6px"><input id="intifaceUrl" class="tin" style="width:150px" value="ws://127.0.0.1:12345"><button class="tbtn primary" onclick="intifaceConnect()">🔌 Подключить</button><button class="tbtn" onclick="intifaceDisconnect()">Отключить</button><span class="pill p-warn" id="intifaceStatus">отключено</span></div>
 <div class="x-slider" style="margin-top:6px"><label><span>Oscillate (машинка)</span><span id="oscVal">0%</span></label><input type="range" min="0" max="100" value="0" id="oscRange" oninput="document.getElementById('oscVal').textContent=this.value+'%'" onchange="intifaceOscillate()"></div>
@@ -125,9 +141,12 @@
 <div class="set-group"><h3>🔒 Безопасность</h3><div class="set-row"><label>XToys требует подтверждения</label><div class="tsw on" onclick="this.classList.toggle('on')"></div></div><div class="set-row"><label>Камера требует подтверждения</label><div class="tsw on" onclick="this.classList.toggle('on')"></div></div><div class="set-row"><label>Redact secrets в логах</label><div class="tsw on" onclick="this.classList.toggle('on')"></div></div><div class="set-row"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="consentChk"> Я осознаю риски автономного режима (consent)</label></div><div class="set-row"><label>Уровень</label><select id="autoLevel"><option>off</option><option>observe</option><option>suggest</option><option>act</option></select></div><div class="set-row"><button class="tbtn danger" onclick="emergencyStop()">🛑 Аварийная остановка</button></div></div>
 <div class="set-group"><h3>🤖 Автономия</h3><div class="set-row"><label>Режим автономии</label><select><option>Только подтверждённые</option><option>Ограниченный</option><option>Полный</option></select></div><div class="set-row"><label>Max LLM calls / мин</label><select><option>10</option><option>30</option><option>60</option><option>∞</option></select></div><div class="set-row"><label>Auto-save контекста</label><div class="tsw on" onclick="this.classList.toggle('on')"></div></div></div>
 <div class="set-group"><h3>🔊 Голос / TTS</h3>
-<div class="set-row"><label>Движок</label><select id="ttsProvider" onchange="onTtsProviderChange()"><option value="silero">Silero — быстрый локальный</option><option value="piper">Piper — резервный офлайн</option><option value="browser">Браузер — системные голоса</option><option value="xtts">XTTS-v2 — красивый по референсу</option><option value="fish">Fish Audio — выразительный</option></select></div>
+<div class="set-row"><label>Движок</label><select id="ttsProvider" onchange="onTtsProviderChange()"><option value="silero">Silero — быстрый локальный</option><option value="piper">Piper — резервный офлайн</option><option value="browser">Браузер — системные голоса</option><option value="xtts">XTTS-v2 — красивый по референсу</option><option value="fish">Fish Audio — выразительный</option><option value="qwen_vc">Qwen Voice Clone — клонированный голос</option></select></div>
 <div class="set-row" id="ttsVoiceRow"><label>Голос</label><select id="ttsVoice" onchange="saveTtsPref()"><option value="xenia">Xenia — спокойная</option><option value="kseniya">Kseniya — ясная</option><option value="baya">Baya — мягкая</option><option value="eugene">Eugene — мужской</option><option value="aidar">Aidar — глубокий мужской</option></select></div>
 <div class="set-row" id="ttsEndpointRow" style="display:none"><label>URL TTS-сервера</label><input class="tin" id="ttsEndpoint" placeholder="http://127.0.0.1:8020" onchange="saveTtsPref()"></div>
+<div class="set-row" id="qwenVcRow" style="display:none"><label>Qwen VC: путь к референс-аудио</label><input class="tin" id="qwenRefAudio" placeholder="C:\путь\к\cloned_voice.wav" onchange="saveTtsPref()"></div>
+<div class="set-row" id="qwenVcRow2" style="display:none"><label>Qwen VC: текст референса</label><input class="tin" id="qwenRefText" placeholder="текст, который был в аудио" onchange="saveTtsPref()"></div>
+<div class="set-row" id="qwenVcRow3" style="display:none"><label>Qwen VC: размер модели</label><select id="qwenModelSize" onchange="saveTtsPref()"><option value="0.6B">0.6B — легче</option><option value="1.7B" selected>1.7B — качественнее</option></select></div>
 <div class="set-row"><label>Темп <span id="ttsRateValue">1.00×</span></label><input id="ttsRate" type="range" min="0.5" max="2" step="0.05" value="1" oninput="saveTtsPref()"></div>
 <div class="set-row"><label>Высота <span id="ttsPitchValue">0</span></label><input id="ttsPitch" type="range" min="-12" max="12" step="1" value="0" oninput="saveTtsPref()"></div>
 <div class="set-row"><label>Громкость <span id="ttsVolumeValue">100%</span></label><input id="ttsVolume" type="range" min="0" max="1.5" step="0.05" value="1" oninput="saveTtsPref()"></div>
@@ -143,9 +162,9 @@
 <div class="rchat-header"><div><div class="rchat-title">💬 Чат с ЮНИ</div><div class="rchat-status"><span class="dot" id="rchatDot"></span> <span id="rchatStatus">проверка транспорта…</span> <span id="chatModel" style="opacity:.6"></span></div></div><button class="tbtn" onclick="toggleChatPanel()" style="padding:3px 7px">✕</button></div>
 <div class="rchat-tools" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
 <select id="uniRole" class="tin" style="width:auto" onchange="setRole(this.value)"><option>загрузка ролей…</option></select>
-<label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px"><input type="checkbox" id="speakChk"> Озвучивать ответ</label>
+<label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px"><input type="checkbox" id="speakChk" checked> Озвучивать ответ</label>
 <button class="tbtn" id="voiceAutoBtn" onclick="toggleVoiceAuto()">🎙 Голосовой авторежим</button><span class="pill p-warn" id="voiceAutoStatus">выкл</span>
-<label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px">период<input id="voiceLoopSec" class="tin" style="width:42px;padding:1px 4px" value="12">с</label>
+<label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px">период<input id="voiceLoopSec" class="tin" style="width:42px;padding:1px 4px" value="25">с</label>
 </div>
 <div class="rchat-feed" id="sideFeed"></div>
 <div class="rchat-input"><div class="rchat-wrap"><button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Говорить голосом — ЮНИ поймёт">🎤</button><input id="sideInput" placeholder="Сообщение ЮНИ…" onkeydown="if(event.key==='Enter')uniSendSide()"><button class="send-btn" onclick="uniSendSide()">➤</button></div></div>
