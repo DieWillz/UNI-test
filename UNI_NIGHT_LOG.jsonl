@@ -2,3 +2,4 @@
 {"time": "2026-08-10T19:51:49", "by": "HRM", "task": "SETUP", "event": "rules_updated", "detail": "добавлены п.7 rolling-отчёт, п.8 лёгкий файл задач UNI_TASKS_LIGHT.md; зеркалировано в канон"}
 {"time": "2026-08-10T20:09:52", "by": "HRM", "task": "N-04/N-05/N-06", "event": "done", "detail": "human_mouse подключён к computer.py; motion/driver дополнен; test_human_mouse 10 passed"}
 {"time": "2026-08-10T20:15:37", "by": "HRM", "task": "N-07/N-08/N-09", "event": "done", "detail": "visual_action闭环 собран; тесты 6+10 passed; check_architecture 0/0; pytest 180/2"}
+{"time": "2026-08-10T20:16:30", "by": "HRM", "task": "N-10", "event": "final", "detail": "минимальный ночной контур done; 2 коммита; pytest 180/2; жду указаний координатора на опциональные шаги/живой прогон"}
