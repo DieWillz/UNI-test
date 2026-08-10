@@ -1,3 +1,4 @@
 {"time":"2026-08-10T18:38:00","by":"HRM","task":"N-00","event":"plan_written","detail":"PLAN_mouse_vision_tandem.md создан, инфраструктура ночного тандема готова"}
 {"time": "2026-08-10T19:51:49", "by": "HRM", "task": "SETUP", "event": "rules_updated", "detail": "добавлены п.7 rolling-отчёт, п.8 лёгкий файл задач UNI_TASKS_LIGHT.md; зеркалировано в канон"}
 {"time": "2026-08-10T20:09:52", "by": "HRM", "task": "N-04/N-05/N-06", "event": "done", "detail": "human_mouse подключён к computer.py; motion/driver дополнен; test_human_mouse 10 passed"}
+{"time": "2026-08-10T20:15:37", "by": "HRM", "task": "N-07/N-08/N-09", "event": "done", "detail": "visual_action闭环 собран; тесты 6+10 passed; check_architecture 0/0; pytest 180/2"}

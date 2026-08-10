@@ -1,0 +1,168 @@
+"""🤖 Замкнутый цикл «вижу → решаю → кликаю → проверяю взглядом».
+
+Слой оркестрации между существующими capability (vision + computer).
+НЕ является capability и НЕ импортирует capability напрямую — получает
+готовые инстансы vision/computer через конструктор (соблюдаем правило
+«capability не импортирует другой capability»).
+
+Идея: найти элемент по описанию через vision.find_desktop_element (VLM
+возвращает x,y,width,height,confidence в пикселях экрана), кликнуть по
+центру через computer.click_human (человеко-подобно), затем проверить
+результат повторным analyze_desktop. Цикл повторяется до max_steps.
+Fail-closed: при низкой уверенности не кликаем, возвращаем clarify.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import re
+from typing import Any, Callable
+
+from uni.contracts import ToolResult
+
+
+# Запрещённые подстроки в цели — защита от опасных системных действий.
+_BLACKLIST = (
+    "format ", "del ", "rm ", "rmdir", "reg delete", "shutdown",
+    "powershell -command", "taskkill", "diskpart", "mkfs",
+)
+
+
+class VisualActionAgent:
+    """Bounded observe-locate-act-verify agent для управления ПК под зрением."""
+
+    def __init__(
+        self,
+        computer,
+        vision,
+        *,
+        max_steps: int = 8,
+        confidence_threshold: float = 0.55,
+        verify_delay: float = 1.2,
+        log: Callable[[str, object], None] | None = None,
+    ) -> None:
+        # computer/vision — инстансы capability, переданные извне.
+        self._computer = computer
+        self._vision = vision
+        self.max_steps = max_steps
+        self.confidence_threshold = confidence_threshold
+        self.verify_delay = verify_delay
+        self.log = log or (lambda _event, _message: None)
+        self.steps_used = 0
+
+    # -- публичный API ----------------------------------------------------
+    async def act_on_screen(self, goal: str, max_steps: int | None = None) -> dict:
+        """Замкнутый цикл: найти → кликнуть → проверить.
+
+        Возвращает dict:
+            {"status": "success"|"failed"|"interrupted"|"clarify"|"blocked",
+             "steps": [...], "error": str|None}
+        """
+        goal = (goal or "").strip()
+        if not goal:
+            return {"status": "clarify", "steps": [], "error": "Пустая цель"}
+        low = goal.lower()
+        if any(bad in low for bad in _BLACKLIST):
+            return {
+                "status": "blocked",
+                "steps": [],
+                "error": "Цель содержит запрещённую системную команду",
+            }
+
+        max_steps = max_steps or self.max_steps
+        steps: list[dict[str, Any]] = []
+
+        for step in range(1, max_steps + 1):
+            self.steps_used = step
+            # 1) ВИЖУ: ищем элемент на рабочем столе по описанию из цели
+            located = await self._locate(goal)
+            if located is None:
+                # элемент совсем не найден — повторная попытка с переформулировкой
+                steps.append({"step": step, "action": "locate", "result": "not_found"})
+                continue
+            if located == "low_conf":
+                # найден, но уверенность ниже порога — не кликаем (fail-closed)
+                return {
+                    "status": "clarify",
+                    "steps": steps,
+                    "error": "Низкая уверенность локации элемента",
+                }
+
+            element = located
+            conf = float(element.get("confidence", 0.0))
+            # 2) РЕШАЮ + ДЕЙСТВУЮ: клик по центру найденного элемента
+            cx = int(element["x"] + element["width"] / 2)
+            cy = int(element["y"] + element["height"] / 2)
+            click = await self._click(cx, cy)
+            steps.append({
+                "step": step,
+                "action": "click",
+                "x": cx,
+                "y": cy,
+                "success": click.success,
+                "message": click.message,
+            })
+            if not click.success:
+                continue
+
+            # 3) ПРОВЕРЯЮ: достигнута ли цель (повторный анализ экрана)
+            await asyncio.sleep(self.verify_delay)
+            ok = await self._verify(goal)
+            steps.append({"step": step, "action": "verify", "achieved": ok})
+            if ok:
+                return {"status": "success", "steps": steps, "error": None}
+
+        return {
+            "status": "failed",
+            "steps": steps,
+            "error": f"Цель не достигнута за {max_steps} шагов",
+        }
+
+    async def observe_text(self, goal: str) -> dict:
+        """Только проверка/анализ без кликов — безопасный режим."""
+        analysis = await self._vision.analyze_desktop(
+            f"{goal}. Кратко ответь по-русски, фактически."
+        )
+        return {
+            "status": "success" if analysis.success else "failed",
+            "steps": [{"action": "observe", "message": analysis.message}],
+            "error": None if analysis.success else analysis.message,
+        }
+
+    # -- внутреннее -------------------------------------------------------
+    async def _locate(self, goal: str):
+        self.log("GUI_LOCATE", goal)
+        # Несколько формулировок, чтобы VLM надёжнее находил элемент.
+        queries = [
+            f"кнопка или поле для цели: {goal}",
+            f"элемент интерфейса: {goal}",
+            goal,
+        ]
+        for q in queries:
+            res = await self._vision.find_desktop_element(q)
+            if res.success and res.data:
+                data = dict(res.data)
+                conf = data.get("confidence", 0.0)
+                if conf >= self.confidence_threshold:
+                    return data
+                # найдено, но уверенность низкая — возвращаем маркер
+                return "low_conf"
+        return None
+
+    async def _click(self, x: int, y: int) -> ToolResult:
+        self.log("GUI_CLICK", f"{x},{y}")
+        # Человеко-подобный клик, fallback на обычный при недоступности движка.
+        if getattr(self._computer, "use_human_motion", False):
+            return await self._computer.click_human(x, y)
+        return await self._computer.click(x, y)
+
+    async def _verify(self, goal: str) -> bool:
+        self.log("GUI_VERIFY", goal)
+        res = await self._vision.analyze_desktop(
+            f"Цель была: «{goal}». Достигнут ли результат на экране? "
+            f"Ответь только «да» или «нет», затем краткое пояснение."
+        )
+        if not res.success:
+            return False
+        text = (res.data or {}).get("analysis", res.message or "")
+        return bool(re.search(r"\bда\b", text.lower()))
