@@ -110,6 +110,36 @@ class SmoothMouseDriver:
             finally:
                 await asyncio.to_thread(pyautogui.mouseUp)
 
+    # 🤖 Дополнение API, чтобы тест test_driver_facade_imports_and_api проходил
+    # (ранее не хватало click/draw/cancel). Не дублирует существующий функционал —
+    # это facade для браузерной/xtoys-мыши поверх pyautogui.
+    def cancel(self) -> None:
+        """Прервать текущее движение — снимает busy-лок, если занят."""
+        try:
+            self._busy.release()
+        except Exception:
+            pass
+
+    async def click(self, x: float | None = None, y: float | None = None,
+                     *, button: str = "left") -> None:
+        """Кликнуть в (x, y) или в текущей позиции, если координаты не заданы."""
+        if x is not None and y is not None:
+            await self.move_to(x, y)
+        pyautogui.click(button=button)
+
+    async def draw(self, points: list, *, duration: float = 1.5, button: str = "left") -> None:
+        """Провести линию/фигуру через заданные точки с зажатой кнопкой (рисование)."""
+        if not points:
+            return
+        pts = [Point(float(px), float(py)) for px, py in points]
+        async with self._busy:
+            await asyncio.to_thread(pyautogui.mouseDown, button=button)
+            try:
+                for px, py in pts:
+                    await self.move_to(px, py, duration=max(duration / max(1, len(pts)), 0.05))
+            finally:
+                await asyncio.to_thread(pyautogui.mouseUp, button=button)
+
     # ---------- внутреннее ----------
     def _natural_duration(self, distance: float) -> float:
         """«Человеческая» длительность: ~1400 px/с, ограничена [0.25, 2.5] с."""

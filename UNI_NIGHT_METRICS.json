@@ -1,0 +1,20 @@
+{
+  "night_date": "2026-08-10",
+  "start_time": "2026-08-10T19:51:49",
+  "end_time": "",
+  "status": "running",
+  "heartbeat_count": 2,
+  "last_heartbeat": "2026-08-10T20:09:52",
+  "tasks_total": 11,
+  "tasks_done": 5,
+  "tasks_blocked": 0,
+  "tests_passed": 10,
+  "tests_failed": 0,
+  "commits": 0,
+  "files_changed": [
+    "uni/capabilities/computer.py",
+    "uni/motion/driver.py"
+  ],
+  "blockers": [],
+  "safety_incidents": []
+}
