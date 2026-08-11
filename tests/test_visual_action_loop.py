@@ -139,3 +139,29 @@ def test_status_reflects_active_steps():
     assert out["status"] == "success"
     assert agent.status()["steps"] >= 1
 
+
+def test_blocked_on_extended_blacklist():
+    agent, computer, vision = _make_agent(locate_result={"x": 0, "y": 0, "width": 1, "height": 1, "confidence": 0.9})
+    for bad in ("taskkill /f", "powershell что-то", "shutdown /s", "format C:", "net stop spooler", "bcdedit"):
+        out = asyncio.run(agent.act_on_screen(bad))
+        assert out["status"] == "blocked", f"ожидался blocked для {bad!r}, получил {out['status']}"
+    assert len(computer.clicks) == 0
+
+
+def test_blocked_in_system_zone():
+    # элемент в верхней системной зоне (y близко к 0) -> клик заблокирован
+    el = {"x": 5, "y": 2, "width": 20, "height": 10, "confidence": 0.9}
+    agent, computer, vision = _make_agent(locate_result=el, verify_yes=True)
+    out = asyncio.run(agent.act_on_screen("цель", screen_size=(1920, 1080)))
+    assert out["status"] == "blocked"
+    assert len(computer.clicks) == 0
+
+
+def test_safe_zone_allows_normal_click():
+    # элемент в центре экрана -> клик разрешён
+    el = {"x": 900, "y": 500, "width": 100, "height": 40, "confidence": 0.9}
+    agent, computer, vision = _make_agent(locate_result=el, verify_yes=True)
+    out = asyncio.run(agent.act_on_screen("цель", screen_size=(1920, 1080)))
+    assert out["status"] == "success"
+    assert len(computer.clicks) == 1
+

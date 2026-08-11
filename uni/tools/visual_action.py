@@ -22,9 +22,15 @@ from uni.contracts import ToolResult
 
 
 # Запрещённые подстроки в цели — защита от опасных системных действий.
+# Fail-closed: любое совпадение -> статус "blocked", клик не производится.
 _BLACKLIST = (
     "format ", "del ", "rm ", "rmdir", "reg delete", "shutdown",
-    "powershell -command", "taskkill", "diskpart", "mkfs",
+    "powershell", "taskkill", "diskpart", "mkfs", "bcdedit",
+    "cmd /c", "cmd.exe", "sc stop", "net stop", "net user",
+    "schtasks", "wmic", "certutil", "fsutil", "takeown",
+    "icacls", "attrib", "format", "mount ", "umount",
+    "kill ", "pkill", "halt", "reboot", "logoff",
+    "disable ", "uninstall", "remove-user", "reset-password",
 )
 
 
@@ -39,6 +45,7 @@ class VisualActionAgent:
         max_steps: int = 8,
         confidence_threshold: float = 0.55,
         verify_delay: float = 1.2,
+        safe_margin: int = 40,
         log: Callable[[str, object], None] | None = None,
     ) -> None:
         # computer/vision — инстансы capability, переданные извне.
@@ -47,6 +54,9 @@ class VisualActionAgent:
         self.max_steps = max_steps
         self.confidence_threshold = confidence_threshold
         self.verify_delay = verify_delay
+        # 🤖 отступ безопасности от краёв экрана (px): не кликаем в системные
+        # зоны (верхняя/нижняя панель задач, углы уведомлений Windows).
+        self.safe_margin = max(0, int(safe_margin))
         self.log = log or (lambda _event, _message: None)
         self.steps_used = 0
         self._stop = False  # 🤖 флаг экстренной остановки (СТОП из UI/voice)
@@ -69,8 +79,20 @@ class VisualActionAgent:
         }
 
     # -- публичный API ----------------------------------------------------
-    async def act_on_screen(self, goal: str, max_steps: int | None = None) -> dict:
+    async def act_on_screen(
+        self,
+        goal: str,
+        max_steps: int | None = None,
+        screen_size: tuple[int, int] | None = None,
+    ) -> dict:
         """Замкнутый цикл: найти → кликнуть → проверить.
+
+        Args:
+            goal: цель естественным языком.
+            max_steps: лимит итераций.
+            screen_size: (width, height) экрана для защиты системных зон
+                (не кликать в отступ safe_margin от краёв). Если None — проверка
+                зоны не выполняется (безопасно по умолчанию).
 
         Возвращает dict:
             {"status": "success"|"failed"|"interrupted"|"clarify"|"blocked",
@@ -114,6 +136,21 @@ class VisualActionAgent:
             # 2) РЕШАЮ + ДЕЙСТВУЮ: клик по центру найденного элемента
             cx = int(element["x"] + element["width"] / 2)
             cy = int(element["y"] + element["height"] / 2)
+            # 🤖 защита системных зон: не кликаем в отступе safe_margin от краёв
+            if screen_size is not None:
+                sw, sh = screen_size
+                m = self.safe_margin
+                if not (m <= cx <= sw - m and m <= cy <= sh - m):
+                    steps.append({
+                        "step": step, "action": "click",
+                        "x": cx, "y": cy, "success": False,
+                        "message": f"цель в системной зоне (отступ {m}px) — клик заблокирован",
+                    })
+                    return {
+                        "status": "blocked",
+                        "steps": steps,
+                        "error": f"Координаты ({cx},{cy}) в системной зоне экрана",
+                    }
             click = await self._click(cx, cy)
             steps.append({
                 "step": step,
