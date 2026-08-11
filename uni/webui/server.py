@@ -947,12 +947,18 @@ class _Handler(BaseHTTPRequestHandler):
                     try:
                         event = _desktop_event_queue.get(timeout=30.0)
                     except Exception:
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
                         continue
                     line = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                    self.wfile.flush()
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
@@ -1118,12 +1124,18 @@ class _Handler(BaseHTTPRequestHandler):
                     try:
                         event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     except asyncio.TimeoutError:
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
                         continue
                     line = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                    self.wfile.flush()
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
 
             try:
                 asyncio.run(_stream_autonomous())
@@ -1314,12 +1326,18 @@ class _Handler(BaseHTTPRequestHandler):
                         event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     except asyncio.TimeoutError:
                         # heartbeat to keep the connection alive
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
                         continue
                     line = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                    self.wfile.flush()
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
                     if event.get("type") == "done" or event.get("type") == "error":
                         break
                 await task

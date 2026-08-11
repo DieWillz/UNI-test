@@ -4,6 +4,20 @@
 const SERVER = (window.UNI_SERVER) || "http://127.0.0.1:8787";
 const $ = (id) => document.getElementById(id);
 const uni = window.uni || null;
+// F-02: обёртка fetch с логированием в desktop.log (через preload) — без uncaught
+async function api(path, opts) {
+  try {
+    if (uni && uni.log) uni.log("HTTP", opts && opts.method || "GET", SERVER + path);
+    const r = await fetch(SERVER + path, opts);
+    if (uni && uni.log) uni.log("HTTP", path, "->", r.status);
+    return r;
+  } catch (e) {
+    if (uni && uni.log) uni.log("HTTP ERROR", path, e.message);
+    addMsgSafe("⚠ сервер недоступен: " + e.message);
+    return null;
+  }
+}
+function addMsgSafe(t) { try { addMsg("uni", t); } catch {} }
 
 function addMsg(role, text) {
   const m = document.createElement("div");
@@ -16,17 +30,18 @@ async function uniChat(text) {
   addMsg("user", text);
   if (window.Avatar) Avatar.setState("thinking");
   try {
-    const r = await fetch(SERVER + "/api/chat", {
+    const r = await api("/api/chat", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
     });
+    if (!r) { if (window.Avatar) Avatar.setState("idle"); return; }
     const d = await r.json();
     const reply = d.reply || d.response || d.message || JSON.stringify(d);
     addMsg("uni", reply);
     if (window.Avatar) Avatar.setState("speaking");
     try {
       // D-06: озвучка (опционально возвращает audio_url; играем локально)
-      await fetch(SERVER + "/api/tts", {
+      await api("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: reply }),
       });
@@ -41,11 +56,11 @@ async function uniChat(text) {
 // D-07: кнопки
 $("sendBtn").onclick = () => { const v = $("input").value.trim(); if (!v) return; $("input").value = ""; uniChat(v); };
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("sendBtn").click(); } });
-$("btnStop").onclick = async () => { await fetch(SERVER + "/api/admin/stop", { method: "POST", body: "{}" }); showBubble("⏹ СТОП отправлен"); };
+$("btnStop").onclick = async () => { await api("/api/admin/stop", { method: "POST", body: "{}" }); showBubble("⏹ СТОП отправлен"); };
 $("btnHide").onclick = () => { if (uni) uni.hide(); };
 $("btnSettings").onclick = () => $("settings").classList.toggle("hidden");
 $("btnVision").onclick = async () => {
-  try { const r = await fetch(SERVER + "/api/vision/capture", { method: "POST" }); const d = await r.json(); showBubble("👁 " + (d.caption || "кадр захвачен")); }
+  try { const r = await api("/api/vision/capture", { method: "POST" }); const d = await r.json(); showBubble("👁 " + (d.caption || "кадр захвачен")); }
   catch (e) { showBubble("⚠ зрение недоступно"); }
 };
 $("btnAuto").onclick = async () => { const lvl = prompt("Уровень автономии (off/observe/suggest/act):", "observe"); if (lvl) setConsent(lvl); };
@@ -55,7 +70,7 @@ function showBubble(text) {
   clearTimeout(showBubble._t); showBubble._t = setTimeout(() => b.classList.add("hidden"), 4000);
 }
 async function setConsent(level) {
-  await fetch(SERVER + "/api/desktop/consent", {
+  await api("/api/desktop/consent", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ observation_enabled: level !== "off", level }),
   });
@@ -69,7 +84,7 @@ function updateObs(level) {
 // D-09: SSE автономных фраз
 async function streamAutonomous() {
   try {
-    const r = await fetch(SERVER + "/api/autonomous/stream", { method: "POST", body: "{}" });
+    const r = await api("/api/autonomous/stream", { method: "POST", body: "{}" });
     const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
     while (true) {
       const { done, value } = await reader.read(); if (done) break;
@@ -106,7 +121,7 @@ async function startRecording() {
     mediaRecorder.onstop = async () => {
       const blob = new Blob(chunks, { type: "audio/webm" });
       const buf = await blob.arrayBuffer();
-      const r = await fetch(SERVER + "/api/stt", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: buf });
+      const r = await api("/api/stt", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: buf });
       const d = await r.json();
       if (d.text) uniChat(d.text); else showBubble("⚠ STT: " + (d.error || "нет текста"));
     };
@@ -118,22 +133,22 @@ function stopRecording() { if (mediaRecorder && mediaRecorder.state !== "inactiv
 // D-11: настройки
 async function loadSettings() {
   try {
-    const r = await fetch(SERVER + "/api/roles"); const roles = await r.json();
+    const r = await api("/api/roles"); const roles = await r.json();
     (roles.roles || []).forEach((role) => { const o = document.createElement("option"); o.value = role.id; o.textContent = role.name; $("roleSel").appendChild(o); });
   } catch (e) {}
   try {
-    const r = await fetch(SERVER + "/api/tts/engines"); const d = await r.json();
+    const r = await api("/api/tts/engines"); const d = await r.json();
     (d.engines || []).forEach((e) => (e.voices || []).forEach((v) => { const o = document.createElement("option"); o.value = v.id; o.textContent = e.id + " / " + v.name; $("voiceSel").appendChild(o); }));
   } catch (e) {}
   try {
-    const r = await fetch(SERVER + "/api/desktop/consent"); const c = await r.json();
+    const r = await api("/api/desktop/consent"); const c = await r.json();
     updateObs(c.level || "off"); $("obsChk").checked = !!c.observation_enabled;
   } catch (e) {}
   if (uni) { const st = await uni.loadState(); if (st) { $("autostartChk").checked = !!st.autostart; $("opacity").value = st.opacity || 1; } }
 }
 $("saveSettings").onclick = async () => {
   const role = $("roleSel").value;
-  try { await fetch(SERVER + "/api/role/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }); } catch (e) {}
+  try { await api("/api/role/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }); } catch (e) {}
   await setConsent($("autoSel").value);
   const autostart = $("autostartChk").checked; const opacity = parseFloat($("opacity").value) || 1;
   if (uni) { uni.saveState({ autostart, opacity }); uni.setOpacity(opacity); }
@@ -146,7 +161,7 @@ async function startObserveLoop() {
   observeTimer = setInterval(async () => {
     if (!uni) return;
     let consent;
-    try { const r = await fetch(SERVER + "/api/desktop/consent"); consent = await r.json(); } catch (e) { return; }
+    try { const r = await api("/api/desktop/consent"); consent = await r.json(); } catch (e) { return; }
     if (!consent.observation_enabled) { updateObs("off"); return; }
     updateObs(consent.level || "observe");
     try {
