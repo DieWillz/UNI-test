@@ -29,6 +29,8 @@ console = Console()
 
 
 class Agent:
+    _last_visual_agent = None  # 🤖 ссылка на последний VisualActionAgent (для СТОП из UI)
+
     def __init__(self, config: Config):
         self.config = config
         self.session_logger = SessionLogger(config.logging.directory, config.logging.enabled)
@@ -194,6 +196,8 @@ class Agent:
             log=lambda event, msg: self.session_logger.log(event, str(msg))
             if self.session_logger.enabled else None,
         )
+        # 🤖 сохраняем ссылку, чтобы /api/computer/stop мог прервать цикл
+        Agent._last_visual_agent = agent
         result = await agent.act_on_screen(goal, max_steps=max_steps)
         # Озвучить итог, если речь включена
         try:

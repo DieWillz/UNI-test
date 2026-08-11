@@ -115,3 +115,27 @@ def test_observe_text_safe_mode():
     assert out["status"] == "success"
     assert len(computer.clicks) == 0
     assert vision.analyze_calls == 1
+
+
+def test_request_stop_interrupts_cycle():
+    # locate стабильно находит элемент, но verify всегда "нет" -> цикл бы шёл
+    # до max_steps; ставим stop на 1-м шаге -> interrupted.
+    el = {"x": 50, "y": 50, "width": 20, "height": 20, "confidence": 0.9}
+    agent, computer, vision = _make_agent(locate_result=el, verify_yes=False, max_steps=5)
+    agent.request_stop()
+    out = asyncio.run(agent.act_on_screen("цель"))
+    assert out["status"] == "interrupted"
+    assert len(computer.clicks) == 0  # клик не произошёл после stop
+    assert agent.status()["stopped"] is False  # флаг сброшен после прерывания
+
+
+def test_status_reflects_active_steps():
+    el = {"x": 10, "y": 10, "width": 10, "height": 10, "confidence": 0.9}
+    agent, computer, vision = _make_agent(locate_result=el, verify_yes=True, max_steps=3)
+    st = agent.status()
+    assert st["active"] is False  # ещё не запускался
+    assert st["steps"] == 0
+    out = asyncio.run(agent.act_on_screen("цель"))
+    assert out["status"] == "success"
+    assert agent.status()["steps"] >= 1
+

@@ -414,4 +414,56 @@ document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='l'){e.preventDefa
     favEl.href=seq[i]+'?t='+Date.now(); // ?t= обходит кэш браузера
   },3600);
 })();
+/* ===== UNI «Компьютер»: управление под зрением (вижу→кликаю→проверяю) ===== */
+function compLog(msg, kind){
+  const box = document.getElementById('compLog');
+  if(!box) return;
+  const ts = new Date().toLocaleTimeString('ru-RU');
+  const line = document.createElement('div');
+  line.textContent = `[${ts}] ${msg}`;
+  line.style.color = kind === 'err' ? '#ff8787' : kind === 'ok' ? '#9ae66e' : 'var(--text)';
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+async function computerAct(){
+  const goal = document.getElementById('compGoal').value.trim();
+  if(!goal){ compLog('пустая цель', 'err'); return; }
+  const st = document.getElementById('compStatus');
+  if(st) st.textContent = 'выполняется…';
+  compLog('▶ цель: ' + goal);
+  try{
+    const r = await fetch(HRM + '/api/computer/act', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ goal, max_steps: 8 })
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok){ compLog('ошибка: ' + (d.error || r.status), 'err'); if(st) st.textContent='ошибка'; return; }
+    compLog('команда принята: ' + (d.message || 'ok'));
+    // опрашиваем статус цикла
+    computerPoll();
+  }catch(e){ compLog('сетевая ошибка: ' + e.message, 'err'); if(st) st.textContent='ошибка'; }
+}
+async function computerPoll(){
+  const st = document.getElementById('compStatus');
+  let n = 0;
+  while(n < 20){
+    await new Promise(r => setTimeout(r, 1500)); n++;
+    try{
+      const r = await fetch(HRM + '/api/computer/status');
+      const d = await r.json().catch(()=>({}));
+      if(d.active){ compLog(d.step || 'шаг…'); if(st) st.textContent='шаг ' + (d.steps || n); }
+      else { compLog('финал: ' + (d.status || 'готово'), 'ok'); if(st) st.textContent = d.status || 'готово'; break; }
+    }catch(e){ /* тихо */ }
+  }
+}
+async function computerStop(){
+  compLog('■ СТОП…');
+  try{
+    const r = await fetch(HRM + '/api/computer/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const d = await r.json().catch(()=>({}));
+    compLog(d.stopped ? 'остановлено по команде' : 'нет активного цикла');
+    const st = document.getElementById('compStatus'); if(st) st.textContent='остановлено';
+  }catch(e){ compLog('ошибка СТОП: ' + e.message, 'err'); }
+}
+
 showToast('UNI Platform v3.3: темы #c4e534/#032121 + авто-детект модели LM Studio');

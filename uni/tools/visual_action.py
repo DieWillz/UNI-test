@@ -49,6 +49,24 @@ class VisualActionAgent:
         self.verify_delay = verify_delay
         self.log = log or (lambda _event, _message: None)
         self.steps_used = 0
+        self._stop = False  # 🤖 флаг экстренной остановки (СТОП из UI/voice)
+
+    def request_stop(self) -> None:
+        """Экстренно прервать текущий цикл (СТОП из UI/голоса)."""
+        self._stop = True
+
+    def reset(self) -> None:
+        self._stop = False
+        self.steps_used = 0
+
+    def status(self) -> dict:
+        """Текущее состояние цикла для опроса UI (без выполнения)."""
+        return {
+            "active": self.steps_used > 0 and not self._stop,
+            "steps": self.steps_used,
+            "stopped": self._stop,
+            "max_steps": self.max_steps,
+        }
 
     # -- публичный API ----------------------------------------------------
     async def act_on_screen(self, goal: str, max_steps: int | None = None) -> dict:
@@ -74,6 +92,9 @@ class VisualActionAgent:
 
         for step in range(1, max_steps + 1):
             self.steps_used = step
+            if self._stop:  # 🤖 экстренная остановка
+                self._stop = False
+                return {"status": "interrupted", "steps": steps, "error": "Остановлено по команде СТОП"}
             # 1) ВИЖУ: ищем элемент на рабочем столе по описанию из цели
             located = await self._locate(goal)
             if located is None:

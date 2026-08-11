@@ -1533,6 +1533,50 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        # ===== UNI «Компьютер»: зрение -> действие -> проверка =====
+        if self.path == "/api/computer/act":
+            try:
+                body = self._read_json_body()
+                goal = str(body.get("goal", "")).strip()
+                max_steps = int(body.get("max_steps", 8))
+                if not goal:
+                    self._json(400, {"error": "пустая цель"})
+                    return
+                agent = self._get_chat_agent()
+
+                async def _run():
+                    return await agent.act_on_screen(goal, max_steps=max_steps)
+
+                # fire-and-forget: цикл может идти долго; UI опрашивает статус
+                task = self._xt_fire(_run())
+                self._json(200, {"ok": True, "accepted": True, "goal": goal, "message": "команда принята, Юни выполняет под зрением"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/computer/stop":
+            try:
+                agent = self._get_chat_agent()
+                va = getattr(agent, "_last_visual_agent", None)
+                if va is not None:
+                    va.request_stop()
+                    self._json(200, {"ok": True, "stopped": True})
+                else:
+                    self._json(200, {"ok": True, "stopped": False, "message": "нет активного цикла"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/computer/status":
+            try:
+                agent = self._get_chat_agent()
+                va = getattr(agent, "_last_visual_agent", None)
+                if va is not None:
+                    st = va.status()
+                    self._json(200, st)
+                else:
+                    self._json(200, {"active": False, "steps": 0, "stopped": False, "message": "нет активного цикла"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         # ===== Dorch neutral motion profiles =====
         if self.path == "/api/xtoys/pattern/list":
             try:
