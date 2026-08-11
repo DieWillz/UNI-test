@@ -47,12 +47,21 @@ function saveState(obj) {
 function placeAtBottomRight(w) {
   try {
     const { screen } = require("electron");
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    const b = w.getBounds();
-    const x = Math.max(0, width - b.width - 12);
-    const y = Math.max(0, height - b.height - 8);
+    // BUG#3 FIX: используем физические bounds экрана (а не workAreaSize, который
+    // может быть уменьшен taskbar'ом/DPI и давать окно не внизу). Ставим у нижней
+    // правой кромки физического экрана.
+    const disp = screen.getPrimaryDisplay();
+    const b = disp.bounds;          // {x,y,width,height} всего экрана
+    const wb = w.getBounds();       // текущие размеры окна
+    const x = Math.max(b.x, b.x + b.width - wb.width - 12);
+    const y = Math.max(b.y, b.y + b.height - wb.height - 8);
     w.setPosition(x, y);
-    log("setBounds", JSON.stringify(b), "->", x, y);
+    // BUG#3 FIX: логируем bounds экрана и ФИНАЛЬНЫЕ координаты окна после setPosition
+    const final = w.getBounds();
+    log("placeAtBottomRight: screenBounds=", JSON.stringify(b),
+        "| winSize=", JSON.stringify(wb),
+        "| set->", x, y,
+        "| final=", JSON.stringify(final));
   } catch (e) { log("placeAtBottomRight error", e.message); }
 }
 

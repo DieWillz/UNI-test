@@ -33,19 +33,20 @@
     loadVRM();
   }
 
-  // D-16: загрузка VRM (динамический import, чтобы не падать без three-vrm)
+  // D-16: загрузка VRM (динамический import локальных модулей, без bundler'а)
   async function loadVRM() {
     try {
-      const vrmUrl = "../assets/UNI.vrm";
-      const modThree = await import("three");
-      const modVrm = await import("@pixiv/three-vrm");
-      const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+      // BUG#2 FIX: Electron renderer не резолвит bare-импорты ("three") без bundler'а.
+      // Используем локальные пути из node_modules (не зависит от сети).
+      const modThree = await import("../node_modules/three/build/three.module.js");
+      const modVrm = await import("../node_modules/@pixiv/three-vrm/lib/three-vrm.module.min.js");
+      const { GLTFLoader } = await import("../node_modules/three/examples/jsm/loaders/GLTFLoader.js");
       three = modThree;
       const loader = new GLTFLoader();
       loader.register((parser) => new modVrm.VRMLoaderPlugin(parser));
       loader.load(vrmUrl, (gltf) => {
         vrm = gltf.userData.vrm;
-        if (!vrm) { fallback("no..."); return; }
+        if (!vrm) { fallback("no vrm in gltf"); return; }
         try { modVrm.VRMUtils.removeUnnecessaryVertices(gltf.scene); } catch (e) {}
         scene.add(vrm.scene);
         setupThree();

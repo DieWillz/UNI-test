@@ -3,16 +3,18 @@
 // D-10 PTT->/api/stt · D-11 настройки · D-03 click-through hit-test
 const SERVER = (window.UNI_SERVER) || "http://127.0.0.1:8787";
 const $ = (id) => document.getElementById(id);
-const uni = window.uni || null;
-// F-02: обёртка fetch с логированием в desktop.log (через preload) — без uncaught
+// FIX-VISUAL-01 BUG#1: preload экспонирует глобальный window.uni через exposeInMainWorld('uni').
+// Поэтому НЕ объявляем const uni (была ошибка 'Identifier uni has already been declared').
+// Берём мост в локальную переменную U = window["uni"] и используем U везде.
+const U = window["uni"] || null;
 async function api(path, opts) {
   try {
-    if (uni && uni.log) uni.log("HTTP", opts && opts.method || "GET", SERVER + path);
+    if (U && U.log) U.log("HTTP", opts && opts.method || "GET", SERVER + path);
     const r = await fetch(SERVER + path, opts);
-    if (uni && uni.log) uni.log("HTTP", path, "->", r.status);
+    if (U && U.log) U.log("HTTP", path, "->", r.status);
     return r;
   } catch (e) {
-    if (uni && uni.log) uni.log("HTTP ERROR", path, e.message);
+    if (U && U.log) U.log("HTTP ERROR", path, e.message);
     addMsgSafe("⚠ сервер недоступен: " + e.message);
     return null;
   }
@@ -21,12 +23,12 @@ function addMsgSafe(t) { try { addMsg("uni", t); } catch {} }
 
 function addMsg(role, text) {
   const m = document.createElement("div");
-  m.className = "msg " + (role === "user" ? "user" : "uni");
+  m.className = "msg " + (role === "user" ? "user" : "U");
   m.textContent = text;
   $("messages").appendChild(m);
   $("messages").scrollTop = $("messages").scrollHeight;
 }
-async function uniChat(text) {
+async function UChat(text) {
   addMsg("user", text);
   if (window.Avatar) Avatar.setState("thinking");
   try {
@@ -54,10 +56,10 @@ async function uniChat(text) {
 }
 
 // D-07: кнопки
-$("sendBtn").onclick = () => { const v = $("input").value.trim(); if (!v) return; $("input").value = ""; uniChat(v); };
+$("sendBtn").onclick = () => { const v = $("input").value.trim(); if (!v) return; $("input").value = ""; UChat(v); };
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("sendBtn").click(); } });
 $("btnStop").onclick = async () => { await api("/api/admin/stop", { method: "POST", body: "{}" }); showBubble("⏹ СТОП отправлен"); };
-$("btnHide").onclick = () => { if (uni) uni.hide(); };
+$("btnHide").onclick = () => { if (U) U.hide(); };
 $("btnSettings").onclick = () => $("settings").classList.toggle("hidden");
 $("btnVision").onclick = async () => {
   try { const r = await api("/api/vision/capture", { method: "POST" }); const d = await r.json(); showBubble("👁 " + (d.caption || "кадр захвачен")); }
@@ -100,15 +102,15 @@ async function streamAutonomous() {
 streamAutonomous();
 
 // события от main (desktop-event SSE)
-if (uni) {
-  uni.onEvent((data) => {
+if (U) {
+  U.onEvent((data) => {
     try {
       const ev = JSON.parse(data);
       if (ev.type === "consent_changed") updateObs(ev.consent.level);
       if (ev.type === "initiative") showBubble(ev.text || "Юни хочет что-то сказать");
     } catch (e) {}
   });
-  uni.onPTT((on) => { document.body.classList.toggle("recording", on); if (on) startRecording(); else stopRecording(); });
+  U.onPTT((on) => { document.body.classList.toggle("recording", on); if (on) startRecording(); else stopRecording(); });
 }
 
 // D-10: PTT запись -> /api/stt
@@ -123,7 +125,7 @@ async function startRecording() {
       const buf = await blob.arrayBuffer();
       const r = await api("/api/stt", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: buf });
       const d = await r.json();
-      if (d.text) uniChat(d.text); else showBubble("⚠ STT: " + (d.error || "нет текста"));
+      if (d.text) UChat(d.text); else showBubble("⚠ STT: " + (d.error || "нет текста"));
     };
     mediaRecorder.start();
   } catch (e) { showBubble("⚠ микрофон: " + e.message); }
@@ -144,14 +146,14 @@ async function loadSettings() {
     const r = await api("/api/desktop/consent"); const c = await r.json();
     updateObs(c.level || "off"); $("obsChk").checked = !!c.observation_enabled;
   } catch (e) {}
-  if (uni) { const st = await uni.loadState(); if (st) { $("autostartChk").checked = !!st.autostart; $("opacity").value = st.opacity || 1; } }
+  if (U) { const st = await U.loadState(); if (st) { $("autostartChk").checked = !!st.autostart; $("opacity").value = st.opacity || 1; } }
 }
 $("saveSettings").onclick = async () => {
   const role = $("roleSel").value;
   try { await api("/api/role/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }); } catch (e) {}
   await setConsent($("autoSel").value);
   const autostart = $("autostartChk").checked; const opacity = parseFloat($("opacity").value) || 1;
-  if (uni) { uni.saveState({ autostart, opacity }); uni.setOpacity(opacity); }
+  if (U) { U.saveState({ autostart, opacity }); U.setOpacity(opacity); }
   showBubble("✅ настройки сохранены");
 };
 // D-12: observe-цикл — только если согласие включено (опрос скриншотов раз в 10с)
@@ -159,13 +161,13 @@ let observeTimer = null;
 async function startObserveLoop() {
   if (observeTimer) clearInterval(observeTimer);
   observeTimer = setInterval(async () => {
-    if (!uni) return;
+    if (!U) return;
     let consent;
     try { const r = await api("/api/desktop/consent"); consent = await r.json(); } catch (e) { return; }
     if (!consent.observation_enabled) { updateObs("off"); return; }
     updateObs(consent.level || "observe");
     try {
-      const res = await uni.observeTick();
+      const res = await U.observeTick();
       if (res && res.ok && res.caption) {
         // suggest-уровень: показываем пузырь с тем, что увидели (бюджет не реализован — MVP)
         if ((consent.level || "observe") !== "observe") showBubble("👁 " + res.caption);
@@ -181,5 +183,5 @@ startObserveLoop();
 document.addEventListener("mousemove", (e) => {
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const interactive = !!el && !!el.closest("#chatPanel, #toolbar, #settings, button, textarea, select, input");
-  if (uni) uni.hitTest(interactive);
+  if (U) U.hitTest(interactive);
 });
