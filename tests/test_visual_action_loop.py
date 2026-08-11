@@ -165,3 +165,28 @@ def test_safe_zone_allows_normal_click():
     assert out["status"] == "success"
     assert len(computer.clicks) == 1
 
+
+def test_history_records_steps_readable():
+    # успешный цикл должен записать читаемую историю: сделала->проверила (и вижу при неудаче)
+    el = {"x": 100, "y": 100, "width": 80, "height": 30, "confidence": 0.9}
+    agent, computer, vision = _make_agent(locate_result=el, verify_yes=True)
+    out = asyncio.run(agent.act_on_screen("открой блокнот"))
+    assert out["status"] == "success"
+    hist = agent.get_history()
+    joined = " ".join(hist).lower()
+    assert "сделала" in joined, "нет этапа 'сделала' в истории"
+    assert "проверила" in joined, "нет этапа 'проверила' в истории"
+    assert "достигнута" in joined, "нет финальной 'достигнута' в истории"
+    # статус тоже отдаёт history
+    assert "достигнута" in " ".join(agent.status()["history"]).lower()
+
+
+def test_history_records_see_when_not_found():
+    # когда элемент не найден — история фиксирует этап 'вижу'
+    agent, computer, vision = _make_agent(locate_result=None, verify_yes=False, max_steps=2)
+    out = asyncio.run(agent.act_on_screen("открой блокнот"))
+    assert out["status"] == "failed"
+    hist = agent.get_history()
+    joined = " ".join(hist).lower()
+    assert "вижу" in joined, "при неудаче locate нет этапа 'вижу' в истории"
+

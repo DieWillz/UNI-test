@@ -60,6 +60,8 @@ class VisualActionAgent:
         self.log = log or (lambda _event, _message: None)
         self.steps_used = 0
         self._stop = False  # 🤖 флаг экстренной остановки (СТОП из UI/voice)
+        # 🤖 читаемая история шагов цикла для UI (увидела→сделала→увидела после)
+        self.history: list[str] = []
 
     def request_stop(self) -> None:
         """Экстренно прервать текущий цикл (СТОП из UI/голоса)."""
@@ -68,6 +70,7 @@ class VisualActionAgent:
     def reset(self) -> None:
         self._stop = False
         self.steps_used = 0
+        self.history = []
 
     def status(self) -> dict:
         """Текущее состояние цикла для опроса UI (без выполнения)."""
@@ -76,7 +79,12 @@ class VisualActionAgent:
             "steps": self.steps_used,
             "stopped": self._stop,
             "max_steps": self.max_steps,
+            "history": list(self.history),
         }
+
+    def get_history(self) -> list[str]:
+        """Читаемая история шагов цикла (увидела→сделала→увидела после)."""
+        return list(self.history)
 
     # -- публичный API ----------------------------------------------------
     async def act_on_screen(
@@ -122,9 +130,11 @@ class VisualActionAgent:
             if located is None:
                 # элемент совсем не найден — повторная попытка с переформулировкой
                 steps.append({"step": step, "action": "locate", "result": "not_found"})
+                self.history.append(f"шаг {step}: вижу — элемент «{goal}» не найден, пробую иначе")
                 continue
             if located == "low_conf":
                 # найден, но уверенность ниже порога — не кликаем (fail-closed)
+                self.history.append(f"шаг {step}: вижу — найдено, но уверенность низкая, не кликаю")
                 return {
                     "status": "clarify",
                     "steps": steps,
@@ -160,7 +170,9 @@ class VisualActionAgent:
                 "success": click.success,
                 "message": click.message,
             })
+            self.history.append(f"шаг {step}: сделала — клик по ({cx},{cy})")
             if not click.success:
+                self.history.append(f"шаг {step}: клик не удался — {click.message}")
                 continue
 
             # 3) ПРОВЕРЯЮ: достигнута ли цель (повторный анализ экрана)
@@ -168,7 +180,9 @@ class VisualActionAgent:
             ok = await self._verify(goal)
             steps.append({"step": step, "action": "verify", "achieved": ok})
             if ok:
+                self.history.append(f"шаг {step}: проверила — цель «{goal}» достигнута ✅")
                 return {"status": "success", "steps": steps, "error": None}
+            self.history.append(f"шаг {step}: проверила — пока не достигнуто, повторяю")
 
         return {
             "status": "failed",

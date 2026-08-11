@@ -445,14 +445,25 @@ async function computerAct(){
 }
 async function computerPoll(){
   const st = document.getElementById('compStatus');
-  let n = 0;
+  let n = 0, shown = 0;
   while(n < 20){
     await new Promise(r => setTimeout(r, 1500)); n++;
     try{
       const r = await fetch(HRM + '/api/computer/status');
       const d = await r.json().catch(()=>({}));
-      if(d.active){ compLog(d.step || 'шаг…'); if(st) st.textContent='шаг ' + (d.steps || n); }
-      else { compLog('финал: ' + (d.status || 'готово'), 'ok'); if(st) st.textContent = d.status || 'готово'; break; }
+      // показываем промежуточные шаги цикла (увидела->сделала->увидела после)
+      const hist = Array.isArray(d.history) ? d.history : [];
+      for(; shown < hist.length; shown++){
+        const line = hist[shown];
+        const kind = /достигнута|✅/.test(line) ? 'ok' : /не удалось|ошибка|не найден/.test(line) ? 'err' : '';
+        compLog(line, kind);
+      }
+      if(d.active){ if(st) st.textContent = 'шаг ' + (d.steps || n); }
+      else {
+        if(d.status && d.status !== 'success') compLog('финал: ' + (d.status || 'готово'), 'err');
+        if(st) st.textContent = d.status || 'готово';
+        break;
+      }
     }catch(e){ /* тихо */ }
   }
 }
