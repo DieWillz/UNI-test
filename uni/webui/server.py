@@ -82,6 +82,14 @@ def _ensure_remote_gateway() -> None:
 
 def _start_public_tunnel() -> str:
     global _PUBLIC_TUNNEL_PROCESS, _PUBLIC_TUNNEL_URL
+    # 🤖 B-06: env-флаг UNI_REMOTE_PUBLIC_BASE — использовать заданный публичный
+    # base URL вместо cloudflared (аддитивно, без лома старого пути). Полезно,
+    # когда публичный адрес уже есть (свой домен / frp / ngrok / reverse-proxy).
+    env_base = os.environ.get("UNI_REMOTE_PUBLIC_BASE", "").strip().rstrip("/")
+    if env_base:
+        _PUBLIC_TUNNEL_URL = env_base
+        _PUBLIC_TUNNEL_PROCESS = None
+        return _PUBLIC_TUNNEL_URL
     if _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None and _PUBLIC_TUNNEL_URL:
         return _PUBLIC_TUNNEL_URL
     _ensure_remote_gateway()
