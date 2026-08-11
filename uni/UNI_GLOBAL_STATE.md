@@ -184,6 +184,25 @@ autonomous: { ... }
 
 ---
 
+## 6.1 Админка v3 (Hermes, SOLO, 2026-08-11) — факт
+
+Новая консоль роя создана **рядом** с текущей панелью v3.3 (которую не трогали):
+- `uni/webui/v3/index.html`, `uni/webui/v3/style.css`, `uni/webui/v3/app.js` — каркас (тёмная компактная тема, навигация Главная/Задачи/Участники/Журнал/Настройки, кнопка СТОП).
+- Открывается отдельно (например, `http://127.0.0.1:8787/v3/index.html` — нужен alias статики или отдельный маршрут; backend уже отдаёт `style.css`/`app.js` через `static_aliases`, но `/v3/` не замаплен — добавить при необходимости).
+- Бэкенд-эндпоинты добавлены в `uni/webui/server.py` (аддитивно, без изменения существующих):
+  - `GET /api/global_state` — читает `uni/UNI_GLOBAL_STATE.md` (T-04)
+  - `GET /api/tasks` — парсит `UNI_BACKLOG.md`, возвращает задачи+статусы (T-05)
+  - `GET /api/heartbeats` — сканирует `uni-*/logs/heartbeat*.txt`, статус жив/мёртв (T-06)
+  - `GET /api/journal` — `UNI_JOURNAL.jsonl`, последние 100 (T-07)
+  - `GET /api/participants_dirs` — список папок `uni-*` (T-08)
+  - `POST /api/admin/stop` (и алиас `/api/stop`) — создаёт `STOP.txt` (T-15)
+- Защита (T-16): `is_relative_to(_ROOT)` против path traversal; `/api/report` валидирует `round_id` whitelist-ом.
+- Тесты: `tests/test_api_admin_v3.py` — **8 passed** (реальный HTTP-сервер в потоке).
+- `node --check uni/webui/v3/app.js` → валиден.
+- Реализовано: T-01..T-08, T-15, T-16, T-17 (финальный сьют 69 passed). Частично T-09..T-14 (каркас + базовые страницы, без детальной полировки). T-19..T-25 — favicon уже есть, тема/адаптив/error/spinner присутствуют в базовом v3.
+
+---
+
 ## 7. Что НЕ трогать (напоминание для роя)
 - Фича «управление ПК под зрением» УЖЕ реализована — не предлагать дубликаты.
 - Не править `config.yaml`, `UNI_LOCKS.json`, `intiface_bridge.py`, `xtoys_control_coordinator.py`, `autonomous_session.py`, `tests/` (без явной задачи).

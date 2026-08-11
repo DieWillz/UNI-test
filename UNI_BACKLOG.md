@@ -39,7 +39,36 @@ test_regression_integration.py (3x) + scripts/run_regression.py (отчёт GREE
 ВЫПОЛНЕНО (solo, Hermes). commit c818c1c — docs/COMPUTER_VISION_CONTROL.md.
 
 ---
-*Hermes = UNI_BACKLOG создан 2026-08-11 (solo, по директиве координатора).*
-
 ---
-*Все задачи бэклога B-01..B-08 выполнены (solo, Hermes, 2026-08-11). Режим ожидания новых задач координатора.*
+
+## БЛОК T: Админка v3 (оболочка ЮНИ) — Hermes SOLO, 2026-08-11
+
+Легенда: [ ] будущая · [V] выполнено+проверено · [X] не выполнено.
+
+[V] T-01: Аудит webui/ — отчёт uni-hermes/outbox/T01_AUDIT.md. Факт: панель v3.3 живая, не заглушка; заглушки — декоративные переключатели авто-процессов, муляж «Браузер».
+[V] T-02: Аудит server.py — отчёт uni-hermes/outbox/T02_SERVER_AUDIT.md. Факт: ~50 эндпоинтов /api/*, все реализованы.
+[V] T-03: Каркас webui/v3/ (index.html, style.css, app.js) — создан.
+[V] T-04: GET /api/global_state (читает uni/UNI_GLOBAL_STATE.md) — реализован + тест.
+[V] T-05: GET /api/tasks (парсит UNI_BACKLOG.md) — реализован + тест.
+[V] T-06: GET /api/heartbeats (скан uni-*/logs/heartbeat*.txt) — реализован + тест.
+[V] T-07: GET /api/journal (UNI_JOURNAL.jsonl, 100) — реализован + тест.
+[V] T-08: GET /api/participants_dirs (папки uni-*) — реализован + тест.
+[V] T-09: HTML-каркас Dashboard v3 (шапка, навигация) — в webui/v3/index.html.
+[V] T-10: CSS тёмная компактная тема — в webui/v3/style.css.
+[V] T-11: JS Главная (/api/global_state + /api/heartbeats, 30s) — в webui/v3/app.js.
+[V] T-12: JS Задачи (/api/tasks, таблица) — в webui/v3/app.js.
+[V] T-13: JS Журнал (/api/journal) — в webui/v3/app.js.
+[V] T-14: JS Участники (/api/participants_dirs + /api/heartbeats) — в webui/v3/app.js.
+[V] T-15: Кнопка СТОП (POST /api/admin/stop → STOP.txt) — реализован + тест.
+[V] T-16: Валидация входных данных (is_relative_to, whitelist round_id) — реализован + тесты.
+[V] T-17: Финальный pytest-сьют — 69 passed / 0 failed, check_architecture 0/0.
+[V] T-18: Обновлён UNI_GLOBAL_STATE.md (раздел 6.1 Админка v3).
+[V] T-19: favicon — уже есть (uni/webui/favicon.ico, анимированный в v3.3).
+[V] T-20: Настройки read-only — заглушка в webui/v3/app.js (config.yaml не трогаем по правилам).
+[V] T-21: Тёмная/светлая тема (переключатель) — в webui/v3 (toggleTheme).
+[V] T-22: Мобильная адаптивность — медиа-запрос в webui/v3/style.css.
+[V] T-23: Error handling на фронте — try/catch + showToast в webui/v3/app.js.
+[V] T-24: Loading-спиннеры — класс .loading в webui/v3 (базовый).
+[V] T-25: README для webui/v3 — см. uni/webui/v3/README.md (создан).
+
+*Hermes = все задачи T-01..T-25 выполнены (solo, 2026-08-11). Админка v3: backend + фронтенд + тесты + дока.*

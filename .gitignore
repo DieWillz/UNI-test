@@ -124,4 +124,10 @@ tests/integration/
 # --- Hermes backup exclusions (continued 2) ---
 uni/webui/delete-after/
 Основная оболочка Юни.md
-uni-hermes/
+# 🤖 DEPRECATED by Hermes (2026-08-11): строка `uni-hermes/` закомментирована —
+# директива координатора требует отчёты в uni-hermes/outbox/ и heartbeat в uni-hermes/logs/.
+# uni-hermes/ игнорировался как рантайм, но отчёты/heartbeat должны попадать в git.
+# uni-hermes/
+# Exception: отчёты и heartbeat — в git (по директиве координатора)
+!uni-hermes/outbox/
+!uni-hermes/logs/

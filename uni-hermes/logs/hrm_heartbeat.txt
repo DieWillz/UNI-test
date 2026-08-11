@@ -1,0 +1,1 @@
+2026-08-11 | T-01..T-25 DONE (solo) | Админка v3: backend (/api/global_state,tasks,heartbeats,journal,participants_dirs,admin/stop) + фронтенд v3 + тесты 8 passed + 69 passed сьют; check_architecture 0/0; UNI_GLOBAL_STATE обновлён; favicon/тема/адаптив/error/spinner/README готовы. config.yaml/XToys/Intiface/порты НЕ тронуты, файлы НЕ удалены.
