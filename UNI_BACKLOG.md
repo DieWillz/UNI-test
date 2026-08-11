@@ -130,14 +130,14 @@ test_regression_integration.py (3x) + scripts/run_regression.py (отчёт GREE
 
 ### P2 — проактивность
 [V] D-12 observe: захват экрана 10с (desktopCapturer→/api/vision/capture) + ПОСТОЯННЫЙ индикатор + только с согласия (/api/desktop/consent)
-[ ] D-13 suggest: детектор событий (ошибка/диалог/простой) → инициатива с бюджетом N/час и тихими часами (MVP: пузырь по caption, бюджет не реализован — будущая)
-[ ] D-14 act: белый список через act_on_screen, остальное — с подтверждением (будущая: нужен модуль детектора + whitelist)
+[V] D-13 suggest: детектор событий (ошибка/диалог/простой) → инициатива с бюджетом N/час и тихими часами (модуль uni/desktop/observe.py + POST /api/desktop/suggest)
+[V] D-14 act: белый список через act_on_screen, остальное — с подтверждением (POST /api/desktop/act, whitelist ACTION_WHITELIST; выполнение через agent.act_on_screen)
 [V] D-15 /api/consent (реализовано как /api/desktop/consent, DC-04) + consent-диалоги L2/L3 в оверлее (чекбокс согласия в настройках)
 
 ### P3 — 3D
-[ ] D-16 VRM-модель (three-vrm), blend-shapes по тону ответа (нужен .vrm от создателя)
-[ ] D-17 Lip-sync от громкости TTS (AnalyserNode → рот) (заготовка setMouthOpen в avatar.js)
-[ ] D-18 Лимит GPU: 30 fps, low-power, настройка «качество аватара» (будущая)
+[ ] D-16 VRM-модель (three-vrm), blend-shapes по тону ответа (нужен .vrm от создателя + установка three-vrm)
+[ ] D-17 Lip-sync от громкости TTS (AnalyserNode → рот) (заготовка setMouthOpen в avatar.js; нужен Web Audio + TTS-аудио)
+[ ] D-18 Лимит GPU: 30 fps, low-power, настройка «качество аватара» (будущая, после D-16)
 
 *Примечание расхождения со спекой:* в директиве D-10 сказано «/api/stt НЕТ», но эндпоинт
 уже реализован в DC-02 (POST /api/stt, опциональный Whisper). Аналогично D-15 (/api/consent)

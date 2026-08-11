@@ -1196,6 +1196,49 @@ class _Handler(BaseHTTPRequestHandler):
             rec = _write_consent(enabled, level)
             self._json(200, rec)
             return
+        if self.path == "/api/desktop/suggest":
+            # 🤖 D-13: POST — детектор событий + инициатива с бюджетом
+            try:
+                from uni.desktop.observe import suggest
+            except Exception as exc:
+                self._json(500, {"error": f"observe module error: {exc}"})
+                return
+            try:
+                payload = _read_body(self)
+                caption = str(payload.get("caption", ""))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            self._json(200, suggest(caption))
+            return
+        if self.path == "/api/desktop/act":
+            # 🤖 D-14: POST — действие из белого списка через act_on_screen
+            try:
+                from uni.desktop.observe import act_allowed
+            except Exception as exc:
+                self._json(500, {"error": f"observe module error: {exc}"})
+                return
+            try:
+                payload = _read_body(self)
+                action = str(payload.get("action", ""))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            if not act_allowed(action):
+                self._json(403, {"error": "действие не в белом списке", "allowed": list(
+                    __import__("uni.desktop.observe", fromlist=["ACTION_WHITELIST"]).ACTION_WHITELIST.keys())})
+                return
+            # выполняем через agent.act_on_screen только для разрешённых действий
+            try:
+                agent = self._get_chat_agent()
+                if agent is None or not hasattr(agent, "act_on_screen"):
+                    self._json(501, {"error": "act_on_screen недоступен"})
+                    return
+                result = agent.act_on_screen(action, payload.get("param", ""))
+                self._json(200, {"action": action, "result": str(result)})
+            except Exception as exc:
+                self._json(500, {"error": f"act error: {exc}"})
+            return
         if self.path == "/api/stt":
             # 🤖 DC-02: POST — речь→текст (опциональный Whisper)
             try:
