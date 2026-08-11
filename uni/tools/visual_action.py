@@ -181,6 +181,12 @@ class VisualActionAgent:
             steps.append({"step": step, "action": "verify", "achieved": ok})
             if ok:
                 self.history.append(f"шаг {step}: проверила — цель «{goal}» достигнута ✅")
+                # 🤖 сохраняем успешную траекторию (B-05) — аддитивно, тихо
+                try:
+                    from uni.tools.trajectory_store import save_trajectory
+                    save_trajectory(goal, steps, list(self.history), status="success")
+                except Exception:
+                    pass
                 return {"status": "success", "steps": steps, "error": None}
             self.history.append(f"шаг {step}: проверила — пока не достигнуто, повторяю")
 
