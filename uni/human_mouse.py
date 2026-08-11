@@ -18,6 +18,7 @@ UniActionBadge (см. uni_action_badge.py) — та самая "визуальн
 from __future__ import annotations
 
 import asyncio
+import os
 import random
 import threading
 import time
@@ -81,6 +82,19 @@ class HumanMouseController:
         # threading.Event (не asyncio.Event!) — cancel() может вызываться из
         # любого потока (голос «стоп» из event-loop, а движение в to_thread).
         self._cancel = threading.Event()
+        # 🤖 калибровка DPI/мульти-монитор: логические (vision) -> физические
+        # (win32api.SetCursorPos). Если недоступно — identity (не ломает старое).
+        # Можно принудительно отключить через UNI_NO_DISPLAY_CALIBRATION=1
+        # (например, в тестах или если пользователь хочет старое поведение).
+        self._display_profile = None
+        self._use_calibration = False
+        if os.environ.get("UNI_NO_DISPLAY_CALIBRATION") != "1":
+            try:
+                from uni.tools.display_calibration import load_profile
+                self._display_profile = load_profile()
+                self._use_calibration = bool(self._display_profile.get("available"))
+            except Exception:
+                self._use_calibration = False
         if self.settings.show_badge and UniActionBadge is not None:
             try:
                 self._badge = UniActionBadge()
@@ -98,8 +112,19 @@ class HumanMouseController:
     def _current_pos() -> tuple[int, int]:
         return win32api.GetCursorPos()
 
+    def _phys(self, x: int, y: int) -> tuple[int, int]:
+        """Логические (vision) -> физические (SetCursorPos). Identity если недоступно."""
+        if not self._use_calibration or self._display_profile is None:
+            return int(x), int(y)
+        try:
+            from uni.tools.display_calibration import to_physical
+            return to_physical(int(x), int(y), self._display_profile)
+        except Exception:
+            return int(x), int(y)
+
     def _move_sync(self, target: tuple[int, int]) -> None:
         start = self._current_pos()
+        target = self._phys(target[0], target[1])  # 🤖 логич->физич (DPI/монитор)
         distance = ((target[0] - start[0]) ** 2 + (target[1] - start[1]) ** 2) ** 0.5
 
         # Для очень коротких перемещений (courser уже почти на месте) не стоит
@@ -135,7 +160,7 @@ class HumanMouseController:
         до нескольких попыток), но БЕЗ рекурсии — обычный bounded-цикл, чтобы
         не было риска ухода в глубину при систематическом промахе (например,
         из-за DPI-скейлинга или второго монитора со смещёнными координатами)."""
-        target = (int(x), int(y))
+        target = self._phys(x, y)  # 🤖 логич->физич для сравнения с GetCursorPos
         await self.move_to(*target)
         for _ in range(max_corrections):
             cx, cy = await asyncio.to_thread(self._current_pos)
