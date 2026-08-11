@@ -555,6 +555,39 @@ def _open_browser_hosts(cdp_url: str | None) -> set[str]:
     return hosts
 
 
+# R-02: рекурсивная маскировка секретов во всех JSON-ответах (defense-in-depth).
+# Бэкенд и так не отдаёт сырые ключи (api_key_set: bool), но этот фильтр —
+# страховка на случай, если какой-то эндпоинт вернёт api_key / sk-... / токен.
+_SECRET_KEY_RE = re.compile(r"(?i)(api[_-]?key|secret|token|password|authorization|access[_-]?token)")
+_SECRET_VAL_RE = re.compile(
+    r"(?i)(sk-[A-Za-z0-9_-]{8,}|gsk_[A-Za-z0-9_-]{8,}|AQ\.[A-Za-z0-9_.-]{8,}"
+    r"|hf_[A-Za-z0-9]{8,}|Bearer\s+[A-Za-z0-9._-]{8,})"
+)
+
+def _mask_value(v: str) -> str:
+    # любое совпадение с паттерном секрета -> полная маскировка
+    if _SECRET_VAL_RE.search(str(v)):
+        return "***masked***"
+    return str(v)
+
+def _sanitize_secrets(obj):
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            ks = str(k)
+            if _SECRET_KEY_RE.search(ks) or (isinstance(v, str) and _SECRET_VAL_RE.search(v)):
+                out[k] = _mask_value(v)
+            else:
+                out[k] = _sanitize_secrets(v)
+        return out
+    if isinstance(obj, list):
+        return [_sanitize_secrets(x) for x in obj]
+    if isinstance(obj, str) and _SECRET_VAL_RE.search(obj):
+        return _mask_value(obj)
+    return obj
+
+
+
 def _participant_statuses(cfg) -> list[dict[str, Any]]:
     statuses = []
     open_hosts = _open_browser_hosts(cfg.capabilities.browser.cdp_url)
@@ -715,7 +748,8 @@ class _Handler(BaseHTTPRequestHandler):
             pass
 
     def _json(self, code: int, value: Any) -> None:
-        self._send(code, json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        # R-02: любой JSON-ответ прогоняем через маскировку секретов (defense-in-depth)
+        self._send(code, json.dumps(_sanitize_secrets(value), ensure_ascii=False).encode("utf-8"))
 
     def _redirect(self, location: str, code: int = 301) -> None:
         body = b""
@@ -779,6 +813,14 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
             else:
                 self._send(404, b"camera preview missing", "text/plain")
+            return
+        if parsed.path in ("/v3", "/v3/"):
+            # R-01: админка v3 (отдельный SPA в uni/webui/v3/)
+            page = _HERE / "v3" / "index.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"admin v3 missing", "text/plain")
             return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
