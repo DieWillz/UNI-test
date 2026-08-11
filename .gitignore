@@ -76,3 +76,52 @@ cloudflared.exe
 uni/webui/text.wav
 uni/webui/text.txt
 
+
+# --- Hermes backup exclusions (privacy / secrets) ---
+UNI-mcp-server/
+.agents/
+.openclaw/
+.opencode/
+.cluster/
+.hermes/
+.uni-council-browser-profile/
+.uni-backup-2026-08-08/
+uni Hermes old/
+uni Hermes old */
+config-old.yml
+config/
+IDENTITY.md
+SOUL.md
+USER.md
+TOOLS.md
+HEARTBEAT.md
+UNI-online-update.md
+UNI-online-updated-by-Hermes.md
+start-uni*.lnk
+uni_calibrate.ahk
+uni_cycle_supervisor.ahk
+uni_task_dispatcher.ahk
+UNI_AUTO_OFF.cmd
+UNI_AUTO_ON.cmd
+UNI_SUPERVISOR_RUN.cmd
+uni-project-analysis.html
+filterrepo-output.txt
+.autonomous.py
+
+# --- Hermes backup exclusions (continued) ---
+for-chat/
+agent-browser/
+uni — копия/
+*.lnk
+*.ahk
+*.cmd
+uni-project-analysis.html
+filterrepo-output.txt
+.openclaw-autoclaw/
+uni-tandem-bridge.cmd
+tests/integration/
+
+# --- Hermes backup exclusions (continued 2) ---
+uni/webui/delete-after/
+Основная оболочка Юни.md
+uni-hermes/
