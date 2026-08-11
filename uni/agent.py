@@ -23,6 +23,7 @@ from uni.tools import ToolExecutor
 from uni.working_memory import WorkingMemory
 
 from uni.autonomous import AutonomousController
+from uni.tools.visual_action import VisualActionAgent
 
 console = Console()
 
@@ -83,6 +84,7 @@ class Agent:
             use_uia=cc.use_uia,
             failsafe=cc.failsafe,
             mouse_move_duration=cc.mouse_move_duration,
+            use_human_motion=True,  # 🤖 включаем человеко-подобный движок по умолчанию
             action_badge_enabled=getattr(cc, "action_badge", True),
             action_badge_label=getattr(cc, "action_badge_label", "UNI"),
         )
@@ -168,6 +170,45 @@ class Agent:
     async def run_autonomous(self) -> None:
         """Explicit entry point for the hands-free mode (or `py -3.12 -m uni --autonomous`)."""
         return await self.autonomous.run()
+
+    # 🤖 Голосовая/текстовая маршрутизация: «открой X» / «кликни X» / «нажми X»
+    # -> замкнутый цикл зрение->действие->проверка. Безопасно: использует уже
+    # созданные capability computer/vision, не трогает config.yaml/устройства.
+    async def act_on_screen(self, goal: str, max_steps: int = 8) -> dict:
+        """Выполнить цель на рабочем столе под зрением (вижу->решаю->кликаю->проверяю).
+
+        Args:
+            goal: естественная фраза цели, например «открой блокнот».
+            max_steps: лимит итераций цикла.
+        Returns:
+            dict со статусом (success/failed/clarify/blocked/interrupted), шагами и ошибкой.
+        """
+        computer = self.capabilities.get("computer")
+        vision = self.capabilities.get("vision")
+        if computer is None or vision is None:
+            return {"status": "failed", "steps": [], "error": "computer/vision capability недоступны"}
+        agent = VisualActionAgent(
+            computer,
+            vision,
+            max_steps=max_steps,
+            log=lambda event, msg: self.session_logger.log(event, str(msg))
+            if self.session_logger.enabled else None,
+        )
+        result = await agent.act_on_screen(goal, max_steps=max_steps)
+        # Озвучить итог, если речь включена
+        try:
+            summary = {
+                "success": "Готово.",
+                "failed": "Не получилось выполнить.",
+                "clarify": "Не уверена, уточните цель.",
+                "blocked": "Команда заблокирована.",
+                "interrupted": "Прервано.",
+            }.get(result.get("status", ""), "Выполнено.")
+            if getattr(self.speech, "speak", None):
+                await self.speech.speak(summary)
+        except Exception:
+            pass
+        return result
 
     def get_state(self):
         return self.event_loop.state
