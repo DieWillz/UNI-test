@@ -81,6 +81,9 @@ class VisionConfig(BaseModel):
     resize_width: int = 320
     resize_height: int = 240
     save_screenshots: bool = False
+    # 🤖 локальный fallback (UIA/OCR) когда VLM недоступна. Opt-in, default False
+    # — не меняет поведение по умолчанию, включается в config.yaml.
+    local_fallback_enabled: bool = False
 
 class XToysConfig(BaseModel):
     url: str = "https://xtoys.app"

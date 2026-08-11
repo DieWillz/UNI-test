@@ -258,6 +258,16 @@ class VisionCapability(Capability):
             return ToolResult(success=True, data={"analysis": response}, message="Рабочий стол проанализирован")
         except Exception as exc:
             logger.warning("Desktop Vision unavailable: %s", exc)
+            # 🤖 локальный fallback (UIA-describe), если VLM упала и включён флаг
+            if self.config.capabilities.vision.local_fallback_enabled:
+                try:
+                    from uni.tools.local_vision_fallback import uia_describe
+                    local = uia_describe()
+                    if local:
+                        return ToolResult(success=True, data={"analysis": local},
+                                          message="Рабочий стол проанализирован локально (UIA)")
+                except Exception as fexc:
+                    logger.debug("local UIA describe не сработал: %s", fexc)
             return ToolResult(success=False, message=f"Desktop Vision недоступен: {exc}")
 
     async def analyze_file(self, path: str, prompt: str) -> ToolResult:
@@ -330,6 +340,16 @@ class VisionCapability(Capability):
             return ToolResult(success=False, message=f"Некорректный ответ Desktop Vision: {exc}")
         except Exception as exc:
             logger.exception("Desktop Vision element detection failed")
+            # 🤖 локальный fallback (UIA), если VLM упала и включён флаг
+            if self.config.capabilities.vision.local_fallback_enabled:
+                try:
+                    from uni.tools.local_vision_fallback import uia_find_element
+                    local = uia_find_element(description)
+                    if local is not None:
+                        return ToolResult(success=True, data=local,
+                                          message=f"Элемент «{description}» найден локально (UIA)")
+                except Exception as fexc:
+                    logger.debug("local UIA fallback не сработал: %s", fexc)
             return ToolResult(success=False, message=f"Ошибка Desktop Vision: {exc}")
 
     async def execute(self, action: str, **kwargs) -> ToolResult:
