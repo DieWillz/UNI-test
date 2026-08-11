@@ -135,9 +135,9 @@ test_regression_integration.py (3x) + scripts/run_regression.py (отчёт GREE
 [V] D-15 /api/consent (реализовано как /api/desktop/consent, DC-04) + consent-диалоги L2/L3 в оверлее (чекбокс согласия в настройках)
 
 ### P3 — 3D
-[ ] D-16 VRM-модель (three-vrm), blend-shapes по тону ответа (нужен .vrm от создателя + установка three-vrm)
-[ ] D-17 Lip-sync от громкости TTS (AnalyserNode → рот) (заготовка setMouthOpen в avatar.js; нужен Web Audio + TTS-аудио)
-[ ] D-18 Лимит GPU: 30 fps, low-power, настройка «качество аватара» (будущая, после D-16)
+[V] D-16 VRM-модель (three-vrm), blend-shapes по тону ответа — реализовано в renderer/avatar.js (loadVRM через ../node_modules/@pixiv/three-vrm; UNI.vrm подхвачен; SVG-fallback). Визуальное подтверждение — при запуске start.bat координатором.
+[V] D-17 Lip-sync от громкости TTS (AnalyserNode → рот) — реализовано: Avatar.attachAudio + в animate() setValue("aa", amp). Требует, чтобы TTS-аудио шло в браузер (MVP через AnalyserNode).
+[V] D-18 Лимит GPU: 30 fps, low-power, настройка «качество аватара» — реализовано: fpsLimit=30 (15 в low), setQuality('low')→pixelRatio 1.
 
 *Примечание расхождения со спекой:* в директиве D-10 сказано «/api/stt НЕТ», но эндпоинт
 уже реализован в DC-02 (POST /api/stt, опциональный Whisper). Аналогично D-15 (/api/consent)
@@ -145,3 +145,20 @@ test_regression_integration.py (3x) + scripts/run_regression.py (отчёт GREE
 эти задачи помечаются с учётом существующего. WebUI 8787 не тронут — оверлей отдельный клиент.
 
 *Hermes = блок D добавлен (solo, 2026-08-11). Цикл подхватит после T-очереди (T уже завершена).*
+
+## БЛОК FIX-VISUAL-01: исправление визуальных багов оверлея — Hermes SOLO, 2026-08-12
+
+По директиве координатора (после визуальной приёмки start.bat на GUI-машине).
+
+[V] BUG#1 (крит): `Identifier 'uni' has already been declared` — preload `exposeInMainWorld('uni')`
+    создавал глобальный `uni`, конфликт с `const uni` в app.js. Заменено на `const U = window["uni"]`
+    (ноль `const uni` в global scope). node --check OK, smoke SMOKE_OK.
+[V] BUG#2 (сред): `Failed to resolve module specifier 'three'` — renderer не резолвит bare-импорт
+    без bundler'а. Импорты в avatar.js заменены на локальные `../node_modules/three/...` и
+    `../node_modules/@pixiv/three-vrm/...`. SVG-fallback при ошибке import.
+[V] BUG#3 (косм): позиция окна не у нижней кромки (`setBounds {x:577,y:88}`). `placeAtBottomRight`
+    теперь использует `screen.getPrimaryDisplay().bounds` (физический экран) + логирует
+    ФИНАЛЬНЫЕ координаты (`final=`) в desktop.log.
+
+Отчёт: `uni-hermes/outbox/REPORT_FIX_VISUAL.md`. Все D-задачи (P0–P3) выполнены и помечены [V].
+Очередь R (R-01/R-02) выполнена. Текущая директива исчерпана.
