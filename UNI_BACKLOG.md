@@ -72,3 +72,33 @@ test_regression_integration.py (3x) + scripts/run_regression.py (отчёт GREE
 [V] T-25: README для webui/v3 — см. uni/webui/v3/README.md (создан).
 
 *Hermes = все задачи T-01..T-25 выполнены (solo, 2026-08-11). Админка v3: backend + фронтенд + тесты + дока.*
+
+---
+
+## БЛОК DC: Desktop Companion (оверлей) — Hermes SOLO, 2026-08-11
+
+Концепт от создателя (файл «Основная оболочка Юни.md»): прозрачный десктоп-оверлей
+поверх всех окон с полноростовым аватаром-компаньоном, чатом и **проактивностью**.
+Бэкенд почти весь уже в каноне (`server.py` на 8787); добавлено аддитивно.
+
+Легенда: [V] выполнено+проверено.
+
+[V] DC-01: Дизайн-док `uni/webui/desktop/DESIGN.md` (компоновка, фазы, риски).
+[V] DC-02: `uni/capabilities/stt.py` (опциональный Whisper) + `POST /api/stt` в server.py.
+[V] DC-03: `GET /api/desktop/events` (SSE для оверлея) в server.py.
+[V] DC-04: `GET/POST /api/desktop/consent` (согласие на наблюдение + журнал `uni/memory/consent_log.jsonl`).
+[V] DC-05: `uni/webui/desktop/main.js` (Electron: прозрачность, always-on-top, click-through, трей, PTT-хоткей, SSE-клиент).
+[V] DC-06: `uni/webui/desktop/index.html` + `style.css` (компоновка из прототипа: чат слева, аватар справа, кнопки сверху).
+[V] DC-07: `uni/webui/desktop/app.js` (чат→/api/chat, TTS, SSE autonomous/stream, desktop-event, кнопки, PTT→/api/stt, настройки).
+[V] DC-08: `tests/test_api_desktop.py` — 4 passed (реальный HTTP-сервер: stt/consent/events).
+[V] DC-09: Зеркалирование в UNI-mcp-server/uni-local/uni/ + коммит + пуш в night/uni-mouse-vision.
+[ ] DC-10 (будущая): 3D VRM-аватар (three-vrm) вместо 2D-спрайтов.
+[ ] DC-11 (будущая): детектор событий наблюдения (захват экрана + UIA/OCR → инициатива по уровню автономии).
+[ ] DC-12 (будущая): миграция оболочки на Tauri ради лёгкого инсталлера.
+
+*Примечание:* Electron не установлен в этом окружении — `main.js`/`app.js` валидны
+(`node --check`), но запуск оверлея требует `npm i` + `npm start` на целевой машине
+координатора (Windows + GPU 3060 12GB). Whisper (faster-whisper) ДОСТУПЕН в окружении,
+значит `/api/stt` реально работает при наличии модели.
+
+*Hermes = блок DC (оверлей) выполнен (solo, 2026-08-11). Канон расширен аддитивно, не сломан.*

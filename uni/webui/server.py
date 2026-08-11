@@ -52,6 +52,49 @@ _XT_SESSION: AutonomousSession | None = None
 _XT_LOOP: asyncio.AbstractEventLoop | None = None
 _XT_THREAD: Any = None
 
+# 🤖 DC-03: очередь событий для оверлея Desktop Companion
+_desktop_event_queue: "queue.Queue" = queue.Queue()
+
+
+def _consent_path():
+    return (_ROOT / "uni" / "memory" / "consent_log.jsonl")
+
+
+def _read_consent():
+    """Текущее согласие на наблюдение (DC-04)."""
+    p = _consent_path()
+    if not p.is_file():
+        return {"observation_enabled": False, "level": "off", "last_change": None}
+    try:
+        lines = [l for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if not lines:
+            return {"observation_enabled": False, "level": "off", "last_change": None}
+        last = json.loads(lines[-1])
+        return {
+            "observation_enabled": bool(last.get("observation_enabled", False)),
+            "level": last.get("level", "off"),
+            "last_change": last.get("ts"),
+        }
+    except (OSError, json.JSONDecodeError):
+        return {"observation_enabled": False, "level": "off", "last_change": None}
+
+
+def _write_consent(observation_enabled: bool, level: str):
+    """Сохраняет запись согласия в журнал (DC-04)."""
+    p = _consent_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    level = level if level in ("off", "observe", "suggest", "act") else "off"
+    rec = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "observation_enabled": bool(observation_enabled),
+        "level": level,
+    }
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    # уведомляем оверлеи об изменении
+    _desktop_event_queue.put({"type": "consent_changed", "consent": rec})
+    return rec
+
 # ===== Intiface (Buttplug) direct bridge =====
 _INTIFACE: IntifaceBridge | None = None
 
@@ -889,6 +932,36 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"participants": parts})
             return
 
+        # 🤖 DC-03 / DC-04: Desktop Companion — аддитивные эндпоинты (не ломают канон)
+        if parsed.path == "/api/desktop/events":
+            # SSE-поток событий для оверлея (смена уровня автономии, инициатива, статус наблюдения)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            _desktop_event_queue.put({"type": "hello", "ts": time.time()})
+            try:
+                while True:
+                    try:
+                        event = _desktop_event_queue.get(timeout=30.0)
+                    except Exception:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                        continue
+                    line = json.dumps(event, ensure_ascii=False)
+                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        if parsed.path == "/api/desktop/consent":
+            # DC-04: GET — текущее согласие на наблюдение
+            consent = _read_consent()
+            self._json(200, consent)
+            return
+
         if parsed.path == "/api/report":
             cfg = load_config()
             round_id = (parse_qs(parsed.query).get("id") or [""])[0]
@@ -1110,6 +1183,61 @@ class _Handler(BaseHTTPRequestHandler):
                     self._json(500, {"error": "недопустимый путь"})
             except OSError as exc:
                 self._json(500, {"error": f"не удалось создать STOP.txt: {exc}"})
+            return
+        if self.path == "/api/desktop/consent":
+            # 🤖 DC-04: POST — установить согласие на наблюдение (пишет журнал)
+            try:
+                payload = _read_body(self)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            enabled = bool(payload.get("observation_enabled", False))
+            level = str(payload.get("level", "off"))
+            rec = _write_consent(enabled, level)
+            self._json(200, rec)
+            return
+        if self.path == "/api/stt":
+            # 🤖 DC-02: POST — речь→текст (опциональный Whisper)
+            try:
+                from uni.capabilities.stt import transcribe_audio, engine_name
+            except Exception as exc:
+                self._json(500, {"error": f"stt module error: {exc}"})
+                return
+            try:
+                eng = engine_name()
+            except Exception as exc:
+                self._json(500, {"error": f"stt engine load error: {exc}", "available": False})
+                return
+            if eng == "none":
+                self._json(501, {"error": "STT engine (Whisper) не установлен", "available": False})
+                return
+            try:
+                ctype = self.headers.get("Content-Type", "")
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                if length <= 0:
+                    self._json(400, {"error": "пустое тело"})
+                    return
+                # поддержка multipart (form-data) и raw-байтов
+                raw = self.rfile.read(length)
+                mime = "audio/webm"
+                if ctype.startswith("multipart/"):
+                    boundary = ctype.split("boundary=")[-1].strip('"')
+                    parts = raw.split(f"--{boundary}".encode())
+                    for part in parts:
+                        if b"filename=" in part and b"audio/" in part:
+                            head, _, body = part.partition(b"\r\n\r\n")
+                            raw = body.rstrip(b"\r\n")
+                            mm = re.search(rb"audio/[a-zA-Z0-9.\-]+", head)
+                            if mm:
+                                mime = mm.group(0).decode("utf-8", "replace")
+                            break
+                text = transcribe_audio(raw, mime)
+                if text is None:
+                    self._json(500, {"error": "не удалось распознать аудио", "available": True})
+                    return
+                self._json(200, {"text": text, "engine": eng})
+            except (ValueError, OSError) as exc:
+                self._json(400, {"error": f"некорректный запрос: {exc}"})
             return
         if self.path == "/api/round/start":
             try:
