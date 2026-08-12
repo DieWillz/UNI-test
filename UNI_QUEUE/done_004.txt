@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12. GET /v3=200 (R-01), /api/config без sk-/gsk_/AQ./hf_/Bearer (R-02). См. REPORT_004.md.

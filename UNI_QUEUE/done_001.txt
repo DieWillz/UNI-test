@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12 08:12. Окно у нижней кромки (rect 1142,168), VRM loaded в логе, скриншот VISUAL_PROOF_001.png. Перезапуск для применения DIAGNOSTIC-VISIBLE main.js заблокирован (окно в сеансе координатора) — см. REPORT_001.md.
