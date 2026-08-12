@@ -3,7 +3,7 @@
 // F-03: окно создаётся и показывается ДАЖЕ если сервер недоступен; «Показать» пересоздаёт.
 // F-04: single-instance lock; автозапуск дефолт false.
 // F-05: VRM-аватар (three-vrm) подхватывается из assets/UNI.vrm; SVG — fallback.
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, dialog, screen } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -43,26 +43,42 @@ function saveState(obj) {
   return s;
 }
 
-// ── F-05: позиция у нижней кромки ──────────────────────────────────
+// ── F-05/D-16: позиция у нижней кромки ──────────────────────────────────
 function placeAtBottomRight(w) {
   try {
-    const { screen } = require("electron");
-    // BUG#3 FIX: используем физические bounds экрана (а не workAreaSize, который
-    // может быть уменьшен taskbar'ом/DPI и давать окно не внизу). Ставим у нижней
-    // правой кромки физического экрана.
+    // DIAGNOSTIC-VISIBLE: логируем DPI и физические координаты (bounds — device pixels).
     const disp = screen.getPrimaryDisplay();
-    const b = disp.bounds;          // {x,y,width,height} всего экрана
-    const wb = w.getBounds();       // текущие размеры окна
+    const sf = disp.scaleFactor;                 // DPI множитель (напр. 1.25)
+    const b = disp.bounds;                       // физические координаты экрана {x,y,width,height}
+    const wb = w.getBounds();                    // текущие размеры окна (device pixels)
+    // Формула по директиве: физические bounds минус размер окна (device pixels совпадают
+    // с setPosition, т.к. Electron работает в device pixels).
     const x = Math.max(b.x, b.x + b.width - wb.width - 12);
     const y = Math.max(b.y, b.y + b.height - wb.height - 8);
     w.setPosition(x, y);
-    // BUG#3 FIX: логируем bounds экрана и ФИНАЛЬНЫЕ координаты окна после setPosition
     const final = w.getBounds();
-    log("placeAtBottomRight: screenBounds=", JSON.stringify(b),
-        "| winSize=", JSON.stringify(wb),
+    log("placeAtBottomRight: DPI scale=" + sf,
+        "| physical bounds=" + JSON.stringify(b),
+        "| winSize=" + JSON.stringify(wb),
         "| set->", x, y,
-        "| final=", JSON.stringify(final));
-  } catch (e) { log("placeAtBottomRight error", e.message); }
+        "| final=" + JSON.stringify(final));
+    return { x, y, scale: sf, bounds: b, final };
+  } catch (e) { log("placeAtBottomRight error", e.message); return null; }
+}
+
+// DIAGNOSTIC-VISIBLE: полная диагностика окна (bounds/opacity/visible/minimized/scale)
+function diagWindow() {
+  if (!win || win.isDestroyed()) return "Окно не создано";
+  const b = win.getBounds();
+  const disp = screen.getPrimaryDisplay();
+  const sf = disp.scaleFactor;
+  const opacity = win.getOpacity();
+  const visible = win.isVisible();
+  const minimized = win.isMinimized();
+  const msg = `Окно: x=${b.x}, y=${b.y}, w=${b.width}, h=${b.height}\nOpacity: ${opacity}\nVisible: ${visible}\nMinimized: ${minimized}\nScale: ${sf}\nPhysical bounds: ${JSON.stringify(disp.bounds)}`;
+  log("DIAG", msg.replace(/\n/g, " | "));
+  try { dialog.showMessageBox({ type: "info", title: "Диагностика Юни", message: msg }); } catch (e) {}
+  return msg;
 }
 
 // ── HTTP через fetch (F-01: уходит от Parse Error http.* к серверу) ─
@@ -109,8 +125,23 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
   win.once("ready-to-show", () => {
-    win.show(); placeAtBottomRight(win);
+    placeAtBottomRight(win);   // ставим позицию ДО show (V-03: иначе show фиксирует дефолтную)
+    win.show();
+    // DIAGNOSTIC-VISIBLE: пост-показ диагностика
+    try {
+      const disp = screen.getPrimaryDisplay();
+      const b = win.getBounds();
+      log("after-show: bounds=" + JSON.stringify(b),
+          "| opacity=" + win.getOpacity(),
+          "| visible=" + win.isVisible(),
+          "| minimized=" + win.isMinimized(),
+          "| scaleFactor=" + disp.scaleFactor,
+          "| physicalBounds=" + JSON.stringify(disp.bounds));
+      if (win.getOpacity() < 0.1) { win.setOpacity(1); log("after-show: opacity<0.1 -> setOpacity(1)"); }
+    } catch (e) { log("after-show diag error", e.message); }
     log("ready-to-show -> show, visible=", win.isVisible());
+    // V-03: повторная фиксация позиции (на случай, если show сбросил координаты)
+    setTimeout(() => placeAtBottomRight(win), 60);
   });
   win.on("closed", () => { win = null; log("window closed"); });
 
@@ -211,6 +242,7 @@ app.whenReady().then(() => {
     { label: "Наблюдение: suggest", click: () => setConsent("suggest") },
     { label: "Наблюдение: act", click: () => setConsent("act") },
     { type: "separator" },
+    { label: "Диагностика", click: () => { log("tray: Диагностика"); diagWindow(); } },
     { label: "Выход", click: () => { log("tray: Выход"); app.quit(); } },
   ]));
 

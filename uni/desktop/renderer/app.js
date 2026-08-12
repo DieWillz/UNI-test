@@ -83,10 +83,11 @@ function updateObs(level) {
   $("obsIndicator").textContent = "👁 наблюдает: " + level;
 }
 
-// D-09: SSE автономных фраз
+// D-09: SSE автономных фраз (GET — сервер отдаёт text/event-stream в do_GET)
 async function streamAutonomous() {
   try {
-    const r = await api("/api/autonomous/stream", { method: "POST", body: "{}" });
+    const r = await api("/api/autonomous/stream", { method: "GET" });
+    if (!r || !r.body) { log("autonomous stream: нет тела (агент не запущен?)"); return; }
     const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
     while (true) {
       const { done, value } = await reader.read(); if (done) break;
@@ -97,7 +98,7 @@ async function streamAutonomous() {
         if (m) { try { const ev = JSON.parse(m[1]); if (ev.phrase) { addMsg("uni", ev.phrase); showBubble(ev.phrase); } } catch (e) {} }
       }
     }
-  } catch (e) {}
+  } catch (e) { log("autonomous stream error", e && e.message); }
 }
 streamAutonomous();
 

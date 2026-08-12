@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UNI Desktop Companion</title>
+<!-- V-02 FIX: importmap резолвит bare-импорты 'three' / '@pixiv/three-vrm' внутри
+     зависимостей (GLTFLoader, three-vrm), т.к. Electron renderer не имеет bundler'а. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "../node_modules/three/build/three.module.js",
+    "three/": "../node_modules/three/",
+    "@pixiv/three-vrm": "../node_modules/@pixiv/three-vrm/lib/three-vrm.module.min.js"
+  }
+}
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -45,7 +56,7 @@
     <button id="saveSettings">Сохранить</button>
   </div>
 </div>
-<script src="avatar.js"></script>
+<script src="avatar.js" type="module"></script>
 <script src="app.js"></script>
 </body>
 </html>
