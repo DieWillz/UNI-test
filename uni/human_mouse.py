@@ -112,6 +112,13 @@ class HumanMouseController:
     def _current_pos() -> tuple[int, int]:
         return win32api.GetCursorPos()
 
+    @staticmethod
+    def _screen_size() -> tuple[int, int]:
+        # 🤖 FIX-AUDIT A-03: единый источник размера экрана (win32, без pyautogui).
+        w = win32api.GetSystemMetrics(0)  # SM_CXSCREEN
+        h = win32api.GetSystemMetrics(1)  # SM_CYSCREEN
+        return int(w), int(h)
+
     def _phys(self, x: int, y: int) -> tuple[int, int]:
         """Логические (vision) -> физические (SetCursorPos). Identity если недоступно."""
         if not self._use_calibration or self._display_profile is None:
