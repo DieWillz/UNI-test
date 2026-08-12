@@ -190,3 +190,59 @@ def test_history_records_see_when_not_found():
     joined = " ".join(hist).lower()
     assert "вижу" in joined, "при неудаче locate нет этапа 'вижу' в истории"
 
+
+def test_locate_tries_all_queries_before_low_conf():
+    # P1 FIX (FIX-AUDIT): _locate должен перебрать ВСЕ формулировки и
+    # возвращать low_conf только если ВСЕ дали низкую уверенность.
+    # Поведенческий тест: первые query -> low_conf, последняя -> success.
+    from uni.contracts import ToolResult
+
+    class _SeqVision:
+        def __init__(self):
+            self.calls = []
+            self.low_conf = [
+                {"x": 1, "y": 1, "width": 5, "height": 5, "confidence": 0.2},
+                {"x": 2, "y": 2, "width": 5, "height": 5, "confidence": 0.3},
+            ]
+            self.ok = {"x": 10, "y": 10, "width": 20, "height": 20, "confidence": 0.95}
+
+        async def find_desktop_element(self, description):
+            self.calls.append(description)
+            if len(self.calls) <= len(self.low_conf):
+                return ToolResult(success=True, data=self.low_conf[len(self.calls) - 1])
+            return ToolResult(success=True, data=self.ok)
+
+        async def analyze_desktop(self, prompt):
+            return ToolResult(success=True, data={"analysis": "да, цель достигнута"})
+
+    computer = _FakeComputer()
+    vision = _SeqVision()
+    agent = VisualActionAgent(computer, vision, max_steps=1)
+    result = asyncio.run(agent._locate("открой блокнот"))
+    assert result is not None and result != "low_conf", f"ожидался data, получил {result!r}"
+    assert result["confidence"] == 0.95
+    assert len(vision.calls) == 3, f"ожидался перебор всех 3 query, вызовов: {len(vision.calls)}"
+
+
+def test_locate_low_conf_only_if_all_low():
+    # P1 FIX: low_conf возвращается только если ВСЕ query дали низкую уверенность.
+    from uni.contracts import ToolResult
+
+    class _AllLowVision:
+        def __init__(self):
+            self.calls = []
+
+        async def find_desktop_element(self, description):
+            self.calls.append(description)
+            return ToolResult(success=True, data={"x": 1, "y": 1, "width": 2, "height": 2, "confidence": 0.2})
+
+        async def analyze_desktop(self, prompt):
+            return ToolResult(success=True, data={"analysis": "да"})
+
+    computer = _FakeComputer()
+    vision = _AllLowVision()
+    agent = VisualActionAgent(computer, vision, max_steps=1)
+    result = asyncio.run(agent._locate("цель"))
+    assert result == "low_conf", f"ожидался low_conf, получил {result!r}"
+    assert len(vision.calls) == 3, f"ожидался перебор всех 3 query, вызовов: {len(vision.calls)}"
+

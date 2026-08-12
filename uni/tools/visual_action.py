@@ -216,6 +216,11 @@ class VisualActionAgent:
             f"элемент интерфейса: {goal}",
             goal,
         ]
+        # P1 FIX (FIX-AUDIT): реальный перебор формулировок. Возвращаем
+        # "low_conf" ТОЛЬКО если ВСЕ формулировки нашли элемент, но ни одна
+        # не дала уверенность >= порога. Если хоть одна дала уверенный
+        # результат — возвращаем его. Если ни одна не нашла — None.
+        low_conf_found = False
         for q in queries:
             res = await self._vision.find_desktop_element(q)
             if res.success and res.data:
@@ -223,9 +228,13 @@ class VisualActionAgent:
                 conf = data.get("confidence", 0.0)
                 if conf >= self.confidence_threshold:
                     return data
-                # найдено, но уверенность низкая — возвращаем маркер
-                return "low_conf"
-        return None
+                # найдено, но уверенность низкая — запоминаем и пробуем
+                # следующую формулировку (не возвращаем сразу!)
+                low_conf_found = True
+        # перебрали все формулировки:
+        if low_conf_found:
+            return "low_conf"   # нашли, но ни одна не уверенна
+        return None             # ни одна формулировка не нашла элемент
 
     async def _click(self, x: int, y: int) -> ToolResult:
         self.log("GUI_CLICK", f"{x},{y}")
