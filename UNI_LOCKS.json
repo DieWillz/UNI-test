@@ -1,41 +1,4 @@
 {
-  "locks": [
-    {
-      "file": "uni/tools/visual_action.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-01",
-      "expires_at": "2026-08-12T18:00:00"
-    },
-    {
-      "file": "uni/capabilities/vision.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-02",
-      "expires_at": "2026-08-12T18:00:00"
-    },
-    {
-      "file": "uni/motion/driver.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-03/A-04",
-      "expires_at": "2026-08-12T18:00:00"
-    },
-    {
-      "file": "uni/scenarios/mouse_show.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-03",
-      "expires_at": "2026-08-12T18:00:00"
-    },
-    {
-      "file": "uni/__init__.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-05",
-      "expires_at": "2026-08-12T18:00:00"
-    },
-    {
-      "file": "uni/capabilities/__init__.py",
-      "owner": "hermes",
-      "task": "FIX-AUDIT A-05",
-      "expires_at": "2026-08-12T18:00:00"
-    }
-  ],
-  "rules": "Один файл — один владелец. Перед правкой поставить lock с owner/task/expires_at. Если файл заблокирован другим — не править, написать предложение в outbox / добавить задачу в board."
+  "locks": [],
+  "note": "FIX-AUDIT (2026-08-12) завершён: P1-P5 починены, локи сняты. Hermes."
 }
