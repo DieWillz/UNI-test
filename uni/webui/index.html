@@ -42,6 +42,7 @@
 <button class="nav-item" onclick="showView('auto',this)"><span class="ni">⚡</span> Процессы</button>
 <button class="nav-item" onclick="showView('schedules',this)"><span class="ni">📅</span> Расписания</button>
 <button class="nav-item" onclick="showView('rules',this)"><span class="ni">⚖</span> Правила</button>
+<button class="nav-item" onclick="showView('computer',this)"><span class="ni">🖥</span> Компьютер</button>
 <div class="user-prof"><div class="ava">Я</div><div><div style="font-size:12px;font-weight:700">Администратор</div><div style="font-size:10px;color:var(--text3)">UNI Coordinator</div></div></div>
 </div>
 <div id="content">
@@ -157,6 +158,20 @@
 <div class="set-group"><h3>🎨 Интерфейс</h3><div class="set-row"><label>Тема</label><select id="themeSel" onchange="setTheme(this.value)"><option value="light">☀ Светлая (по умолчанию)</option><option value="dark">🌑 Тёмная (#032121 + #c4e534)</option></select></div><div class="set-row"><label>Язык</label><select><option>Русский</option><option>English</option></select></div><div class="set-row"><label>Компактный режим</label><div class="tsw on" onclick="this.classList.toggle('on')"></div></div></div>
 <div class="set-group"><h3>🔗 Интеграции</h3><div class="set-row"><span class="tlab">XToys устройство</span><span class="pill p-warn">эмуляция</span></div><div class="set-row"><span class="tlab">LM Studio (модель)</span><span class="pill" id="intLms">проверка…</span></div><div class="set-row"><span class="tlab">Hermes 8787</span><span class="pill" id="intHrm">проверка…</span></div><div class="set-row"><span class="tlab">Файловый сервер 8000</span><span class="pill" id="intFs">проверка…</span></div><div class="set-row"><span class="tlab">OpenRouter</span><span class="pill p-out">free tier</span></div></div>
 </div></div>
+</div>
+<div class="view-wrap" id="view-computer">
+  <div class="card" style="max-width:680px">
+    <div class="ch">🖥 Компьютер · управление под зрением <span class="pill" id="compStatus">ожидание</span></div>
+    <div class="cb" style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:var(--text2)">Юни видит экран, находит элемент, кликает человеко-подобно и проверяет результат. Например: «открой блокнот», «нажми кнопку сохранить».</div>
+      <div class="comp-form" style="display:flex;gap:8px">
+        <input id="compGoal" placeholder="Цель для Юни (что сделать на экране)…" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <button class="tbtn primary" onclick="computerAct()">▶ Выполнить</button>
+        <button class="tbtn" style="color:#ff6b6b" onclick="computerStop()">■ СТОП</button>
+      </div>
+      <div class="comp-log" id="compLog" style="height:240px;overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;font-family:monospace;white-space:pre-wrap"></div>
+    </div>
+  </div>
 </div>
 <div id="chatPanel">
 <div class="rchat-header"><div><div class="rchat-title">💬 Чат с ЮНИ</div><div class="rchat-status"><span class="dot" id="rchatDot"></span> <span id="rchatStatus">проверка транспорта…</span> <span id="chatModel" style="opacity:.6"></span></div></div><button class="tbtn" onclick="toggleChatPanel()" style="padding:3px 7px">✕</button></div>

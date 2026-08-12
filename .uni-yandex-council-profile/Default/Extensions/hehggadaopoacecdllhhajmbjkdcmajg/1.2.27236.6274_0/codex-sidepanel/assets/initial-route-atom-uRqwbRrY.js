@@ -1,1 +1,0 @@
-function e(){let e=document.querySelector(`meta[name="initial-route"]`);if(e?.content?.trim())return e.content.trim();let t=new URL(window.location.href).searchParams.get(`initialRoute`);return t?t.trim():null}e();

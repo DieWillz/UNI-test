@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12. 2 fails pre-existing (test_camera: success=False при notice_ack=False; test_realtime_role: роль xtoys_mistress теперь "Dorch", не "Госпожа" — тест устарел). Не чинил (вне scope, риск сломать XToys/Intiface). См. REPORT_006.md.

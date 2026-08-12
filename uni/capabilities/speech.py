@@ -13,10 +13,15 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
-import soundfile as sf
-from faster_whisper import WhisperModel
-from piper import PiperVoice
+
+# 🤖 FIX-AUDIT A-05: тяжёлые аудио-зависимости НЕ импортируются на уровне модуля,
+# чтобы import uni.capabilities не падал при отсутствии PortAudio/faster-whisper/
+# piper в чистом окружении (независимый гейт). Они грузятся лениво внутри методов,
+# которые реально требуют железа/моделей. np оставлен наверху — это жёсткая зависимость.
+# from faster_whisper import WhisperModel          # лениво в _init_stt
+# from piper import PiperVoice                      # лениво в _init_tts
+# import sounddevice as sd                          # лениво в _record/_record_utterance/_play
+# import soundfile as sf                            # лениво в _write_audio_file
 
 from uni.contracts import ToolResult
 from .base import Capability
@@ -183,6 +188,7 @@ class SpeechCapability(Capability):
         if self._whisper is None:
             async with self._stt_lock:
                 if self._whisper is None:
+                    from faster_whisper import WhisperModel
                     self._whisper = await asyncio.to_thread(
                         WhisperModel,
                         self.stt_model,
@@ -200,11 +206,13 @@ class SpeechCapability(Capability):
                         print(f"Silero unavailable, falling back to Piper: {exc}")
                         self.tts_provider = "piper"
                         if self._piper is None:
+                            from piper import PiperVoice
                             self._piper = await asyncio.to_thread(PiperVoice.load, self.tts_voice)
             return
         if self.tts_provider == "piper" and self._piper is None:
             async with self._tts_lock:
                 if self._piper is None:
+                    from piper import PiperVoice
                     self._piper = await asyncio.to_thread(PiperVoice.load, self.tts_voice)
             return
         if self.tts_provider not in {"piper", "silero"}:
@@ -229,6 +237,7 @@ class SpeechCapability(Capability):
         await asyncio.gather(self._init_stt(), self._init_tts())
 
     def _record(self, duration: float) -> np.ndarray:
+        import sounddevice as sd
         audio = sd.rec(
             int(duration * self.sample_rate),
             samplerate=self.sample_rate,
@@ -258,6 +267,7 @@ class SpeechCapability(Capability):
         wait_deadline = time.monotonic() + max(0.5, float(start_timeout))
         utterance_deadline = float("inf")
 
+        import sounddevice as sd
         with sd.InputStream(
             samplerate=self.sample_rate,
             channels=1,
@@ -372,6 +382,7 @@ class SpeechCapability(Capability):
         return bool(ctypes.windll.user32.GetAsyncKeyState(0x1B) & 0x8000)
 
     def _play(self, audio: np.ndarray, sample_rate: int) -> None:
+        import sounddevice as sd
         chunk_frames = max(1, int(sample_rate * 0.1))
         self._playback_active = True
         try:
@@ -431,6 +442,7 @@ class SpeechCapability(Capability):
 
 
     def _write_audio_file(self, audio: np.ndarray, sample_rate: int, path: Path, audio_format: str) -> None:
+        import soundfile as sf
         path.parent.mkdir(parents=True, exist_ok=True)
         if audio_format == "wav":
             sf.write(path, audio, sample_rate, subtype="PCM_16", format="WAV")

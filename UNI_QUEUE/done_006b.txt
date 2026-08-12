@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12. avatar.js attachAudio (AnalyserNode) + animate() setValue('aa', amp) корректны (D-17 кодом реализован). Ограничение: lip-sync требует передачи TTS-аудио в браузер (отдельная задача). См. REPORT_007.md.

@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-08-11T15:30:06",
+  "suite": "B-07 regression",
+  "smoke": {
+    "label": "smoke",
+    "passed": 10,
+    "failed": 0,
+    "rc": 0,
+    "error": null
+  },
+  "integration": {
+    "label": "integration",
+    "passed": 3,
+    "failed": 0,
+    "rc": 0,
+    "error": null
+  },
+  "total_passed": 13,
+  "total_failed": 0,
+  "status": "green"
+}

@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12. SSE /api/desktop/events -> 200 text/event-stream, получено data:{"type":"hello"...}. См. REPORT_005.md.

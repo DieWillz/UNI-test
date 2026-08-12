@@ -18,6 +18,15 @@ from comtypes.gen import UIAutomationClient as uia
 from uni.contracts import ToolResult
 from .base import Capability
 
+# 🤖 Человеко-подобная мышь (win32api, траектории): отдельный движок рядом
+# с pyautogui. Импорт ленивый/защищённый — если модуль недоступен (headless),
+# capability продолжает работать на pyautogui-fallback.
+try:
+    from .human_mouse import HumanMouseController, HumanMouseSettings
+except Exception:  # pragma: no cover - защита от отсутствия win32api в CI
+    HumanMouseController = None
+    HumanMouseSettings = None
+
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.1
 
@@ -30,6 +39,7 @@ class ComputerCapability(Capability):
         use_uia: bool = True,
         failsafe: bool = True,
         mouse_move_duration: float = 0.35,
+        use_human_motion: bool = True,
         telegram_uni_path: str | Path | None = None,
         telegram_user_path: str | Path | None = None,
         action_badge_enabled: bool = True,
@@ -37,6 +47,18 @@ class ComputerCapability(Capability):
     ):
         self.use_uia = use_uia
         self.mouse_move_duration = max(0.0, min(float(mouse_move_duration), 2.0))
+        # 🤖 Человеко-подобный движок (win32api) — активен по умолчанию как
+        # более реалистичный; pyautogui остаётся fallback через action="click".
+        self.use_human_motion = bool(use_human_motion) and HumanMouseController is not None
+        self._human_mouse = None
+        if self.use_human_motion:
+            try:
+                self._human_mouse = HumanMouseController(
+                    HumanMouseSettings(move_duration=self.mouse_move_duration)
+                )
+            except Exception:
+                self.use_human_motion = False  # откат на pyautogui при сбое
+                self._human_mouse = None
         project_root = Path(__file__).resolve().parents[2]
         appdata = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
         self.telegram_uni_path = Path(telegram_uni_path or project_root / "Telegram" / "Telegram.exe")
@@ -186,6 +208,36 @@ class ComputerCapability(Capability):
             )
             await asyncio.to_thread(pyautogui.click, x, y, button=button)
             return ToolResult(success=True, message=f"Клик ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    # 🤖 Человеко-подобные действия (win32api, реалистичные траектории).
+    # Старый action="click" (pyautogui) сохранён как быстрый fallback.
+    async def click_human(self, x: int, y: int, button: str = "left") -> ToolResult:
+        if self._human_mouse is None:
+            return await self.click(x, y, button)  # graceful fallback
+        try:
+            await self._human_mouse.click(x, y, button)
+            return ToolResult(success=True, message=f"Клик (человеко-подобный) ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    async def double_click_human(self, x: int, y: int, button: str = "left") -> ToolResult:
+        if self._human_mouse is None:
+            return ToolResult(success=False, message="human_mouse недоступен")
+        try:
+            await self._human_mouse.double_click(x, y, button)
+            return ToolResult(success=True, message=f"Двойной клик (человеко-подобный) ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    async def drag_human(self, x1: int, y1: int, x2: int, y2: int,
+                          button: str = "left") -> ToolResult:
+        if self._human_mouse is None:
+            return ToolResult(success=False, message="human_mouse недоступен")
+        try:
+            await self._human_mouse.drag(x1, y1, x2, y2, button)
+            return ToolResult(success=True, message=f"Drag (человеко-подобный) ({x1},{y1})->({x2},{y2})")
         except Exception as e:
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
@@ -1002,6 +1054,16 @@ class ComputerCapability(Capability):
             return await self.launch_app(kwargs.get("app", ""))
         elif action == "click":
             return await self.click(kwargs.get("x", 0), kwargs.get("y", 0), kwargs.get("button", "left"))
+        elif action == "click_human":
+            return await self.click_human(kwargs.get("x", 0), kwargs.get("y", 0), kwargs.get("button", "left"))
+        elif action == "double_click_human":
+            return await self.double_click_human(kwargs.get("x", 0), kwargs.get("y", 0), kwargs.get("button", "left"))
+        elif action == "drag_human":
+            return await self.drag_human(
+                kwargs.get("x1", 0), kwargs.get("y1", 0),
+                kwargs.get("x2", 0), kwargs.get("y2", 0),
+                kwargs.get("button", "left"),
+            )
         elif action == "type":
             return await self.type_text(kwargs.get("text", ""), kwargs.get("interval", 0.05))
         elif action == "type_unicode":

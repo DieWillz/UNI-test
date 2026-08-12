@@ -5,11 +5,16 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 import types
 from unittest import mock
 
 import pytest
+
+# Тесты движения мыши проверяют ровно переданные координаты — отключаем
+# калибровку дисплея (тестируется отдельно в test_display_calibration).
+os.environ.setdefault("UNI_NO_DISPLAY_CALIBRATION", "1")
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,1 @@
+done: Hermes SOLO, 2026-08-12. GET /v3=200, /=200, /api/participants=200(11 живых), /api/config=200 без сырых ключей (R-02). См. REPORT_002.md.

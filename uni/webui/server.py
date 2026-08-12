@@ -52,6 +52,49 @@ _XT_SESSION: AutonomousSession | None = None
 _XT_LOOP: asyncio.AbstractEventLoop | None = None
 _XT_THREAD: Any = None
 
+# 🤖 DC-03: очередь событий для оверлея Desktop Companion
+_desktop_event_queue: "queue.Queue" = queue.Queue()
+
+
+def _consent_path():
+    return (_ROOT / "uni" / "memory" / "consent_log.jsonl")
+
+
+def _read_consent():
+    """Текущее согласие на наблюдение (DC-04)."""
+    p = _consent_path()
+    if not p.is_file():
+        return {"observation_enabled": False, "level": "off", "last_change": None}
+    try:
+        lines = [l for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if not lines:
+            return {"observation_enabled": False, "level": "off", "last_change": None}
+        last = json.loads(lines[-1])
+        return {
+            "observation_enabled": bool(last.get("observation_enabled", False)),
+            "level": last.get("level", "off"),
+            "last_change": last.get("ts"),
+        }
+    except (OSError, json.JSONDecodeError):
+        return {"observation_enabled": False, "level": "off", "last_change": None}
+
+
+def _write_consent(observation_enabled: bool, level: str):
+    """Сохраняет запись согласия в журнал (DC-04)."""
+    p = _consent_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    level = level if level in ("off", "observe", "suggest", "act") else "off"
+    rec = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "observation_enabled": bool(observation_enabled),
+        "level": level,
+    }
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    # уведомляем оверлеи об изменении
+    _desktop_event_queue.put({"type": "consent_changed", "consent": rec})
+    return rec
+
 # ===== Intiface (Buttplug) direct bridge =====
 _INTIFACE: IntifaceBridge | None = None
 
@@ -82,6 +125,14 @@ def _ensure_remote_gateway() -> None:
 
 def _start_public_tunnel() -> str:
     global _PUBLIC_TUNNEL_PROCESS, _PUBLIC_TUNNEL_URL
+    # 🤖 B-06: env-флаг UNI_REMOTE_PUBLIC_BASE — использовать заданный публичный
+    # base URL вместо cloudflared (аддитивно, без лома старого пути). Полезно,
+    # когда публичный адрес уже есть (свой домен / frp / ngrok / reverse-proxy).
+    env_base = os.environ.get("UNI_REMOTE_PUBLIC_BASE", "").strip().rstrip("/")
+    if env_base:
+        _PUBLIC_TUNNEL_URL = env_base
+        _PUBLIC_TUNNEL_PROCESS = None
+        return _PUBLIC_TUNNEL_URL
     if _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None and _PUBLIC_TUNNEL_URL:
         return _PUBLIC_TUNNEL_URL
     _ensure_remote_gateway()
@@ -504,6 +555,39 @@ def _open_browser_hosts(cdp_url: str | None) -> set[str]:
     return hosts
 
 
+# R-02: рекурсивная маскировка секретов во всех JSON-ответах (defense-in-depth).
+# Бэкенд и так не отдаёт сырые ключи (api_key_set: bool), но этот фильтр —
+# страховка на случай, если какой-то эндпоинт вернёт api_key / sk-... / токен.
+_SECRET_KEY_RE = re.compile(r"(?i)(api[_-]?key|secret|token|password|authorization|access[_-]?token)")
+_SECRET_VAL_RE = re.compile(
+    r"(?i)(sk-[A-Za-z0-9_-]{8,}|gsk_[A-Za-z0-9_-]{8,}|AQ\.[A-Za-z0-9_.-]{8,}"
+    r"|hf_[A-Za-z0-9]{8,}|Bearer\s+[A-Za-z0-9._-]{8,})"
+)
+
+def _mask_value(v: str) -> str:
+    # любое совпадение с паттерном секрета -> полная маскировка
+    if _SECRET_VAL_RE.search(str(v)):
+        return "***masked***"
+    return str(v)
+
+def _sanitize_secrets(obj):
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            ks = str(k)
+            if _SECRET_KEY_RE.search(ks) or (isinstance(v, str) and _SECRET_VAL_RE.search(v)):
+                out[k] = _mask_value(v)
+            else:
+                out[k] = _sanitize_secrets(v)
+        return out
+    if isinstance(obj, list):
+        return [_sanitize_secrets(x) for x in obj]
+    if isinstance(obj, str) and _SECRET_VAL_RE.search(obj):
+        return _mask_value(obj)
+    return obj
+
+
+
 def _participant_statuses(cfg) -> list[dict[str, Any]]:
     statuses = []
     open_hosts = _open_browser_hosts(cfg.capabilities.browser.cdp_url)
@@ -664,7 +748,8 @@ class _Handler(BaseHTTPRequestHandler):
             pass
 
     def _json(self, code: int, value: Any) -> None:
-        self._send(code, json.dumps(value, ensure_ascii=False).encode("utf-8"))
+        # R-02: любой JSON-ответ прогоняем через маскировку секретов (defense-in-depth)
+        self._send(code, json.dumps(_sanitize_secrets(value), ensure_ascii=False).encode("utf-8"))
 
     def _redirect(self, location: str, code: int = 301) -> None:
         body = b""
@@ -729,6 +814,14 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"camera preview missing", "text/plain")
             return
+        if parsed.path in ("/v3", "/v3/"):
+            # R-01: админка v3 (отдельный SPA в uni/webui/v3/)
+            page = _HERE / "v3" / "index.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"admin v3 missing", "text/plain")
+            return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
@@ -784,6 +877,137 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/history":
             cfg = load_config()
             self._json(200, _history(cfg.council.artifacts_dir))
+            return
+
+        # 🤖 T-04..T-08: админка v3 — агрегирующие эндпоинты (аддитивно, без изменения существующих)
+        if parsed.path == "/api/global_state":
+            # T-04: читает UNI_GLOBAL_STATE.md, возвращает JSON с содержимым
+            p = (_ROOT / "uni" / "UNI_GLOBAL_STATE.md").resolve()
+            if not p.is_relative_to(_ROOT.resolve()) or not p.is_file():
+                self._json(404, {"error": "UNI_GLOBAL_STATE.md не найден"})
+                return
+            self._json(200, {"file": "uni/UNI_GLOBAL_STATE.md",
+                             "content": p.read_text(encoding="utf-8", errors="replace")})
+            return
+        if parsed.path == "/api/tasks":
+            # T-05: парсит UNI_BACKLOG.md, возвращает список задач со статусами
+            p = (_ROOT / "UNI_BACKLOG.md").resolve()
+            if not p.is_relative_to(_ROOT.resolve()) or not p.is_file():
+                self._json(404, {"error": "UNI_BACKLOG.md не найден"})
+                return
+            text = p.read_text(encoding="utf-8", errors="replace")
+            tasks = []
+            for line in text.splitlines():
+                m = re.match(r"^\s*##\s+(B-\d+|T-\d+)\s+(.*?)(\[V\]|\[ \]|\[solo\]|\[X\])?\s*$", line)
+                if m:
+                    tasks.append({"id": m.group(1), "title": m.group(2).strip(),
+                                  "status": (m.group(3) or "").strip() or "open"})
+                else:
+                    m2 = re.match(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$", line)
+                    if m2:
+                        tasks.append({"id": "", "title": m2.group(2).strip(),
+                                      "status": "done" if m2.group(1).lower() == "x" else "open"})
+            self._json(200, {"file": "UNI_BACKLOG.md", "tasks": tasks})
+            return
+        if parsed.path == "/api/heartbeats":
+            # T-06: сканирует папки uni-*/logs/heartbeat*.txt и возвращает статус участников
+            participants = []
+            try:
+                for d in sorted(_ROOT.iterdir()):
+                    if not d.is_dir() or not d.name.startswith("uni-"):
+                        continue
+                    name = d.name[len("uni-"):]
+                    hb = None
+                    logs_dir = d / "logs"
+                    cand = None
+                    if logs_dir.is_dir():
+                        for f in logs_dir.glob("heartbeat*.txt"):
+                            cand = f
+                            break
+                    if cand is None:
+                        for f in d.glob("heartbeat*.txt"):
+                            cand = f
+                            break
+                    if cand is not None and cand.is_file():
+                        lines = cand.read_text(encoding="utf-8", errors="replace").strip().splitlines()
+                        last = lines[-1] if lines else ""
+                        hb = {"file": str(cand.relative_to(_ROOT)), "last_line": last[:200],
+                              "online": bool(re.search(r"auto|ok|ready|готов|alive", last, re.I))}
+                    else:
+                        hb = {"file": None, "last_line": "", "online": False}
+                    participants.append({"name": name, "heartbeat": hb})
+            except OSError:
+                pass
+            self._json(200, {"participants": participants})
+            return
+        if parsed.path == "/api/journal":
+            # T-07: читает UNI_JOURNAL.jsonl, возвращает последние 100 записей
+            p = (_ROOT / "UNI_JOURNAL.jsonl").resolve()
+            if not p.is_relative_to(_ROOT.resolve()) or not p.is_file():
+                self._json(404, {"error": "UNI_JOURNAL.jsonl не найден"})
+                return
+            rows = []
+            try:
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    for ln in f:
+                        ln = ln.strip()
+                        if not ln:
+                            continue
+                        try:
+                            rows.append(json.loads(ln))
+                        except json.JSONDecodeError:
+                            rows.append({"raw": ln})
+            except OSError:
+                pass
+            self._json(200, {"file": "UNI_JOURNAL.jsonl", "entries": rows[-100:]})
+            return
+        if parsed.path == "/api/participants_dirs":
+            # T-08: список папок uni-* как участников
+            parts = []
+            try:
+                for d in sorted(_ROOT.iterdir()):
+                    if d.is_dir() and d.name.startswith("uni-"):
+                        parts.append({"name": d.name[len("uni-"):], "dir": d.name,
+                                      "has_logs": (d / "logs").is_dir()})
+            except OSError:
+                pass
+            self._json(200, {"participants": parts})
+            return
+
+        # 🤖 DC-03 / DC-04: Desktop Companion — аддитивные эндпоинты (не ломают канон)
+        if parsed.path == "/api/desktop/events":
+            # SSE-поток событий для оверлея (смена уровня автономии, инициатива, статус наблюдения)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            _desktop_event_queue.put({"type": "hello", "ts": time.time()})
+            try:
+                while True:
+                    try:
+                        event = _desktop_event_queue.get(timeout=30.0)
+                    except Exception:
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
+                        continue
+                    line = json.dumps(event, ensure_ascii=False)
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        if parsed.path == "/api/desktop/consent":
+            # DC-04: GET — текущее согласие на наблюдение
+            consent = _read_consent()
+            self._json(200, consent)
             return
 
         if parsed.path == "/api/report":
@@ -942,12 +1166,18 @@ class _Handler(BaseHTTPRequestHandler):
                     try:
                         event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     except asyncio.TimeoutError:
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
                         continue
                     line = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                    self.wfile.flush()
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
 
             try:
                 asyncio.run(_stream_autonomous())
@@ -976,6 +1206,136 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
+        # 🤖 T-15: кнопка СТОП — создаёт STOP.txt в корне проекта (все агенты останавливаются)
+        if self.path == "/api/admin/stop":
+            try:
+                stop_file = (_ROOT / "STOP.txt").resolve()
+                if stop_file.is_relative_to(_ROOT.resolve()):
+                    stop_file.write_text(
+                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
+                        "\nИсточник: admin v3 (кнопка СТОП)\n",
+                        encoding="utf-8",
+                    )
+                    self._json(200, {"stopped": True, "file": "STOP.txt"})
+                else:
+                    self._json(500, {"error": "недопустимый путь"})
+            except OSError as exc:
+                self._json(500, {"error": f"не удалось создать STOP.txt: {exc}"})
+            return
+        if self.path == "/api/stop":
+            # алиас (для фоллбэка из фронта) — тот же код, что и /api/admin/stop
+            try:
+                stop_file = (_ROOT / "STOP.txt").resolve()
+                if stop_file.is_relative_to(_ROOT.resolve()):
+                    stop_file.write_text(
+                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
+                        "\nИсточник: admin v3 (кнопка СТОП, alias)\n",
+                        encoding="utf-8",
+                    )
+                    self._json(200, {"stopped": True, "file": "STOP.txt"})
+                else:
+                    self._json(500, {"error": "недопустимый путь"})
+            except OSError as exc:
+                self._json(500, {"error": f"не удалось создать STOP.txt: {exc}"})
+            return
+        if self.path == "/api/desktop/consent":
+            # 🤖 DC-04: POST — установить согласие на наблюдение (пишет журнал)
+            try:
+                payload = _read_body(self)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            enabled = bool(payload.get("observation_enabled", False))
+            level = str(payload.get("level", "off"))
+            rec = _write_consent(enabled, level)
+            self._json(200, rec)
+            return
+        if self.path == "/api/desktop/suggest":
+            # 🤖 D-13: POST — детектор событий + инициатива с бюджетом
+            try:
+                from uni.desktop.observe import suggest
+            except Exception as exc:
+                self._json(500, {"error": f"observe module error: {exc}"})
+                return
+            try:
+                payload = _read_body(self)
+                caption = str(payload.get("caption", ""))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            self._json(200, suggest(caption))
+            return
+        if self.path == "/api/desktop/act":
+            # 🤖 D-14: POST — действие из белого списка через act_on_screen
+            try:
+                from uni.desktop.observe import act_allowed
+            except Exception as exc:
+                self._json(500, {"error": f"observe module error: {exc}"})
+                return
+            try:
+                payload = _read_body(self)
+                action = str(payload.get("action", ""))
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            if not act_allowed(action):
+                self._json(403, {"error": "действие не в белом списке", "allowed": list(
+                    __import__("uni.desktop.observe", fromlist=["ACTION_WHITELIST"]).ACTION_WHITELIST.keys())})
+                return
+            # выполняем через agent.act_on_screen только для разрешённых действий
+            try:
+                agent = self._get_chat_agent()
+                if agent is None or not hasattr(agent, "act_on_screen"):
+                    self._json(501, {"error": "act_on_screen недоступен"})
+                    return
+                result = agent.act_on_screen(action, payload.get("param", ""))
+                self._json(200, {"action": action, "result": str(result)})
+            except Exception as exc:
+                self._json(500, {"error": f"act error: {exc}"})
+            return
+        if self.path == "/api/stt":
+            # 🤖 DC-02: POST — речь→текст (опциональный Whisper)
+            try:
+                from uni.capabilities.stt import transcribe_audio, engine_name
+            except Exception as exc:
+                self._json(500, {"error": f"stt module error: {exc}"})
+                return
+            try:
+                eng = engine_name()
+            except Exception as exc:
+                self._json(500, {"error": f"stt engine load error: {exc}", "available": False})
+                return
+            if eng == "none":
+                self._json(501, {"error": "STT engine (Whisper) не установлен", "available": False})
+                return
+            try:
+                ctype = self.headers.get("Content-Type", "")
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                if length <= 0:
+                    self._json(400, {"error": "пустое тело"})
+                    return
+                # поддержка multipart (form-data) и raw-байтов
+                raw = self.rfile.read(length)
+                mime = "audio/webm"
+                if ctype.startswith("multipart/"):
+                    boundary = ctype.split("boundary=")[-1].strip('"')
+                    parts = raw.split(f"--{boundary}".encode())
+                    for part in parts:
+                        if b"filename=" in part and b"audio/" in part:
+                            head, _, body = part.partition(b"\r\n\r\n")
+                            raw = body.rstrip(b"\r\n")
+                            mm = re.search(rb"audio/[a-zA-Z0-9.\-]+", head)
+                            if mm:
+                                mime = mm.group(0).decode("utf-8", "replace")
+                            break
+                text = transcribe_audio(raw, mime)
+                if text is None:
+                    self._json(500, {"error": "не удалось распознать аудио", "available": True})
+                    return
+                self._json(200, {"text": text, "engine": eng})
+            except (ValueError, OSError) as exc:
+                self._json(400, {"error": f"некорректный запрос: {exc}"})
+            return
         if self.path == "/api/round/start":
             try:
                 payload = _read_body(self)
@@ -1008,12 +1368,18 @@ class _Handler(BaseHTTPRequestHandler):
                         event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     except asyncio.TimeoutError:
                         # heartbeat to keep the connection alive
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(b": ping\n\n")
+                            self.wfile.flush()
+                        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                            pass  # клиент ушёл — нормально
                         continue
                     line = json.dumps(event, ensure_ascii=False)
-                    self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
-                    self.wfile.flush()
+                    try:
+                        self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                        pass  # клиент ушёл — нормально
                     if event.get("type") == "done" or event.get("type") == "error":
                         break
                 await task
@@ -1530,6 +1896,50 @@ class _Handler(BaseHTTPRequestHandler):
                     self._json(200, {"connected": False, "url": "ws://127.0.0.1:12345", "devices": [], "last_error": ""})
                 else:
                     self._json(200, _INTIFACE.status())
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        # ===== UNI «Компьютер»: зрение -> действие -> проверка =====
+        if self.path == "/api/computer/act":
+            try:
+                body = self._read_json_body()
+                goal = str(body.get("goal", "")).strip()
+                max_steps = int(body.get("max_steps", 8))
+                if not goal:
+                    self._json(400, {"error": "пустая цель"})
+                    return
+                agent = self._get_chat_agent()
+
+                async def _run():
+                    return await agent.act_on_screen(goal, max_steps=max_steps)
+
+                # fire-and-forget: цикл может идти долго; UI опрашивает статус
+                task = self._xt_fire(_run())
+                self._json(200, {"ok": True, "accepted": True, "goal": goal, "message": "команда принята, Юни выполняет под зрением"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/computer/stop":
+            try:
+                agent = self._get_chat_agent()
+                va = getattr(agent, "_last_visual_agent", None)
+                if va is not None:
+                    va.request_stop()
+                    self._json(200, {"ok": True, "stopped": True})
+                else:
+                    self._json(200, {"ok": True, "stopped": False, "message": "нет активного цикла"})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/computer/status":
+            try:
+                agent = self._get_chat_agent()
+                va = getattr(agent, "_last_visual_agent", None)
+                if va is not None:
+                    st = va.status()
+                    self._json(200, st)
+                else:
+                    self._json(200, {"active": False, "steps": 0, "stopped": False, "message": "нет активного цикла"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return

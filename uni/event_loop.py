@@ -874,11 +874,53 @@ class EventLoop:
         answer = final.text if not final.error and final.text else compact
         return answer
 
+    # 🤖 Голосовая/текстовая маршрутизация: «открой X» / «кликни X» / «нажми X»
+    # -> замкнутый цикл зрение->действие->проверка (Agent.act_on_screen).
+    # Добавлено без правки ядра LLM: перехватываем до parse_direct_command.
+    _VISUAL_RE = re.compile(
+        r"^\s*(?:открой|кликни|нажми|запусти|включи|щёлкни|открыть|нажать|кликни по|кликни на)\b[\s:,-]*(.+)$",
+        re.IGNORECASE,
+    )
+
+    async def _try_visual_command(self, user_input: str) -> str | None:
+        """Если фраза — команда управления ПК под зрением, выполнить и вернуть ответ.
+        Иначе вернуть None (передать обычному LLM-циклу)."""
+        m = self._VISUAL_RE.match(user_input or "")
+        if not m:
+            return None
+        goal = m.group(1).strip().strip(".,!")
+        if not goal:
+            return None
+        agent = getattr(self, "_agent_ref", None)
+        if agent is None or not hasattr(agent, "act_on_screen"):
+            return None
+        try:
+            result = await agent.act_on_screen(goal)
+            status = result.get("status", "failed")
+            if status == "success":
+                return f"Готово: {goal}."
+            if status == "blocked":
+                return f"Команда заблокирована: {result.get('error', '')}"
+            if status == "interrupted":
+                return "Остановлено по команде СТОП."
+            if status == "clarify":
+                return "Не уверена, где это на экране — уточните цель."
+            return f"Не получилось выполнить «{goal}»: {result.get('error', '')}"
+        except Exception as exc:
+            return f"Ошибка управления ПК: {type(exc).__name__}: {exc}"
+
     async def _process_input(self, user_input: str) -> str:
         # Hands-free override has priority so stop/manual intensity are instant.
         if await self._maybe_autonomous_override(user_input):
             return "ok"
         self._log("USER", user_input)
+        # 🤖 маршрутизация управления ПК под зрением («открой X» и т.п.)
+        visual = await self._try_visual_command(user_input)
+        if visual is not None:
+            console.print(f"[green]UNI: {visual}[/green]")
+            self._log("ASSISTANT", visual)
+            await self._speak(visual)
+            return visual
         console.print(f"[bold]Команда:[/bold] {user_input}")
         direct = self.parse_direct_command(user_input)
         answer = await self._execute_direct(direct) if direct else await self._free_form(user_input)

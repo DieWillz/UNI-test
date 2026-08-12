@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNI Admin v3 — Консоль роя</title>
+<link rel="icon" type="image/x-icon" href="../favicon.ico">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand"><span class="logo">UNI</span> <span class="ver">Admin v3</span></div>
+    <div class="spacer"></div>
+    <button class="tbtn" onclick="toggleTheme()" id="themeBtn">🌙 Тема</button>
+    <button class="tbtn danger" onclick="emergencyStop()">⏹ СТОП</button>
+  </header>
+  <div id="main">
+    <nav id="sidebar">
+      <button class="nav-item active" onclick="showView('home',this)">🏠 Главная</button>
+      <button class="nav-item" onclick="showView('tasks',this)">📋 Задачи</button>
+      <button class="nav-item" onclick="showView('participants',this)">👥 Участники</button>
+      <button class="nav-item" onclick="showView('journal',this)">📜 Журнал</button>
+      <button class="nav-item" onclick="showView('settings',this)">⚙ Настройки</button>
+    </nav>
+    <section id="content">
+      <div class="view active" id="view-home">
+        <h2>Состояние проекта</h2>
+        <div id="globalState" class="card loading">загрузка…</div>
+        <h2>Участники (heartbeat)</h2>
+        <div id="hbList" class="card loading">загрузка…</div>
+      </div>
+      <div class="view" id="view-tasks">
+        <h2>Задачи</h2>
+        <div id="tasksBody" class="card loading">загрузка…</div>
+      </div>
+      <div class="view" id="view-participants">
+        <h2>Участники</h2>
+        <div id="partsBody" class="card loading">загрузка…</div>
+      </div>
+      <div class="view" id="view-journal">
+        <h2>Журнал</h2>
+        <div id="journalBody" class="card loading">загрузка…</div>
+      </div>
+      <div class="view" id="view-settings">
+        <h2>Настройки (read-only)</h2>
+        <div id="settingsBody" class="card loading">загрузка…</div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+UNI SNAPSHOT
+Дата: 2026-08-12
+Ветка: night/uni-mouse-vision
+HEAD: 1c03098e758424c4d03d1b2ed708383fb1a16d55
+Статус: FIX-AUDIT завершён (P1-P5). check_architecture 0/0, pytest (аудит-набор) 34 passed.
+Репозиторий: DieWillz/UNI-test (public).
+Зеркало: UNI-mcp-server/uni-local/uni/

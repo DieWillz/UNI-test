@@ -1,0 +1,20 @@
+{
+  "mode": "night/safe (backlog done, waiting)",
+  "since": "2026-08-11",
+  "note": "B-01..B-08 выполнены solo; ожидание новых задач координатора или ревью Юни.light",
+  "allowed": [
+    "чтение проекта",
+    "добавление кода в канон (ветка night/uni-mouse-vision)",
+    "тесты",
+    "check_architecture",
+    "зеркалирование в uni-local/uni"
+  ],
+  "forbidden": [
+    "config.yaml",
+    "XToys/Intiface",
+    "процессы/порты",
+    "удаление файлов",
+    "пуш в main"
+  ],
+  "review_gate": false
+}
