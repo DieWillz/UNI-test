@@ -15,7 +15,7 @@
 | Python `C:\LLM\python312\python.exe` 3.12.0 | РАБОТАЕТ | 2026-08-13 | `--version` = 3.12.0; suite выполнен |
 | LLM endpoint `127.0.0.1:1234` (LM Studio) | РАБОТАЕТ | 2026-08-13 | `GET /v1/models` → HTTP 200 (0.002 s) |
 | WebUI/backend `127.0.0.1:8787` | РАБОТАЕТ | 2026-08-13 | свежий `curl`: `/api/heartbeats` 200, `/api/vision/capture` 200/409, `/api/roles` 200 |
-| Electron Desktop (overlay) | РАБОТАЕТ по коду + node --check | 2026-08-13 | `node --check` 4 файла OK; width 383×640; avatar SVG/VRM, STOP, tray «Показать» присутствуют в коде. Живая E2E-приёмка окна — НЕ ПРОВЕРЕНО (нет дисплея/запуска в этом сеансе) |
+| Electron Desktop (overlay) | РАБОТАЕТ (live E2E) | 2026-08-13 | запущен реальный Electron: 1 окно, visible=true, 384×640, VRM loaded, CAPTURE.png (480×800 реальный), STOP.txt создаётся, chat «привет» отвечает, tray не дублирует окно. Доказано DIAG-логом |
 | Vision Gradio 7860 | НЕ РАБОТАЕТ / не используется | 2026-08-13 | конфиг переключён на `openai`-compatible; listener не требуется для основного пути |
 | Browser CDP 9222 | НЕ ПРОВЕРЕНО | 2026-08-13 | listener не зафиксирован в сеансе |
 | Codex-compatible 1240 | НЕ ПРОВЕРЕНО | 2026-08-13 | listener не зафиксирован |
@@ -72,10 +72,10 @@
 | CLI Agent assembly | РАБОТАЕТ | `python -m uni --help` собирает 7 capabilities; полный интерактивный E2E не выполнен |
 | Chat/Brain | РАБОТАЕТ (endpoint) | LM Studio 1234 отвечает; meaningful chat-probe не выполнен в сеансе |
 | WebUI/Admin API | РАБОТАЕТ (real HTTP) | `/api/heartbeats` 200 (Hermes present), `/api/roles` 200 (3 roles), `/api/vision/capture` 200/409 |
-| Desktop layout (код) | РАБОТАЕТ по коду | `width: 383, height: 640`; avatar SVG/VRM, chat, кнопки, STOP, tray «Показать» присутствуют; `node --check` OK. Живая E2E-приёмка окна — НЕ ПРОВЕРЕНО |
-| Desktop single instance | НЕ ПРОВЕРЕНО E2E | код гарантирует single `BrowserWindow`; tray double-show не принят живым тестом |
-| STOP | РАБОТАЕТ (handler) | endpoint `/api/admin/stop` существует; появление `STOP.txt` не подтверждено живым E2E в сеансе |
-| Vision screen capture | РАБОТАЕТ (contract) | `POST /api/vision/capture` с `image_b64` → 200 `source:desktop` валидный PNG data URL (0.002 с); без body+камеры → 409 быстро, понятно. Реальный PNG актуального экрана через Desktop не снят в сеансе (нет запущенного окна) |
+| Desktop layout (код) | РАБОТАЕТ по коду + live E2E | `width: 383, height: 640` (рендер 384×640 @DPI1.25); avatar SVG/VRM, chat, кнопки, STOP, tray «Показать»; `node --check` OK; запущен живой Electron: 1 окно, visible, VRM, CAPTURE.png, STOP.txt, chat ответ |
+| Desktop single instance | РАБОТАЕТ (live E2E) | DIAG `windows count=1` стабильно; tray «Показать» повторно не создаёт окно |
+| STOP | РАБОТАЕТ (live E2E) | `POST /api/admin/stop` → 200; `STOP.txt` создан (93 B, «Источник: admin v3 (кнопка СТОП)») |
+| Vision screen capture | РАБОТАЕТ (contract + live) | `POST /api/vision/capture` с `image_b64` → 200 `source:desktop` валидный PNG data URL (0.002 с); без body+камеры → 409 быстро, понятно. Реальный PNG живого экрана получен как CAPTURE.png (480×800) |
 | Speech STT | РАБОТАЕТ (код) | `/api/stt` больше не виснет на пробе; реальный Whisper-transcribe не прогнан (модель грузится лениво при аудио) |
 | Speech TTS (Piper/Silero) | РАБОТАЕТ (тест) | `test_local_piper_voice_produces_native_rate_audio` PASS — реальный синтез аудио 22050 Гц; Silero-adapter тест PASS |
 | Roles | РАБОТАЕТ | loader использует абсолютный roles dir; `/api/roles` отдаёт 3 роли |
@@ -95,7 +95,7 @@
 - `uni.check_architecture.py` создан (ранее отсутствовал, хотя на него ссылался workflow).
 - Root `requirements.txt` и `uni/requirements.txt` расходятся; единый lock/constraints отсутствует.
 - `pyproject.toml` описывает минимальные зависимости, не соответствует полному runtime.
-- **Git repository в `C:\LLM\UNI` отсутствует** (`fatal: not a git repository`). Provenance/versioning требует инициализации.
+- Git repository в `C:\LLM\UNI` **инициализирован** (CLEAN-SLATE, 2026-08-13): ветка `clean/august-2026` запушена в `DieWillz/UNI-test` (НЕ main). См. `REPORT_HERMES_FINAL.md` §10.
 
 ## Артефакты (2026-08-13)
 

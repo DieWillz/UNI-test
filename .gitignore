@@ -137,3 +137,14 @@ uni/webui/delete-after/
 .cluster/
 .uni/
 .uni-council-browser-profile/
+
+# Build artifacts — llama.cpp binaries extracted from downloads/ at runtime, not committed
+runtime/
+.chat.json
+body_tmp.json
+.stt_resp.json
+.v1.json
+.v2.json
+.h.json
+.r.json
+electron_diag.log

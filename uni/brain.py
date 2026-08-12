@@ -25,7 +25,8 @@ class Brain:
     def __init__(self, config: BrainConfig, *, vision_model: str | None = None):
         self.config = config
         self.client = AsyncOpenAI(
-            base_url=config.base_url,
+            # 🤖 embedded LLM (llama.cpp :1235) по умолчанию; lmstudio :1234 — DEPRECATED fallback
+            base_url=config.effective_base_url,
             api_key=config.api_key,
             timeout=config.timeout_seconds,
         )

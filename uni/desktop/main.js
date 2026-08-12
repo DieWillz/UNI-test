@@ -132,7 +132,7 @@ function createWindow() {
         const windows = BrowserWindow.getAllWindows();
         log("DIAG windows count=" + windows.length,
             windows.map((item, index) => `#${index} ${JSON.stringify(item.getBounds())}`).join(" | "));
-        const capturePath = "C:\\LLM\\UNI\\uni-codex\\outbox\\CAPTURE.png";
+        const capturePath = "C:\\LLM\\UNI\\agents\\uni-codex\\outbox\\CAPTURE.png";
         fs.mkdirSync(path.dirname(capturePath), { recursive: true });
         const image = await win.webContents.capturePage();
         fs.writeFileSync(capturePath, image.toPNG());
