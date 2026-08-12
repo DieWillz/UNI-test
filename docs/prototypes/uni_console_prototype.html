@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UNI · Консоль разработки — прототип</title>
+<style>
+  :root {
+    /* Surface: Operate/Monitor console — dark, dense, glanceable. */
+    --bg:        oklch(18% 0.012 280);
+    --bg-2:      oklch(22% 0.014 280);
+    --panel:     oklch(25% 0.016 280);
+    --panel-2:   oklch(28% 0.018 280);
+    --ink:       oklch(95% 0.01 280);
+    --muted:     oklch(70% 0.018 280);
+    --faint:     oklch(55% 0.02 280);
+    --line:      oklch(34% 0.014 280);
+    --accent:    oklch(78% 0.13 60);   /* warm amber — не индиго-slop */
+    --accent-2:  oklch(72% 0.11 200);  /* cool teal for browser/info */
+    --api:       oklch(78% 0.12 145);   /* green = local API (free) */
+    --browser:   oklch(72% 0.11 200);   /* teal = browser free-tier */
+    --danger:    oklch(65% 0.18 25);
+    --ok:        oklch(78% 0.15 145);
+    --warn:      oklch(80% 0.14 85);
+    --radius:    10px;
+    --r-sm:      7px;
+    --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--sans);
+    font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: .2px; }
+  .brand .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 22%, transparent); }
+  .brand small { color: var(--faint); font-weight: 500; font-size: 11px; }
+  .topbar .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; color: var(--muted);
+    background: var(--panel);
+  }
+  .pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .pill.warn .led { background: var(--warn); }
+  .pill.off .led { background: var(--faint); }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 7px 13px; border-radius: var(--r-sm); cursor: pointer; transition: .12s;
+  }
+  .btn:hover { background: var(--panel-2); border-color: var(--faint); }
+  .btn.primary { background: var(--accent); color: oklch(20% 0.02 60); border-color: transparent; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ---- Layout ---- */
+  .layout { flex: 1; display: grid; grid-template-columns: 264px 1fr 300px; min-height: 0; }
+  .col { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .col.left { border-right: 1px solid var(--line); background: var(--bg-2); }
+  .col.right { border-left: 1px solid var(--line); background: var(--bg-2); }
+  .col-head { padding: 11px 14px 9px; font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--faint); display: flex; align-items: center; justify-content: space-between; }
+  .col-body { flex: 1; overflow-y: auto; padding: 0 12px 16px; }
+  .col-body::-webkit-scrollbar { width: 9px; }
+  .col-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 9px; }
+
+  /* ---- Participant cards ---- */
+  .agent {
+    display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center;
+    padding: 10px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 9px; transition: .12s;
+  }
+  .agent.on { border-color: color-mix(in oklch, var(--accent) 35%, var(--line)); }
+  .agent.off { opacity: .5; }
+  .avatar { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    font-weight: 700; font-size: 13px; color: oklch(20% 0.02 280); }
+  .a-name { font-weight: 600; }
+  .a-role { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+  .badge { font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 5px;
+    letter-spacing: .04em; }
+  .badge.api { background: color-mix(in oklch, var(--api) 20%, transparent); color: var(--api);
+    border: 1px solid color-mix(in oklch, var(--api) 40%, transparent); }
+  .badge.browser { background: color-mix(in oklch, var(--browser) 18%, transparent); color: var(--browser);
+    border: 1px solid color-mix(in oklch, var(--browser) 38%, transparent); }
+  .switch { width: 34px; height: 19px; border-radius: 999px; background: var(--line); position: relative;
+    cursor: pointer; transition: .15s; flex: none; }
+  .switch::after { content:""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--muted); transition: .15s; }
+  .agent.on .switch { background: color-mix(in oklch, var(--accent) 55%, transparent); }
+  .agent.on .switch::after { left: 17px; background: var(--accent); }
+  .a-status { grid-column: 1 / -1; font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+    display: flex; gap: 8px; }
+  .a-status .ok { color: var(--ok); }
+  .a-status .run { color: var(--accent); }
+
+  /* ---- Center / workspace ---- */
+  .center { padding: 16px 18px; overflow-y: auto; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--faint); margin-bottom: 6px; }
+  .topic-input, .brief {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm);
+    padding: 10px 12px; color: var(--ink); resize: vertical; outline: none; transition: .12s;
+  }
+  .topic-input:focus, .brief:focus { border-color: var(--accent); }
+  .brief { min-height: 130px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .hint { color: var(--faint); font-size: 11.5px; }
+
+  /* dropzone */
+  .drop { border: 1.5px dashed var(--line); border-radius: var(--r-sm); padding: 14px;
+    text-align: center; color: var(--muted); transition: .12s; cursor: pointer; }
+  .drop.hover { border-color: var(--accent); color: var(--ink); background: color-mix(in oklch, var(--accent) 8%, transparent); }
+  .files { margin-top: 9px; display: flex; flex-direction: column; gap: 6px; }
+  .filechip { display: flex; align-items: center; gap: 9px; padding: 7px 10px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 12px; }
+  .filechip .sync { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--ok); }
+  .filechip .x { cursor: pointer; color: var(--faint); padding: 0 4px; }
+  .filechip .x:hover { color: var(--danger); }
+
+  .runbar { display: flex; gap: 10px; align-items: center; margin: 4px 0 18px; }
+  .progress { flex: 1; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; display: none; }
+  .progress.show { display: block; }
+  .progress > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .25s; }
+
+  /* tabs = per-AI browser-like response panes */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 0; overflow-x: auto; }
+  .tab { padding: 8px 13px; border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0;
+    background: var(--bg-2); color: var(--muted); cursor: pointer; white-space: nowrap; font-size: 12.5px;
+    display: flex; align-items: center; gap: 7px; }
+  .tab .led { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .tab.active { background: var(--panel); color: var(--ink); border-color: var(--line); border-bottom-color: var(--panel); }
+  .tab .led.run { background: var(--accent); animation: pulse 1s infinite; }
+  .tab .led.ok { background: var(--ok); }
+  .tab .led.err { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .pane { background: var(--panel); border: 1px solid var(--line); border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+    padding: 14px 15px; min-height: 280px; }
+  .answer { white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+  .answer .sig { margin-top: 12px; padding: 9px 12px; border-left: 3px solid var(--accent);
+    background: color-mix(in oklch, var(--accent) 9%, transparent); border-radius: 0 6px 6px 0;
+    font-size: 12.5px; color: var(--ink); }
+  .answer .sig b { color: var(--accent); }
+  .empty { color: var(--faint); font-style: italic; }
+
+  /* ---- Right: sync / state ---- */
+  .gate { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 8px; }
+  .gate .gled { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .gate .gled.ok { background: var(--ok); }
+  .gate .gled.warn { background: var(--warn); }
+  .gate .gtext { font-size: 12px; }
+  .gate .gtext b { display: block; font-weight: 600; }
+  .gate .gtext span { color: var(--muted); font-size: 11px; }
+  .log { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg);
+    border: 1px solid var(--line); border-radius: var(--r-sm); padding: 9px; max-height: 220px; overflow-y: auto; }
+  .log div { padding: 1px 0; }
+  .log .t { color: var(--faint); }
+  .log .ok { color: var(--ok); }
+  .log .warn { color: var(--warn); }
+
+  .handoff { font-family: var(--mono); font-size: 11px; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; white-space: pre-wrap; }
+
+  @media (max-width: 1080px) {
+    .layout { grid-template-columns: 220px 1fr; }
+    .col.right { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> UNI <small>консоль разработки · v2.6</small></div>
+    <span class="pill" id="roundPill"><span class="led"></span> раунд: <b id="roundId">—</b></span>
+    <span class="pill" id="syncPill"><span class="led"></span> синхронизация: <b id="syncState">все</b></span>
+    <span class="pill off" id="autoPill"><span class="led"></span> автономность: выкл</span>
+    <div class="spacer"></div>
+    <button class="btn" id="settingsBtn">⚙ Настройки</button>
+    <button class="btn primary" id="runBtn">▶ Запустить раунд согласования</button>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: participants -->
+    <div class="col left">
+      <div class="col-head">Участники проекта <span class="hint" id="agentCount"></span></div>
+      <div class="col-body" id="agents"></div>
+    </div>
+
+    <!-- CENTER: workspace -->
+    <div class="col center">
+      <div class="field">
+        <label>Тема раунда</label>
+        <input class="topic-input" id="topic" value="Концепция UNI v2.6 — доработка раздела 7" />
+      </div>
+      <div class="field">
+        <label>Бриф для всех участников (идеи / задания)</label>
+        <textarea class="brief" id="brief">Проверьте обновлённый раздел 7 манифеста. Ключевое: браузерный адаптер включён по умолчанию для БЕСПЛАТНЫХ веб-версий, чтобы люди без денег могли пользоваться сильными моделями без оплаты API.
+
+Задачи:
+1. Подтвердите, что формулировка «не автоматизирует платные подписки» однозначна.
+2. Нужен ли отдельный лог действий адаптера (MANIFESTO требует «все действия логируются»).
+
+Если согласны — поставьте подпись в формате: Имя = ваша редакция; подписываюсь под концепцией.</textarea>
+      </div>
+      <div class="field">
+        <label>Файлы проекта (синхронизируются между всеми участниками)</label>
+        <div class="drop" id="drop">Перетащите файлы сюда или нажмите — они попадут во все сессии участников</div>
+        <input type="file" id="fileInput" multiple hidden />
+        <div class="files" id="files"></div>
+      </div>
+
+      <div class="runbar">
+        <button class="btn primary" id="runBtn2">▶ Запустить раунд</button>
+        <div class="progress" id="progress"><i></i></div>
+        <span class="hint" id="runHint"></span>
+      </div>
+
+      <div class="tabs" id="tabs"></div>
+      <div class="pane" id="pane">
+        <div class="empty">Ответы каждого ИИ появятся здесь как вкладки — как в браузере. Запустите раунд, чтобы начать опрос.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: sync / state -->
+    <div class="col right">
+      <div class="col-head">Этические gate · MANIFESTO v2.6</div>
+      <div class="col-body">
+        <div class="gate"><span class="gled ok"></span><div class="gtext"><b>Бесплатный уровень только</b><span>платные подписки не автоматизируются</span></div></div>
+        <div class="gate"><span class="gled ok"></span><div class="gtext"><b>Отдельный браузерный профиль</b><span>не смешивается с банком/почтой/интим</span></div></div>
+        <div class="gate"><span class="gled warn"></span><div class="gtext"><b>ToS-информирование</b><span>подтвердите перед первым запуском</span></div></div>
+        <div class="gate"><span class="gled ok"></span><div class="gtext"><b>Секреты не передаются</b><span>API-ключи красуются из списка</span></div></div>
+
+        <div class="col-head" style="margin-top:14px;">Handoff-протокол (синхронизация)</div>
+        <div class="handoff" id="handoff">{
+  "task_id": "round-…",
+  "from_agent": "Coordinator",
+  "to_agent": "все участники",
+  "context": "бриф + файлы",
+  "completed_work": "—",
+  "open_questions": "—",
+  "permissions": "read-only, untrusted",
+  "next_expected_result": "подписи / правки"
+}</div>
+
+        <div class="col-head" style="margin-top:14px;">Лог синхронизации</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ---- Participant registry (mirrors uni/council/participants.py DEFAULT_PARTICIPANTS) ----
+const AGENTS = [
+  { name: "DeepSeek", role: "Алгоритмы / архитектура", transport: "api",     color: "oklch(70% 0.12 145)" },
+  { name: "QWEN",     role: "Редактор консенсуса",      transport: "api",     color: "oklch(72% 0.13 110)" },
+  { name: "Claude",   role: "Критик / этика",          transport: "browser", color: "oklch(70% 0.12 200)", host: "claude.ai" },
+  { name: "ChatGPT",  role: "Общий ревьювер",          transport: "browser", color: "oklch(74% 0.11 220)", host: "chatgpt.com" },
+  { name: "Grok",     role: "Проверка реальности",     transport: "browser", color: "oklch(72% 0.12 250)", host: "x.com" },
+  { name: "Gemini",   role: "Анализ рисков",          transport: "browser", color: "oklch(70% 0.13 280)", host: "gemini.google.com" },
+  { name: "Hermes",   role: "Координатор / синтез",    transport: "api",     color: "oklch(78% 0.13 60)" },
+];
+const state = {}; // name -> {on, status}
+AGENTS.forEach(a => state[a.name] = { on: true, status: "готов" });
+
+const $ = s => document.querySelector(s);
+const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
+
+// ---- Render participants ----
+function renderAgents() {
+  const wrap = $("#agents"); wrap.innerHTML = "";
+  AGENTS.forEach(a => {
+    const on = state[a.name].on;
+    const card = el("div", "agent " + (on ? "on" : "off"));
+    const av = el("div", "avatar"); av.style.background = a.color; av.textContent = a.name[0];
+    const mid = el("div");
+    const nm = el("div", "a-name"); nm.textContent = a.name;
+    const rl = el("div", "a-role"); rl.textContent = a.role;
+    mid.append(nm, rl);
+    const sw = el("div", "switch");
+    sw.onclick = () => { state[a.name].on = !state[a.name].on; renderAgents(); };
+    const right = el("div"); right.style.display = "flex"; right.style.flexDirection = "column";
+    right.style.alignItems = "flex-end"; right.style.gap = "6px";
+    const badge = el("span", "badge " + a.transport);
+    badge.textContent = a.transport === "api" ? "API · free" : "Браузер · free";
+    right.append(badge, sw);
+    const st = el("div", "a-status");
+    st.innerHTML = `<span class="${on ? 'ok' : ''}">${on ? '● вкл' : '○ выкл'}</span><span>${state[a.name].status}</span>`;
+    card.append(av, mid, right, st);
+    wrap.append(card);
+  });
+  const n = AGENTS.filter(a => state[a.name].on).length;
+  $("#agentCount").textContent = `${n}/${AGENTS.length} активны`;
+}
+renderAgents();
+
+// ---- Files (sync simulation) ----
+const files = [];
+function renderFiles() {
+  const wrap = $("#files"); wrap.innerHTML = "";
+  files.forEach((f, i) => {
+    const c = el("div", "filechip");
+    const name = el("span"); name.textContent = "📄 " + f;
+    const sync = el("span", "sync"); sync.textContent = "↻ синхр. всем";
+    const x = el("span", "x"); x.textContent = "✕"; x.onclick = () => { files.splice(i,1); renderFiles(); };
+    c.append(name, sync, x); wrap.append(c);
+  });
+}
+$("#drop").onclick = () => $("#fileInput").click();
+$("#fileInput").onchange = e => { for (const f of e.target.files) files.push(f.name); renderFiles(); };
+const drop = $("#drop");
+["dragover","dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hover"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("hover"); }));
+drop.addEventListener("drop", e => { for (const f of e.dataTransfer.files) files.push(f.name); renderFiles(); });
+
+// ---- Log ----
+function log(msg, cls="") {
+  const l = $("#log"); const d = el("div");
+  const t = new Date().toLocaleTimeString("ru-RU");
+  d.innerHTML = `<span class="t">${t}</span> <span class="${cls}">${msg}</span>`;
+  l.append(d); l.scrollTop = l.scrollHeight;
+}
+
+// ---- Tabs / panes ----
+let activeTab = null;
+function buildTabs() {
+  const tabs = $("#tabs"); tabs.innerHTML = "";
+  AGENTS.filter(a => state[a.name].on).forEach(a => {
+    const t = el("div", "tab"); t.dataset.name = a.name;
+    t.innerHTML = `<span class="led"></span>${a.name}`;
+    t.onclick = () => selectTab(a.name);
+    tabs.append(t);
+  });
+}
+function setLed(name, cls) {
+  const t = document.querySelector(`.tab[data-name="${name}"]`);
+  if (!t) return; const led = t.querySelector(".led"); led.className = "led " + cls;
+}
+function selectTab(name) {
+  activeTab = name;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.name === name));
+  const pane = $("#pane");
+  const a = AGENTS.find(x => x.name === name);
+  const txt = state[name].answer || "";
+  pane.innerHTML = txt
+    ? `<div class="answer">${escapeHtml(txt)}${state[name].sig ? `<div class="sig"><b>Подпись ${name}:</b> ${escapeHtml(state[name].sig)}</div>` : ""}</div>`
+    : `<div class="empty">${a.name} ещё не ответил. Транспорт: ${a.transport === 'api' ? 'локальный API' : 'браузер (free-tier) — ' + a.host}</div>`;
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+// ---- Run round (simulated consensus loop) ----
+const SAMPLE = {
+  DeepSeek: { txt: "Раздел 7 теперь корректен: браузерный адаптер явно разрешён для бесплатных веб-версий. Предлагаю добавить в config поле `log_adapter_actions: true`, чтобы выполнить требование «все действия логируются».\n\nАрхитектурно это безопасно: вывод веб-ИИ помечен untrusted и не вызывает инструменты.", sig: "DeepSeek = редакция с логом адаптера; подписываюсь под концепцией." },
+  QWEN:     { txt: "Поддерживаю. Формулировка «не автоматизирует потребительские подписки» однозначна — это разные продукты (веб ≠ API). Добавила бы пример в манифест: ChatGPT Plus ≠ право на программный доступ.", sig: "QWEN = согласна, предлагаю пример Plus/Advanced; подписываюсь." },
+  Claude:   { txt: "Этически приемлемо при соблюдении: (1) отдельный профиль, (2) информированное согласие о возможном нарушении ToS, (3) паузы против перегрузки. Всё три условия в коде есть. Не подписываю продуктовую часть 3.4 как соавтор — вне темы.", sig: "Claude = согласен с §7 при соблюдении трёх условий; не соавтор 3.4." },
+  ChatGPT:  { txt: "Логично. Для пользователей без бюджета это единственный доступ к сильным моделям. Риск — изменение DOM сайта ломает парсер;建议 делать парсер best-effort и не падать.", sig: "ChatGPT = поддерживаю,建议 best-effort парсер; подписываюсь." },
+  Grok:     { txt: "По факту: автоматизация free-tier через браузер — стандартная практика power-user. Главное — не превращать это в DOS на сервисы. Пауза 8с между запросами — норм.", sig: "Grok = ок, паузы достаточны; подписываюсь." },
+  Gemini:   { txt: "Риск-анализ: утечка контекста между участниками исключена (каждый видит только бриф + файлы, не чужие ответы). Хорошо. Добавил бы метрику «доля ручного подтверждения подписей».", sig: "Gemini = рисков нет, предлагаю метрику подтверждения; подписываюсь." },
+  Hermes:   { txt: "СИНТЕЗ: раздел 7 утверждаем. To-do: добавить `log_adapter_actions` в CouncilConfig и пример Plus/Advanced в манифест. Подписи собраны у 7/7 (Claude — с оговоркой по 3.4). Итог передаём координатору (человеку) на финальное принятие.", sig: "Hermes = сводная редакция v2.6; подписываюсь." },
+};
+let running = false;
+async function runRound() {
+  if (running) return; running = true;
+  const btn = $("#runBtn"); const btn2 = $("#runBtn2"); const prog = $("#progress");
+  [btn, btn2].forEach(b => b.disabled = true);
+  prog.classList.add("show");
+  buildTabs();
+  const active = AGENTS.filter(a => state[a.name].on);
+  $("#roundId").textContent = "run-" + Date.now().toString().slice(-6);
+  log(`Старт раунда · участников: ${active.length} (API: ${active.filter(a=>a.transport==='api').length}, браузер: ${active.filter(a=>a.transport==='browser').length})`);
+  let done = 0;
+  for (const a of active) {
+    setLed(a.name, "run");
+    state[a.name].status = "опрос…";
+    log(`→ ${a.name} [${a.transport}] запрос отправлен`);
+    await sleep(700 + Math.random()*900);
+    const s = SAMPLE[a.name] || { txt: "(нет тестового ответа)", sig: "" };
+    state[a.name].answer = s.txt; state[a.name].sig = s.sig; state[a.name].status = "готов";
+    setLed(a.name, s.sig ? "ok" : "err");
+    if (!activeTab) selectTab(a.name); else if (activeTab === a.name) selectTab(a.name);
+    log(`← ${a.name} ответ получен${s.sig ? " + подпись" : ""}`, "ok");
+    done++; prog.querySelector("i").style.width = (done/active.length*100) + "%";
+  }
+  // Coordinator synthesis = Hermes
+  log("Координатор (Hermes) свёл позиции → отчёт сохранён в .uni-council/", "ok");
+  $("#handoff").textContent = JSON.stringify({
+    task_id: $("#roundId").textContent, from_agent: "Coordinator", to_agent: "человек-координатор",
+    context: "бриф + " + files.length + " файл(ов)", completed_work: "собраны подписи 7/7",
+    open_questions: "финальное принятие — за человеком", permissions: "read-only, untrusted",
+    next_expected_result: "утверждение концепции"
+  }, null, 2);
+  prog.querySelector("i").style.width = "100%";
+  setTimeout(() => prog.classList.remove("show"), 600);
+  [btn, btn2].forEach(b => b.disabled = false); running = false;
+  $("#runHint").textContent = "Готово · отчёт в .uni-council/";
+}
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+$("#runBtn").onclick = runRound; $("#runBtn2").onclick = runRound;
+$("#settingsBtn").onclick = () => log("Открыты настройки (CouncilConfig: browser_enabled, free_tier_only, min_interval)…", "warn");
+$("#syncPill").onclick = () => log("Синхронизация: бриф + файлы доставлены всем активным участникам", "ok");
+
+log("Консоль загружена · MANIFESTO v2.6 §7");
+</script>
+</body>
+</html>

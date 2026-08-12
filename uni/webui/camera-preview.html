@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Камера Юни</title>
+  <style>
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#032121;color:#eaf6d8;font:14px "Segoe UI",sans-serif;overflow:hidden}
+    body{display:flex;flex-direction:column}.bar{height:52px;display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(196,229,52,.25)}
+    .bar b{margin-right:auto;color:#c4e534;font-size:17px}button{padding:7px 13px;border-radius:8px;border:1px solid rgba(196,229,52,.3);background:#073030;color:#eaf6d8;cursor:pointer}button.primary{background:#c4e534;color:#032121;font-weight:700}
+    #stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#011616}video{width:100%;height:100%;object-fit:contain;background:#000}#status{color:#9fbf85}
+  </style>
+</head>
+<body>
+  <div class="bar"><b>📷 Камера Юни</b><span id="status">запуск…</span><button id="toggle" onclick="toggleCamera()">Выключить</button><button class="primary" onclick="goFullscreen()">На весь экран</button></div>
+  <div id="stage"><video id="video" autoplay muted playsinline></video></div>
+  <script>
+    let stream=null;
+    async function startCamera(){try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=stream;status.textContent='камера включена';toggle.textContent='Выключить'}catch(e){status.textContent='ошибка: '+e.message}}
+    function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}video.srcObject=null;status.textContent='камера выключена';toggle.textContent='Включить'}
+    function toggleCamera(){stream?stopCamera():startCamera()}
+    async function goFullscreen(){try{await stage.requestFullscreen()}catch(e){status.textContent='полный экран недоступен: '+e.message}}
+    addEventListener('beforeunload',stopCamera);startCamera();
+  </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+# === UNI .gitignore (CLEAN-SLATE, 2026-08-13) ===
+
+# --- Required by GIT REINIT directive ---
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+config.yaml
+uni/config.yaml
+*.log
+STOP.txt
+.uni-logs/
+downloads/
+runtime/downloads/
+
+# Large binary assets — never commit (kept locally / snapshot only)
+assets/*.vrm
+uni/desktop/assets/*.vrm
+*.onnx
+*.onnx.json
+*.pt
+*.bin
+
+# Old / duplicate trees (reference only, not canonical) — ignore entirely
+UNI-mcp-server/
+agents/
+
+# --- Existing useful rules (preserved) ---
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Windows Mark-of-the-Web
+*.Zone.Identifier
+
+# Browser profile (auth/cookies/local storage) — never in git
+.uni-browser-profile/
+
+# Runtime logs / samples / screenshots
+.uni-voice-samples/
+screenshots/
+memory/
+Telegram/
+
+# Stale TOP-LEVEL duplicates of the package (NOT uni/ subdirs)
+/backup/
+/Claude/
+/Uni-Claude/
+/Uni-DeepSeek/
+/Uni-OpenCode/
+/uni/backup/
+/uni/Claude/
+/uni/uni/
+/capabilities/
+/tools/
+/roles/
+/config.py
+/uni.py
+/test_build1.py
+/test_build3.py
+/test_planner_basic.py
+
+# Review / handoff artefacts
+.claude-review-*/
+.deepseek-review-*/
+.publish-qwen/
+AI_TEAM_HANDOFF.md
+TEAM_COORDINATION.md
+TASKS_FOR_MODELS.md
+IDEA.md
+MODEL_CARD
+ALIASES
+*.zip
+
+# Dev coordinator runtime state and authenticated provider profiles
+/.uni-dev/coordination/state.json
+/.uni-dev/coordination/*.tmp
+/.uni-dev/coordination/browser-profiles/
+
+# Local config files and secrets
+.uni-local/
+
+# Local binaries / downloaded tools
+uni/webui/bin/
+*.exe
+cloudflared
+cloudflared.exe
+
+# Reference binaries for voice cloning (kept locally)
+uni/webui/text.wav
+uni/webui/text.txt
+
+# Hermes backup exclusions (privacy / secrets)
+.uni-council-browser-profile/
+.uni-backup-2026-08-08/
+config-old.yml
+config/
+IDENTITY.md
+SOUL.md
+USER.md
+TOOLS.md
+HEARTBEAT.md
+UNI-online-update.md
+UNI-online-updated-by-Hermes.md
+start-uni*.lnk
+uni_calibrate.ahk
+uni_cycle_supervisor.ahk
+uni_task_dispatcher.ahk
+UNI_AUTO_OFF.cmd
+UNI_AUTO_ON.cmd
+UNI_SUPERVISOR_RUN.cmd
+uni-project-analysis.html
+filterrepo-output.txt
+.autonomous.py
+for-chat/
+agent-browser/
+uni — копия/
+*.lnk
+*.ahk
+*.cmd
+uni-project-analysis.html
+filterrepo-output.txt
+.openclaw-autoclaw/
+uni-tandem-bridge.cmd
+tests/integration/
+Основная оболочка Юни.md
+uni/webui/delete-after/
+
+# Hermes desktop-app dotfile dirs (not part of UNI canonical code)
+.agents/
+.hermes/
+.openclaw/
+.opencode/
+.claude/
+.cluster/
+.uni/
+.uni-council-browser-profile/

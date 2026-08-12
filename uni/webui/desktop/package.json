@@ -1,0 +1,15 @@
+{
+  "name": "uni-desktop-companion",
+  "version": "0.1.0",
+  "description": "UNI Desktop Companion — прозрачный десктоп-оверлей с аватаром-компаньоном и чатом (Hermes SOLO, 2026-08-11)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.js && node --check app.js"
+  },
+  "author": "Hermes (UNI)",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

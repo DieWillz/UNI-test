@@ -1,0 +1,142 @@
+"""Intiface (Buttplug) bridge — direct device control from Python.
+
+This talks to an Intiface server over WebSocket using the *verified* ``buttplug``
+package (the same path the user's working DeviceController uses). It intentionally
+does NOT go through a raw browser WebSocket, because Intiface's server has a known
+V3 bug that breaks hand-rolled JSON clients ("Message V2 ServerInfo ... not in Spec
+V3"). The buttplug package negotiates the handshake correctly.
+
+Usage:
+    bridge = IntifaceBridge("ws://127.0.0.1:12345")
+    await bridge.connect()
+    await bridge.oscillate(60)        # 0..100 — drive the machine
+    await bridge.stop()
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from buttplug import Client, ProtocolSpec, WebsocketConnector
+
+logger = logging.getLogger("uni.intiface")
+
+
+class IntifaceBridge:
+    """Thin async wrapper around a Buttplug client connected to Intiface."""
+
+    def __init__(self, url: str = "ws://127.0.0.1:12345") -> None:
+        self.url = url
+        self.client: Client | None = None
+        self._task: asyncio.Task[None] | None = None
+        self.connected = False
+        self.last_error: str = ""
+        self.current_value = 0
+
+    async def connect(self) -> dict[str, Any]:
+        if self.connected and self.client is not None:
+            return {"ok": True, "already": True, "devices": self._device_names()}
+        try:
+            self.client = Client("UNI Panel", ProtocolSpec.v3)
+            connector = WebsocketConnector(self.url)
+            await self.client.connect(connector)
+            # Give the server a moment to enumerate devices.
+            await asyncio.sleep(1.0)
+            self.connected = True
+            self.last_error = ""
+            return {"ok": True, "devices": self._device_names()}
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+            logger.warning(f"Intiface connect failed: {exc}")
+            return {"ok": False, "error": str(exc)}
+
+    async def disconnect(self) -> dict[str, Any]:
+        try:
+            if self.client is not None:
+                await self.client.disconnect()
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self.client = None
+        self.connected = False
+        return {"ok": True, "connected": False}
+
+    def _device_names(self) -> list[str]:
+        if self.client is None or not hasattr(self.client, "devices"):
+            return []
+        try:
+            devices = self.client.devices
+            values = devices.values() if isinstance(devices, dict) else devices
+            return [getattr(d, "name", str(d)) for d in values]
+        except Exception:
+            return []
+
+    def _pick_device(self):
+        if self.client is None or not hasattr(self.client, "devices"):
+            return None
+        raw = self.client.devices
+        devices = list(raw.values()) if isinstance(raw, dict) else list(raw)
+        return devices[0] if devices else None
+
+    async def oscillate(self, value: int) -> dict[str, Any]:
+        """Drive the machine: 0..100. Picks the first device and uses whatever
+        scalar actuator Intiface exposes for the device."""
+        value = max(0, min(100, int(value)))
+        if not self.connected or self.client is None:
+            return {"ok": False, "error": "не подключено к Intiface"}
+        device = self._pick_device()
+        if device is None:
+            return {"ok": False, "error": "устройство не найдено (Connect на Intiface)"}
+        try:
+            speed = value / 100.0
+            actuators = list(getattr(device, "actuators", ()) or ())
+            actuator = next(
+                (item for item in actuators if str(getattr(item, "type", "")).casefold() == "oscillate"),
+                actuators[0] if actuators else None,
+            )
+            if actuator is None:
+                return {"ok": False, "error": "устройство не предоставляет Scalar/Oscillate actuator"}
+            await actuator.command(speed)
+            self.current_value = value
+            return {
+                "ok": True,
+                "value": value,
+                "device": getattr(device, "name", str(device)),
+                "feature": getattr(actuator, "description", "Oscillate"),
+                "steps": getattr(actuator, "step_count", None),
+            }
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+            logger.warning(f"Intiface oscillate failed: {exc}")
+            return {"ok": False, "error": str(exc)}
+
+    async def stop(self) -> dict[str, Any]:
+        if not self.connected or self.client is None:
+            return {"ok": True, "note": "не подключено"}
+        device = self._pick_device()
+        if device is None:
+            return {"ok": True, "note": "нет устройства"}
+        try:
+            actuators = list(getattr(device, "actuators", ()) or ())
+            if actuators:
+                for actuator in actuators:
+                    await asyncio.wait_for(actuator.command(0.0), timeout=3.0)
+            else:
+                await asyncio.wait_for(device.stop(), timeout=3.0)
+            self.current_value = 0
+            return {"ok": True}
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+            return {"ok": False, "error": str(exc)}
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "connected": self.connected,
+            "url": self.url,
+            "devices": self._device_names(),
+            "last_error": self.last_error,
+            "value": self.current_value,
+        }
