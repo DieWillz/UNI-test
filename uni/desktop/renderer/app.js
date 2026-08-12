@@ -207,11 +207,13 @@ document.addEventListener("mousemove", (e) => {
 });
 
 // 🤖 DESIGN-V2 (Qwen 2026-08-13): компактный чат — свёрнут, пока нет сообщений
-(function(){
-  var panel = document.getElementById("chatPanel");
-  var msgs  = document.getElementById("messages");
-  if(!panel || !msgs) return;
-  var sync = function(){ panel.classList.toggle("collapsed", msgs.children.length === 0); };
-  new MutationObserver(sync).observe(msgs, { childList:true });
-  sync();
-})();
+// 🤖 DEPRECATED by Hermes 2026-08-13: авто-collapse отключён по желанию координатора
+//    (чат теперь статичный, см. style.css v2.1). Тело сохранено, не удалено.
+// (function(){
+//   var panel = document.getElementById("chatPanel");
+//   var msgs  = document.getElementById("messages");
+//   if(!panel || !msgs) return;
+//   var sync = function(){ panel.classList.toggle("collapsed", msgs.children.length === 0); };
+//   new MutationObserver(sync).observe(msgs, { childList:true });
+//   sync();
+// })();

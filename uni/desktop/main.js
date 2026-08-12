@@ -167,39 +167,35 @@ function createWindow() {
     log("ready-to-show -> show, visible=", win.isVisible());
     // V-03: повторная фиксация позиции (на случай, если show сбросил координаты)
     setTimeout(() => placeAtBottomRight(win), 60);
-    // 🤖 Фаза-3: одноразовый само-тест чата при UNI_SELFTEST=1 (верификация пузыря + пруф v2, dev-only)
+    // 🤖 Фаза-3: одноразовый само-тест чата при UNI_SELFTEST=1 (верификация пузыря + пруф v2/v2.1, dev-only)
     if (process.env.UNI_SELFTEST === "1") {
       const fs = require("fs");
       const OUT = "C:\\LLM\\UNI\\agents\\uni-codex\\outbox";
+      const rectOf = async (sel) => {
+        try { return await win.webContents.executeJavaScript(
+          "(() => { const e = document.querySelector('" + sel + "'); if(!e) return null; const r = e.getBoundingClientRect(); return {w:Math.round(r.width), h:Math.round(r.height), x:Math.round(r.x), y:Math.round(r.y)}; })()"
+        ); } catch (e) { return null; }
+      };
       const cap = async (name) => {
         try { const img = await win.webContents.capturePage(); fs.writeFileSync(OUT + "\\" + name, img.toPNG()); log("selftest capture saved", name); }
         catch (e) { log("selftest capture error:", e.message); }
       };
       // (а) пустой чат — компактная плашка ввода
-      setTimeout(() => cap("CAPTURE_EMPTY.png"), 1200);
-      // два сообщения, чтобы чат расширился
-      setTimeout(() => {
-        win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('привет Юни'), true) : false")
-          .then((ok) => log("selftest UChat #1 triggered:", ok)).catch((e) => log("selftest error:", e.message));
-      }, 2500);
-      setTimeout(() => {
-        win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('расскажи коротко о себе'), true) : false")
-          .then((ok) => log("selftest UChat #2 triggered:", ok)).catch((e) => log("selftest error:", e.message));
-      }, 6000);
-      // (б) после 2 сообщений — расширился
+      setTimeout(async () => { await cap("CAPTURE_EMPTY.png"); log("selftest chatPanel rect (empty):", JSON.stringify(await rectOf("#chatPanel"))); }, 1200);
+      // сообщения (v2.1: размер НЕ должен меняться)
+      setTimeout(() => { win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('привет Юни'), true) : false").catch(()=>{}); }, 2500);
+      setTimeout(() => { win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('расскажи коротко о себе'), true) : false").catch(()=>{}); }, 6000);
+      setTimeout(() => { win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('ещё вопрос про тебя'), true) : false").catch(()=>{}); }, 8500);
+      // (б) после 3 сообщений — размер тот же (статичный)
       setTimeout(async () => {
         try {
-          const txt = await win.webContents.executeJavaScript(
-            "(() => { const m = document.querySelector('#messages'); return m ? m.textContent : ''; })()"
-          );
-          log("selftest bubble text:", JSON.stringify(txt).slice(0, 300));
-          const collapsed = await win.webContents.executeJavaScript(
-            "(() => { const p = document.getElementById('chatPanel'); return p ? p.classList.contains('collapsed') : null; })()"
-          );
-          log("selftest chatPanel.collapsed after 2 msgs:", collapsed);
-          await cap("CAPTURE_CHAT2.png");
+          const txt = await win.webContents.executeJavaScript("(() => { const m = document.querySelector('#messages'); return m ? m.textContent : ''; })()");
+          log("selftest bubble text:", JSON.stringify(txt).slice(0, 200));
+          log("selftest chatPanel rect (3 msgs):", JSON.stringify(await rectOf("#chatPanel")));
+          log("selftest toolbar rect:", JSON.stringify(await rectOf("#toolbar")));
+          await cap("CAPTURE_CHAT3.png");
         } catch (e) { log("selftest error:", e.message); }
-      }, 9000);
+      }, 11000);
     }
   });
   win.on("closed", () => { win = null; log("window closed"); });

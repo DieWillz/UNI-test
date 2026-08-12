@@ -76,3 +76,23 @@ body.recording #input{ border-color:var(--danger); }
 #settings label{ font-size:12px; color:var(--muted);
   display:flex; flex-direction:column; gap:4px; }
 #settings select, #settings input, #settings button{ accent-color:var(--accent); }
+
+/* 🤖 DESIGN-V2.1 (Qwen, 2026-08-13): статичный чат, без horiz-scroll, тулбар-пилюля */
+html,body{ overflow:hidden; }
+
+/* чат фикс-размер (равен раскрытой высоте), без collapse и hover-ширины */
+#chatPanel{ width:300px; height:460px; transition:none; }
+#chatPanel:hover{ width:300px; }
+#messages{ flex:1 1 auto; min-height:0; max-height:none; }
+#chatPanel.collapsed #messages{ max-height:none; padding:10px 10px 6px; }
+
+/* тулбар: компактная пилюля справа сверху вместо растянутой строки */
+#toolbar{ left:auto; right:12px; top:10px; width:auto;
+  padding:4px; gap:4px; justify-content:flex-start;
+  background:var(--bg); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow); backdrop-filter:blur(10px); }
+.rbtn{ width:28px; height:28px; border-radius:9px;
+  border-color:transparent; background:transparent; }
+.rbtn:hover{ background:rgba(196,229,52,.12); color:var(--accent); }
+.rbtn.danger{ background:rgba(255,107,107,.12); color:var(--danger); }
+#settings{ top:52px; }
