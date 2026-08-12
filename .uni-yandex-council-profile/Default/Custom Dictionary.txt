@@ -1,2 +1,0 @@
-ехай
-checksum_v1 = dc8ae07fb2e989c684199083003c020a
