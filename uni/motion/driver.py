@@ -1,3 +1,9 @@
+# 🤖 DEPRECATED by Hermes: 2026-08-12
+# Причина: Функционал плавного «живого» движения курсора полностью перенесён
+# в uni/human_motion.py (HumanMotionController) и uni/human_mouse.py
+# (HumanMouseController), которые интегрированы в ComputerCapability
+# (use_human_motion=True по умолчанию, откат на pyautogui при сбое).
+# Не использовать напрямую. Оставлен для истории и безопасности откатов.
 """Плавное «живое» управление курсором поверх PyAutoGUI.
 
 Адаптировано из ТЗ «MVP xtoys browser mouse». Отличия от ТЗ (сохраняем
