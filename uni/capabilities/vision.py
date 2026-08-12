@@ -23,6 +23,12 @@ from .base import Capability
 
 logger = logging.getLogger(__name__)
 
+# 🤖 FIX-AUDIT A-02: ЕДИНСТВЕННЫЙ источник истины для порога уверенности локации.
+# vision.py решает ТОЛЬКО за себя: при conf < порога возвращает success=False,
+# но с data (confidence доступен оркестратору). Решение clarify/повтор —
+# за visual_action. Слои согласованы через эту константу.
+VISION_CONFIDENCE_THRESHOLD = 0.55
+
 
 class ElementLocation(BaseModel):
     x: float = Field(ge=0)
@@ -321,8 +327,26 @@ class VisionCapability(Capability):
             if parsed is None:
                 return ToolResult(success=False, message=f"Элемент «{description}» не найден")
             location = parse_spatial_location(parsed, analyzed_size)
-            if location.confidence < 0.55:
-                return ToolResult(success=False, message=f"Низкая уверенность Vision: {location.confidence:.2f}")
+            if location.confidence < VISION_CONFIDENCE_THRESHOLD:
+                # 🤖 FIX-AUDIT A-02: НЕ решаем за оркестратора. Возвращаем
+                # success=False, НО с data (confidence доступна), чтобы
+                # visual_action могла принять решение clarify/повтор.
+                # Контракт success=False сохранён (другие потребители не ломаются).
+                scale_x = original_size[0] / analyzed_size[0]
+                scale_y = original_size[1] / analyzed_size[1]
+                data = location.model_dump()
+                data.update(
+                    x=round(location.x * scale_x, 2),
+                    y=round(location.y * scale_y, 2),
+                    width=round(location.width * scale_x, 2),
+                    height=round(location.height * scale_y, 2),
+                    low_confidence=True,
+                )
+                return ToolResult(
+                    success=False,
+                    data=data,
+                    message=f"Низкая уверенность Vision: {location.confidence:.2f}",
+                )
             if location.x + location.width > analyzed_size[0] or location.y + location.height > analyzed_size[1]:
                 return ToolResult(success=False, message="VLM вернула координаты за пределами рабочего стола")
             scale_x = original_size[0] / analyzed_size[0]

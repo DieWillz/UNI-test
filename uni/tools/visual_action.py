@@ -220,16 +220,23 @@ class VisualActionAgent:
         # "low_conf" ТОЛЬКО если ВСЕ формулировки нашли элемент, но ни одна
         # не дала уверенность >= порога. Если хоть одна дала уверенный
         # результат — возвращаем его. Если ни одна не нашла — None.
+        # P2 FIX (FIX-AUDIT): vision.py возвращает success=False + data при
+        # низком conf (не решает за оркестратора). Здесь любой найденный
+        # элемент с conf < порога (неважно success True/False) -> low_conf_found.
+        from uni.capabilities.vision import VISION_CONFIDENCE_THRESHOLD
         low_conf_found = False
         for q in queries:
             res = await self._vision.find_desktop_element(q)
             if res.success and res.data:
                 data = dict(res.data)
                 conf = data.get("confidence", 0.0)
-                if conf >= self.confidence_threshold:
+                if conf >= VISION_CONFIDENCE_THRESHOLD:
                     return data
                 # найдено, но уверенность низкая — запоминаем и пробуем
                 # следующую формулировку (не возвращаем сразу!)
+                low_conf_found = True
+            elif (not res.success) and res.data:
+                # P2: vision нашла, но conf < порога -> тоже low_conf
                 low_conf_found = True
         # перебрали все формулировки:
         if low_conf_found:
