@@ -1,0 +1,17 @@
+@echo off
+REM ЮНИ — ЕДИНЫЙ ЛАУНЧЕР (по директиве «Единый лаунчер», Hermes 2026-08-13).
+REM Запускает scripts/launcher.js (он поднимает llama + webui + electron СКРЫТО),
+REM а cmd-окно НЕ висит (start /min + exit). chcp 65001 — без кракозябр в заголовках.
+chcp 65001 >nul
+setlocal
+set UNI_ROOT=C:\LLM\UNI
+cd /d %UNI_ROOT%
+if not exist runtime\llama\llama-server.exe (
+  echo [ЮНИ] runtime/llama не распакован — распакуйте downloads/llama-*-win-cuda-*.zip в runtime/llama
+  pause
+  exit /b 1
+)
+REM запускаем оркестратор отдельным скрытым процессом и сразу выходим
+start "" /min cmd /c "cd /d %UNI_ROOT% && node scripts/launcher.js %*"
+echo [ЮНИ] Запуск инициирован (оверлей появится; серверы скрыты). Окно закроется.
+exit /b 0

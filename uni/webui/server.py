@@ -838,6 +838,137 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+
+        # === Единый лаунчер: статусы и логи (Hermes 2026-08-13) ===
+        def _tcp_alive(host, port, timeout=1.0):
+            import socket
+            try:
+                with socket.create_connection((host, port), timeout=timeout):
+                    return True
+            except Exception:
+                return False
+
+        def _uni_status():
+            import json as _json_mod, subprocess as _sp
+            pids = {}
+            pf = _ROOT / "runtime" / "pids.json"
+            try:
+                pids = _json_mod.loads(pf.read_text(encoding="utf-8"))
+            except Exception:
+                pids = {}
+            def alive(pid):
+                if not pid: return False
+                try:
+                    _sp.check_output(["tasklist", "/FI", f"PID eq {pid}"], stderr=_sp.DEVNULL)
+                    return True
+                except Exception:
+                    return False
+            # llama: порт 1235 + имя модели
+            llama_running = _tcp_alive("127.0.0.1", 1235)
+            model = None
+            if llama_running:
+                try:
+                    import urllib.request
+                    with urllib.request.urlopen("http://127.0.0.1:1235/v1/models", timeout=2) as r:
+                        m = _json_mod.loads(r.read().decode("utf-8"))
+                        if m.get("data"):
+                            model = m["data"][0].get("id")
+                except Exception:
+                    pass
+            # webui: порт 8787
+            webui_running = _tcp_alive("127.0.0.1", 8787)
+            # desktop (electron): PID из pids.json жив
+            desktop_pid = (pids.get("electron") or {}).get("pid")
+            desktop_running = alive(desktop_pid)
+            # lmstudio: порт 1234 (опц.)
+            lmstudio_reachable = _tcp_alive("127.0.0.1", 1234)
+            return {
+                "llama": {"running": llama_running, "pid": (pids.get("llama") or {}).get("pid"),
+                          "port": 1235, "model": model,
+                          # started_at в pids.json — в миллисекундах; time.time() — в секундах
+                          "uptime_s": (int((time.time() * 1000 - (pids.get("started_at") or 0)) / 1000) if (llama_running and pids.get("started_at")) else 0)},
+                "webui": {"running": webui_running, "pid": (pids.get("webui") or {}).get("pid"), "port": 8787},
+                "desktop": {"running": desktop_running, "pid": desktop_pid},
+                "lmstudio": {"reachable": lmstudio_reachable},
+            }
+
+        def _uni_logs(source, since=0):
+            logs_dir = _ROOT / "runtime" / "logs"
+            mapping = {
+                "llama": logs_dir / "llama-server.log",
+                "webui": logs_dir / "webui.log",
+                "desktop": _HERE / "desktop.log",
+            }
+            f = mapping.get(source)
+            if not f or not f.is_file():
+                return []
+            try:
+                lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+            except Exception:
+                return []
+            lines = lines[-500:]
+            if since and since < len(lines):
+                lines = lines[since:]
+            return [{"i": i, "t": ln} for i, ln in enumerate(lines[-200:])]
+
+        if parsed.path == "/api/uni/status":
+            self._json(200, _uni_status())
+            return
+        if parsed.path == "/api/uni/logs":
+            src = parsed.query.get("source", "llama")
+            try:
+                since = int(parsed.query.get("since", "0") or 0)
+            except Exception:
+                since = 0
+            self._json(200, {"source": src, "lines": _uni_logs(src, since)})
+            return
+        # === конец блока лаунчера ===
+
+        def _kill_uni_children():
+            """Убить все дочерние процессы Юни по runtime/pids.json (llama/webui/electron).
+            Вызывается из /api/admin/stop и /api/stop — гарантирует, что 'Выход'/
+            'Остановить всё' убивает ВЕСЬ стек, а не только пишет STOP.txt."""
+            import json as _j, subprocess as _sp
+            pf = _ROOT / "runtime" / "pids.json"
+            pids = {}
+            try:
+                pids = _j.loads(pf.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+            targets = []
+            for key in ("llama", "webui", "electron"):
+                pid = (pids.get(key) or {}).get("pid")
+                if pid:
+                    targets.append((key, pid))
+            for key, pid in targets:
+                try:
+                    _sp.run(["taskkill", "/F", "/PID", str(pid), "/T"],
+                            stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                            creationflags=0x08000000 if hasattr(_sp, "CREATE_NO_WINDOW") else 0)
+                    log_message(f"[stop] killed {key} pid={pid}")
+                except Exception as e:
+                    log_message(f"[stop] kill {key} pid={pid} failed: {e}")
+            try:
+                pf.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        if parsed.path in ("/api/admin/stop", "/api/stop"):
+            # 🤖 Единый лаунчер: остановить ВЕСЬ стек Юни, а не только агента
+            try:
+                stop_file = (_ROOT / "STOP.txt").resolve()
+                if stop_file.is_relative_to(_ROOT.resolve()):
+                    stop_file.write_text(
+                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
+                        "\nИсточник: admin (кнопка СТОП / трей Выход)\n",
+                        encoding="utf-8",
+                    )
+                _kill_uni_children()
+                self._json(200, {"stopped": True, "file": "STOP.txt", "killed_children": True})
+            except OSError as exc:
+                self._json(500, {"error": f"не удалось остановить: {exc}"})
+            return
+
         if parsed.path in ("/favicon.ico",):
             # B-04: отдаём реальную иконку вместо 204-заглушки, чтобы вкладка
             # браузера не была без иконки.
@@ -870,6 +1001,20 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
             else:
                 self._send(404, b"camera preview missing", "text/plain")
+            return
+        if parsed.path in ("/admin-status", "/admin-status.html"):
+            page = _HERE / "admin-status.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"admin-status missing", "text/plain")
+            return
+        if parsed.path in ("/admin-status.js",):
+            js = _HERE / "admin-status.js"
+            if js.is_file():
+                self._send_file_with_cache(js, "application/javascript; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"missing", "text/plain")
             return
         if parsed.path in ("/v3", "/v3/"):
             # R-01: админка v3 (отдельный SPA в uni/webui/v3/)
@@ -1239,38 +1384,69 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
-        # 🤖 T-15: кнопка СТОП — создаёт STOP.txt в корне проекта (все агенты останавливаются)
-        if self.path == "/api/admin/stop":
+        # === Единый лаунчер: перезапуск LLM (Hermes 2026-08-13) ===
+        if self.path == "/api/admin/restart-llm":
             try:
+                import json as _j, subprocess as _sp
+                pf = _ROOT / "runtime" / "pids.json"
+                try:
+                    pids = _j.loads(pf.read_text(encoding="utf-8"))
+                except Exception:
+                    pids = {}
+                old_pid = (pids.get("llama") or {}).get("pid")
+                if old_pid:
+                    try: _sp.run(["taskkill", "/F", "/PID", str(old_pid), "/T"], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=10)
+                    except Exception: pass
+                logs_dir = _ROOT / "runtime" / "logs"
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                binp = _ROOT / "runtime" / "llama" / "llama-server.exe"
+                model = _ROOT / "downloads" / "Qwen3-8B-Q4_K_M.gguf"
+                if not binp.exists():
+                    self._json(500, {"error": "llama-server.exe не найден"})
+                    return
+                logf = open(logs_dir / "llama-server.log", "a")
+                p = _sp.Popen([str(binp), "--model", str(model), "--host", "127.0.0.1",
+                               "--port", "1235", "--n-gpu-layers", "99", "--api-key", "uni-local"],
+                              cwd=str(_ROOT), stdout=logf, stderr=logf,
+                              creationflags=0x08000000)  # CREATE_NO_WINDOW
+                pids["llama"] = {"pid": p.pid, "port": 1235}
+                pf.write_text(_j.dumps(pids, indent=2), encoding="utf-8")
+                self._json(200, {"restarted": True, "pid": p.pid})
+            except Exception as exc:
+                self._json(500, {"error": str(exc)})
+            return
+        # 🤖 Единый лаунчер: остановить ВЕСЬ стек Юни (POST, для кнопки «Остановить всё»)
+        if self.path in ("/api/admin/stop", "/api/stop"):
+            try:
+                import json as _j, subprocess as _sp
+                pf = _ROOT / "runtime" / "pids.json"
+                pids = {}
+                try:
+                    pids = _j.loads(pf.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+                for key in ("llama", "webui", "electron"):
+                    pid = (pids.get(key) or {}).get("pid")
+                    if pid:
+                        try:
+                            _sp.run(["taskkill", "/F", "/PID", str(pid), "/T"],
+                                     stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                                     creationflags=0x08000000)
+                        except Exception:
+                            pass
+                try:
+                    pf.unlink(missing_ok=True)
+                except Exception:
+                    pass
                 stop_file = (_ROOT / "STOP.txt").resolve()
                 if stop_file.is_relative_to(_ROOT.resolve()):
-                    stop_file.write_text(
-                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
-                        "\nИсточник: admin v3 (кнопка СТОП)\n",
-                        encoding="utf-8",
-                    )
-                    self._json(200, {"stopped": True, "file": "STOP.txt"})
-                else:
-                    self._json(500, {"error": "недопустимый путь"})
+                    stop_file.write_text("STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
+                                         "\nИсточник: admin (кнопка СТОП / трей Выход)\n", encoding="utf-8")
+                self._json(200, {"stopped": True, "file": "STOP.txt", "killed_children": True})
             except OSError as exc:
-                self._json(500, {"error": f"не удалось создать STOP.txt: {exc}"})
+                self._json(500, {"error": f"не удалось остановить: {exc}"})
             return
-        if self.path == "/api/stop":
-            # алиас (для фоллбэка из фронта) — тот же код, что и /api/admin/stop
-            try:
-                stop_file = (_ROOT / "STOP.txt").resolve()
-                if stop_file.is_relative_to(_ROOT.resolve()):
-                    stop_file.write_text(
-                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
-                        "\nИсточник: admin v3 (кнопка СТОП, alias)\n",
-                        encoding="utf-8",
-                    )
-                    self._json(200, {"stopped": True, "file": "STOP.txt"})
-                else:
-                    self._json(500, {"error": "недопустимый путь"})
-            except OSError as exc:
-                self._json(500, {"error": f"не удалось создать STOP.txt: {exc}"})
-            return
+        # 🤖 DC-04: POST — установить согласие на наблюдение (пишет журнал)
         if self.path == "/api/desktop/consent":
             # 🤖 DC-04: POST — установить согласие на наблюдение (пишет журнал)
             try:
@@ -1282,6 +1458,30 @@ class _Handler(BaseHTTPRequestHandler):
             level = str(payload.get("level", "off"))
             rec = _write_consent(enabled, level)
             self._json(200, rec)
+            return
+        if self.path == "/api/stop-cycle":
+            # 🤖 Единый лаунчер / интерфейс: лёгкая остановка цикла Юни
+            # (НЕ убивает серверы, в отличие от /api/admin/stop). Пишет STOP.txt
+            # (event_loop проверяет его между циклами → прерывает цикл и озвучку)
+            # и дёргает request_stop активного computer-use агента, если он есть.
+            try:
+                stop_file = (_ROOT / "STOP.txt").resolve()
+                if stop_file.is_relative_to(_ROOT.resolve()):
+                    stop_file.write_text(
+                        "STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
+                        "\nИсточник: интерфейс (кнопка STOP)\n", encoding="utf-8")
+                agent = self._get_chat_agent()
+                va = getattr(agent, "_last_visual_agent", None)
+                stopped_va = False
+                if va is not None and hasattr(va, "request_stop"):
+                    try:
+                        va.request_stop()
+                        stopped_va = True
+                    except Exception:
+                        pass
+                self._json(200, {"stopped": True, "stop_txt": True, "va_stopped": stopped_va})
+            except OSError as exc:
+                self._json(500, {"error": f"не удалось остановить цикл: {exc}"})
             return
         if self.path == "/api/desktop/suggest":
             # 🤖 D-13: POST — детектор событий + инициатива с бюджетом

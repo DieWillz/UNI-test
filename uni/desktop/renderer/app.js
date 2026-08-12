@@ -1,219 +1,247 @@
-// UNI Desktop Companion — renderer/app.js (Hermes SOLO, 2026-08-11, блок D)
-// D-05 чат->/api/chat · D-06 TTS->/api/tts · D-07 кнопки · D-09 SSE autonomous/stream
-// D-10 PTT->/api/stt · D-11 настройки · D-03 click-through hit-test
-const SERVER = (window.UNI_SERVER) || "http://127.0.0.1:8787";
-const $ = (id) => document.getElementById(id);
-// FIX-VISUAL-01 BUG#1: preload экспонирует глобальный window.uni через exposeInMainWorld('uni').
-// Поэтому НЕ объявляем const uni (была ошибка 'Identifier uni has already been declared').
-// Берём мост в локальную переменную U = window["uni"] и используем U везде.
-const U = window["uni"] || null;
-async function api(path, opts) {
-  try {
-    if (U && U.log) U.log("HTTP", opts && opts.method || "GET", SERVER + path);
-    const r = await fetch(SERVER + path, opts);
-    if (U && U.log) U.log("HTTP", path, "->", r.status);
-    return r;
-  } catch (e) {
-    if (U && U.log) U.log("HTTP ERROR", path, e.message);
-    addMsgSafe("⚠ сервер недоступен: " + e.message);
-    return null;
-  }
-}
-function addMsgSafe(t) { try { addMsg("uni", t); } catch {} }
+// Юни — интерфейс v4: реальная логика (Hermes 2026-08-13, директива «НОВЫЙ ИНТЕРФЕЙС»).
+// Заменяет демо-заглушки на боевые вызовы backend (http://127.0.0.1:8787).
+// Старый вариант (canon-design/) не трогаем.
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const widget = $('#uniWidget');
+const avatar = $('#avatar');
+const toast = $('#toast');
 
-function addMsg(role, text) {
-  const m = document.createElement("div");
-  m.className = "msg " + (role === "user" ? "user" : "U");
-  m.textContent = text;
-  $("messages").appendChild(m);
-  $("messages").scrollTop = $("messages").scrollHeight;
+// Базовый URL backend (WebUI на 8787). Electron loadFile → file://, нужен абсолютный URL.
+const API = 'http://127.0.0.1:8787';
+
+const state = {
+  mode: 'quick', stopped: false, observing: true, listening: false,
+  minimized: false, avatar: 'working', consentLevel: 'off',
+};
+
+// ---------- утилиты ----------
+function notify(text) {
+  toast.textContent = text; toast.classList.add('show');
+  clearTimeout(notify.t);
+  notify.t = setTimeout(() => toast.classList.remove('show'), 1800);
 }
-async function UChat(text) {
-  addMsg("user", text);
-  if (window.Avatar) Avatar.setState("thinking");
+function setAvatar(next) {
+  state.avatar = next;
+  avatar.className = `avatar avatar--${next}`;
+  avatar.setAttribute('aria-label', `Состояние Юни: ${next}`);
+}
+function setStatus(text, avatarState = 'working') {
+  $('#headerStatus').textContent = text;
+  if (avatarState) setAvatar(avatarState);
+}
+
+// ---------- режимы ----------
+function setMode(mode) {
+  state.mode = mode;
+  widget.classList.toggle('mode-quick', mode === 'quick');
+  widget.classList.toggle('mode-mission', mode === 'mission');
+  $('#quickMode').classList.toggle('hidden', mode !== 'quick');
+  $('#missionMode').classList.toggle('hidden', mode !== 'mission');
+  $$('.demo-switcher button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  $('#headerStatus').textContent = state.stopped ? 'Остановлена' : (mode === 'quick' ? 'Выполняю' : 'Работаю');
+  setAvatar('working');
+  window.dispatchEvent(new CustomEvent('uni:mode-change', { detail: { mode } }));
+}
+
+// ---------- чат (P0) ----------
+function addBubble(text, who) {
+  const el = document.createElement('div');
+  el.className = 'message' + (who === 'user' ? ' user' : '');
+  el.textContent = text;            // только текст — сырой JSON в UI запрещён
+  const panel = state.mode === 'mission' ? $('#missionMode') : $('#quickMode');
+  panel.insertBefore(el, panel.querySelector('.action-strip, .mission-card, .result-card') || null);
+  panel.scrollTop = panel.scrollHeight;
+}
+async function send() {
+  const input = $('#messageInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addBubble(text, 'user');
+  setStatus('Обрабатываю', 'working');
   try {
-    const r = await api("/api/chat", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+    const r = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
     });
-    if (!r) { if (window.Avatar) Avatar.setState("idle"); return; }
-    const d = await r.json();
-    // 🤖 Фаза-3: корректный разбор ответа. В пузырь — только человекочитаемый text.
-    // Сырой JSON в UI больше не показываем. Поддержка строкового JSON с fallback.
-    let data = d;
-    if (typeof d === "string") {
-      try { data = JSON.parse(d); } catch (e) { data = { text: d }; }
+    if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); return; }
+    const data = await r.json();
+    const reply = (data && (data.text || data.message)) || '';
+    if (reply) addBubble(reply, 'uni');
+    if (data && data.audio_url) {
+      try { new Audio(`${API}${data.audio_url}`).play(); } catch (e) {}
     }
-    const reply = data.text || data.reply || data.response || data.message || data.content || "";
-    // audio_url != null -> проигрываем локально (D-06)
-    const audioUrl = data.audio_url || null;
-    const safeReply = reply && reply.trim() ? reply : (audioUrl ? "🔊" : "…");
-    addMsg("uni", safeReply);
-    if (window.Avatar) Avatar.setState("speaking");
-    try {
-      if (audioUrl) {
-        // играем готовый аудио-файл, если сервер вернул audio_url
-        const a = new Audio(audioUrl);
-        a.play().catch(() => {});
-      } else {
-        // иначе синтез через /api/tts (возвращает audio_url, который тоже проигрываем)
-        const t = await api("/api/tts", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: safeReply }),
-        });
-        if (t) {
-          const td = await t.json().catch(() => ({}));
-          if (td.audio_url) { const a = new Audio(td.audio_url); a.play().catch(() => {}); }
-        }
-      }
-    } catch (e) {}
+    setStatus(state.mode === 'quick' ? 'Выполняю' : 'Работаю', 'done');
   } catch (e) {
-    addMsg("uni", "⚠ ошибка: " + e.message);
-  } finally {
-    if (window.Avatar) setTimeout(() => Avatar.setState("idle"), 1200);
+    addBubble('Нет связи с Юни. Запущен ли сервер на :8787?', 'uni');
+    setStatus('Ошибка', 'waiting');
   }
 }
 
-// D-07: кнопки
-$("sendBtn").onclick = () => { const v = $("input").value.trim(); if (!v) return; $("input").value = ""; UChat(v); };
-$("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("sendBtn").click(); } });
-$("btnStop").onclick = async () => { await api("/api/admin/stop", { method: "POST", body: "{}" }); showBubble("⏹ СТОП отправлен"); };
-$("btnHide").onclick = () => { if (U) U.hide(); };
-$("btnSettings").onclick = () => $("settings").classList.toggle("hidden");
-$("btnVision").onclick = async () => {
-  try { const r = await api("/api/vision/capture", { method: "POST" }); const d = await r.json(); showBubble("👁 " + (d.caption || "кадр захвачен")); }
-  catch (e) { showBubble("⚠ зрение недоступно"); }
+// ---------- статус (P0): поллинг /api/uni/status ----------
+const STATUS_MAP = {
+  ok:   { text: 'На связи',   dot: 'ok',   avatar: 'working' },
+  busy: { text: 'Работаю',    dot: 'busy', avatar: 'working' },
+  err:  { text: 'Ошибка',     dot: 'err',  avatar: 'waiting' },
 };
-$("btnAuto").onclick = async () => { const lvl = prompt("Уровень автономии (off/observe/suggest/act):", "observe"); if (lvl) setConsent(lvl); };
-
-function showBubble(text) {
-  const b = $("bubble"); b.textContent = text; b.classList.remove("hidden");
-  clearTimeout(showBubble._t); showBubble._t = setTimeout(() => b.classList.add("hidden"), 4000);
-}
-async function setConsent(level) {
-  await api("/api/desktop/consent", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ observation_enabled: level !== "off", level }),
-  });
-  updateObs(level);
-}
-function updateObs(level) {
-  $("obsIndicator").classList.toggle("hidden", level === "off");
-  $("obsIndicator").textContent = "👁 наблюдает: " + level;
-}
-
-// D-09: SSE автономных фраз (GET — сервер отдаёт text/event-stream в do_GET)
-async function streamAutonomous() {
+async function pollStatus() {
   try {
-    const r = await api("/api/autonomous/stream", { method: "GET" });
-    if (!r || !r.body) { if (U && U.log) U.log("autonomous stream: no response body (agent unavailable?)"); return; }
-    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      buf += dec.decode(value);
-      let i; while ((i = buf.indexOf("\n\n")) >= 0) {
-        const frame = buf.slice(0, i); buf = buf.slice(i + 2);
-        const m = frame.match(/^data: (.+)$/m);
-        if (m) { try { const ev = JSON.parse(m[1]); if (ev.phrase) { addMsg("uni", ev.phrase); showBubble(ev.phrase); } } catch (e) {} }
-      }
+    const r = await fetch(`${API}/api/uni/status`, { method: 'GET' });
+    if (!r.ok) throw new Error('status ' + r.status);
+    const s = await r.json();
+    // «Ошибка», если упал любой критичный компонент
+    const healthy = s.llama && s.llama.running && s.webui && s.webui.running;
+    const key = !healthy ? 'err' : (state.stopped ? 'busy' : 'ok');
+    const m = STATUS_MAP[key];
+    $('#headerStatus').textContent = state.stopped ? 'Остановлена' : m.text;
+    const dot = $('.live-status i');
+    if (dot) { dot.style.background = key === 'err' ? 'var(--stop)' : (key === 'ok' ? 'var(--accent)' : 'var(--amber)'); }
+    if (!state.stopped && !state.listening) setAvatar(m.avatar);
+    // поповер состояния
+    const sp = $('#statusPopover');
+    if (sp) {
+      sp.innerHTML = `<b>Состояние Юни</b>` +
+        `<span><i class="${healthy ? 'ok' : ''}" style="background:${healthy ? 'var(--accent)' : 'var(--stop)'}"></i> ` +
+        `${s.llama && s.llama.running ? 'LLM на связи' : 'LLM недоступен'}</span>` +
+        `<span><i class="${s.webui && s.webui.running ? 'ok' : ''}" style="background:${s.webui && s.webui.running ? 'var(--accent)' : 'var(--stop)'}"></i> ` +
+        `${s.webui && s.webui.running ? 'WebUI на связи' : 'WebUI недоступен'}</span>`;
     }
-  } catch (e) { if (U && U.log) U.log("autonomous stream error", e && e.message); }
+  } catch (e) {
+    $('#headerStatus').textContent = 'Ошибка';
+    const dot = $('.live-status i'); if (dot) dot.style.background = 'var(--stop)';
+  }
 }
-streamAutonomous();
+setInterval(pollStatus, 3000); pollStatus();
 
-// события от main (desktop-event SSE)
-if (U) {
-  U.onEvent((data) => {
-    try {
-      const ev = JSON.parse(data);
-      if (ev.type === "consent_changed") updateObs(ev.consent.level);
-      if (ev.type === "initiative") showBubble(ev.text || "Юни хочет что-то сказать");
-    } catch (e) {}
-  });
-  U.onPTT((on) => { document.body.classList.toggle("recording", on); if (on) startRecording(); else stopRecording(); });
-}
-
-// D-10: PTT запись -> /api/stt
-let mediaRecorder = null, chunks = [];
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream); chunks = [];
-    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      const buf = await blob.arrayBuffer();
-      const r = await api("/api/stt", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: buf });
-      const d = await r.json();
-      if (d.text) UChat(d.text); else showBubble("⚠ STT: " + (d.error || "нет текста"));
-    };
-    mediaRecorder.start();
-  } catch (e) { showBubble("⚠ микрофон: " + e.message); }
-}
-function stopRecording() { if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop(); }
-
-// D-11: настройки
-async function loadSettings() {
-  try {
-    const r = await api("/api/roles"); const roles = await r.json();
-    (roles.roles || []).forEach((role) => { const o = document.createElement("option"); o.value = role.id; o.textContent = role.name; $("roleSel").appendChild(o); });
-  } catch (e) {}
-  try {
-    const r = await api("/api/tts/engines"); const d = await r.json();
-    (d.engines || []).forEach((e) => (e.voices || []).forEach((v) => { const o = document.createElement("option"); o.value = v.id; o.textContent = e.id + " / " + v.name; $("voiceSel").appendChild(o); }));
-  } catch (e) {}
-  try {
-    const r = await api("/api/desktop/consent"); const c = await r.json();
-    updateObs(c.level || "off"); $("obsChk").checked = !!c.observation_enabled;
-  } catch (e) {}
-  if (U) { const st = await U.loadState(); if (st) { $("autostartChk").checked = !!st.autostart; $("opacity").value = st.opacity || 1; } }
-}
-$("saveSettings").onclick = async () => {
-  const role = $("roleSel").value;
-  try { await api("/api/role/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) }); } catch (e) {}
-  await setConsent($("autoSel").value);
-  const autostart = $("autostartChk").checked; const opacity = parseFloat($("opacity").value) || 1;
-  if (U) { U.saveState({ autostart, opacity }); U.setOpacity(opacity); }
-  showBubble("✅ настройки сохранены");
+// ---------- STOP (P0): лёгкая остановка цикла ----------
+$('#stopButton').onclick = async () => {
+  state.stopped = !state.stopped;
+  $('#stopButton').textContent = state.stopped ? 'ПУСК' : 'STOP';
+  if (state.stopped) {
+    try { await fetch(`${API}/api/stop-cycle`, { method: 'POST' }); } catch (e) {}
+    setStatus('Остановлена', 'waiting');
+    notify('Задача остановлена');
+  } else {
+    // снять STOP.txt, возобновить
+    try { await fetch(`${API}/api/admin/stop`, { method: 'POST' }); } catch (e) {}
+    setStatus(state.mode === 'quick' ? 'Выполняю' : 'Работаю', 'working');
+    notify('Задача продолжена');
+  }
+  window.dispatchEvent(new CustomEvent('uni:stop', { detail: { stopped: state.stopped } }));
 };
-// D-12: observe-цикл — только если согласие включено (опрос скриншотов раз в 10с)
-let observeTimer = null;
-async function startObserveLoop() {
-  if (observeTimer) clearInterval(observeTimer);
-  observeTimer = setInterval(async () => {
-    if (!U) return;
-    let consent;
-    try { const r = await api("/api/desktop/consent"); consent = await r.json(); } catch (e) { return; }
-    if (!consent.observation_enabled) { updateObs("off"); return; }
-    updateObs(consent.level || "observe");
+
+// ---------- наблюдение 👁 (P0): /api/desktop/consent ----------
+$('#visionButton').onclick = async () => {
+  state.observing = !state.observing;
+  $('#visionButton').classList.toggle('active', state.observing);
+  const level = state.observing ? 'observe' : 'off';
+  try {
+    await fetch(`${API}/api/desktop/consent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ observation_enabled: state.observing, level }),
+    });
+  } catch (e) {}
+  notify(state.observing ? 'Наблюдение включено' : 'Наблюдение выключено');
+  persist();
+};
+
+// ---------- микрофон PTT (P0): /api/stt ----------
+let mediaRecorder = null, micChunks = [];
+async function toggleListening() {
+  state.listening = !state.listening;
+  $('#micButton').classList.toggle('active', state.listening);
+  $('#composerMic').classList.toggle('active', state.listening);
+  setStatus(state.listening ? 'Слушаю' : (state.mode === 'quick' ? 'Выполняю' : 'Работаю'),
+            state.listening ? 'listening' : 'working');
+  if (state.listening) {
     try {
-      const res = await U.observeTick();
-      if (res && res.ok && res.caption) {
-        // suggest-уровень: показываем пузырь с тем, что увидели (бюджет не реализован — MVP)
-        if ((consent.level || "observe") !== "observe") showBubble("👁 " + res.caption);
-      }
-    } catch (e) {}
-  }, 10000);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      micChunks = [];
+      mediaRecorder.ondataavailable = (e) => micChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(micChunks, { type: 'audio/webm' });
+        const buf = await blob.arrayBuffer();
+        try {
+          const r = await fetch(`${API}/api/stt`, { method: 'POST',
+            headers: { 'Content-Type': 'audio/webm' }, body: buf });
+          const d = await r.json();
+          if (d && d.text) { $('#messageInput').value = d.text; notify('Распознано: ' + d.text); }
+          else if (r.status === 501) notify('STT недоступен (Whisper не установлен)');
+        } catch (e) { notify('STT недоступен'); }
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+    } catch (e) { notify('Нет доступа к микрофону'); state.listening = false;
+      $('#micButton').classList.remove('active'); $('#composerMic').classList.remove('active'); }
+  } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
 }
+$('#micButton').onclick = toggleListening;
+$('#composerMic').onclick = toggleListening;
 
-loadSettings();
-startObserveLoop();
+// ---------- свернуть ----------
+$('#minimizeButton').onclick = () => {
+  state.minimized = !state.minimized;
+  widget.classList.toggle('minimized', state.minimized);
+  $('#minimizeButton').textContent = state.minimized ? '□' : '−';
+  setAvatar(state.minimized ? 'idle' : 'working');
+};
 
-// D-03: click-through — сообщаем main, интерактивен ли пиксель под курсором
-document.addEventListener("mousemove", (e) => {
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const interactive = !!el && !!el.closest("#chatPanel, #toolbar, #settings, button, textarea, select, input");
-  if (U) U.hitTest(interactive);
-});
+// ---------- поповеры ----------
+function togglePopover(selector, button) {
+  const p = $(selector); p.classList.toggle('hidden');
+  button && button.setAttribute('aria-expanded', String(!p.classList.contains('hidden')));
+}
+$('#statusButton').onclick = () => togglePopover('#statusPopover', $('#statusButton'));
+$('#settingsButton').onclick = () => togglePopover('#settingsPopover');
 
-// 🤖 DESIGN-V2 (Qwen 2026-08-13): компактный чат — свёрнут, пока нет сообщений
-// 🤖 DEPRECATED by Hermes 2026-08-13: авто-collapse отключён по желанию координатора
-//    (чат теперь статичный, см. style.css v2.1). Тело сохранено, не удалено.
-// (function(){
-//   var panel = document.getElementById("chatPanel");
-//   var msgs  = document.getElementById("messages");
-//   if(!panel || !msgs) return;
-//   var sync = function(){ panel.classList.toggle("collapsed", msgs.children.length === 0); };
-//   new MutationObserver(sync).observe(msgs, { childList:true });
-//   sync();
-// })();
+// ---------- настройки (P0): persist в state.json через preload ----------
+function persist() {
+  if (window.uni && window.uni.saveState) {
+    window.uni.saveState({
+      theme: document.documentElement.dataset.theme,
+      opacity: getComputedStyle(document.documentElement).getPropertyValue('--opacity').trim(),
+      motion: !document.body.classList.contains('no-motion'),
+      observing: state.observing, avatar: 'png-live', interface: 'v4',
+    });
+  }
+}
+$('#themeButton').onclick = () => {
+  const light = document.documentElement.dataset.theme !== 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  $('#themeButton').textContent = light ? '☀ Светлая' : '☾ Тёмная';
+  document.documentElement.style.setProperty('--shell', light ? '235,240,238' : '11,17,21');
+  document.documentElement.style.setProperty('--text', light ? '#18201c' : '#f2f4ef');
+  document.documentElement.style.setProperty('--muted', light ? '#68736e' : '#8d989a');
+  notify('Тема переключена'); persist();
+};
+$('#opacityInput').oninput = (e) => {
+  document.documentElement.style.setProperty('--opacity', e.target.value / 100); persist();
+};
+$('#motionInput').onchange = (e) => { document.body.classList.toggle('no-motion', !e.target.checked); persist(); };
+$('#notifyButton').onclick = () => { setAvatar('waiting'); notify('Юни сообщит, когда понадобится решение'); };
+
+// ---------- отправка ----------
+$('#sendButton').onclick = send;
+$('#messageInput').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+
+// ---------- мост для backend/Electron (UNIInterface) ------------
+window.UNIInterface = {
+  setMode, setStatus, setAvatar,
+  setQuickTask: (d = {}) => {
+    if (d.action) $('#quickAction').textContent = d.action;
+    if (d.progress != null) $('#quickProgress').style.width = `${d.progress}%`;
+    setStatus(d.status || 'Выполняю', d.avatar || 'working');
+  },
+  setMission: (d = {}) => {
+    if (d.action) $('#missionAction').textContent = d.action;
+    if (d.percent != null) $('#missionPercent').textContent = `${d.percent}%`;
+    setStatus(d.status || 'Работаю', d.avatar || 'working');
+  },
+  notify, getState: () => ({ ...state }),
+};

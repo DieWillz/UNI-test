@@ -1,4 +1,6 @@
 @echo off
+REM 🤖 DEPRECATED by Hermes 2026-08-13: используйте корневой start.bat (scripts/launcher.js).
+REM Старый ручной запуск только оверлея (через npx + pause — окно cmd висит). Не удалён.
 REM UNI Desktop Companion — запуск одним кликом (для координатора)
 REM Electron уже установлен в node_modules (см. D-19).
 cd /d "%~dp0"

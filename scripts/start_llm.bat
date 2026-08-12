@@ -1,4 +1,6 @@
 @echo off
+REM 🤖 DEPRECATED by Hermes 2026-08-13: используйте корневой start.bat (scripts/launcher.js поднимает LLM сам).
+REM Ручной запуск LLM; оставлен для совместимости, не удалён.
 REM ============================================================
 REM UNI - start_llm.bat  (Hermes, 2026-08-13)
 REM Запуск встроенного LLM (llama.cpp) на порту 1235.
