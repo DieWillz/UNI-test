@@ -38,15 +38,34 @@ async function UChat(text) {
     });
     if (!r) { if (window.Avatar) Avatar.setState("idle"); return; }
     const d = await r.json();
-    const reply = d.reply || d.response || d.message || JSON.stringify(d);
-    addMsg("uni", reply);
+    // 🤖 Фаза-3: корректный разбор ответа. В пузырь — только человекочитаемый text.
+    // Сырой JSON в UI больше не показываем. Поддержка строкового JSON с fallback.
+    let data = d;
+    if (typeof d === "string") {
+      try { data = JSON.parse(d); } catch (e) { data = { text: d }; }
+    }
+    const reply = data.text || data.reply || data.response || data.message || data.content || "";
+    // audio_url != null -> проигрываем локально (D-06)
+    const audioUrl = data.audio_url || null;
+    const safeReply = reply && reply.trim() ? reply : (audioUrl ? "🔊" : "…");
+    addMsg("uni", safeReply);
     if (window.Avatar) Avatar.setState("speaking");
     try {
-      // D-06: озвучка (опционально возвращает audio_url; играем локально)
-      await api("/api/tts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: reply }),
-      });
+      if (audioUrl) {
+        // играем готовый аудио-файл, если сервер вернул audio_url
+        const a = new Audio(audioUrl);
+        a.play().catch(() => {});
+      } else {
+        // иначе синтез через /api/tts (возвращает audio_url, который тоже проигрываем)
+        const t = await api("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: safeReply }),
+        });
+        if (t) {
+          const td = await t.json().catch(() => ({}));
+          if (td.audio_url) { const a = new Audio(td.audio_url); a.play().catch(() => {}); }
+        }
+      }
     } catch (e) {}
   } catch (e) {
     addMsg("uni", "⚠ ошибка: " + e.message);
@@ -186,3 +205,13 @@ document.addEventListener("mousemove", (e) => {
   const interactive = !!el && !!el.closest("#chatPanel, #toolbar, #settings, button, textarea, select, input");
   if (U) U.hitTest(interactive);
 });
+
+// 🤖 DESIGN-V2 (Qwen 2026-08-13): компактный чат — свёрнут, пока нет сообщений
+(function(){
+  var panel = document.getElementById("chatPanel");
+  var msgs  = document.getElementById("messages");
+  if(!panel || !msgs) return;
+  var sync = function(){ panel.classList.toggle("collapsed", msgs.children.length === 0); };
+  new MutationObserver(sync).observe(msgs, { childList:true });
+  sync();
+})();

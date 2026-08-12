@@ -46,23 +46,22 @@ function saveState(obj) {
 // ── F-05/D-16: позиция у нижней кромки ──────────────────────────────────
 function placeAtBottomRight(w) {
   try {
-    // DIAGNOSTIC-VISIBLE: логируем DPI и физические координаты (bounds — device pixels).
+    // 🤖 DESIGN-V2 (Qwen 2026-08-13): геометрия от workArea, а НЕ от bounds —
+    // окно НЕ залезает на таскбар. Низ окна = wa.y+wa.height-12, правый край = wa.x+wa.width-12.
     const disp = screen.getPrimaryDisplay();
-    const sf = disp.scaleFactor;                 // DPI множитель (напр. 1.25)
-    const b = disp.bounds;                       // физические координаты экрана {x,y,width,height}
-    const wb = w.getBounds();                    // текущие размеры окна (device pixels)
-    // Формула по директиве: физические bounds минус размер окна (device pixels совпадают
-    // с setPosition, т.к. Electron работает в device pixels).
-    const x = Math.max(b.x, b.x + b.width - wb.width - 12);
-    const y = Math.max(b.y, b.y + b.height - wb.height - 8);
+    const sf = disp.scaleFactor;
+    const wa = disp.workArea;            // зона без панели задач
+    const wb = w.getBounds();
+    const x = Math.max(wa.x, wa.x + 0, wa.x + wa.width - wb.width - 12);
+    const y = Math.max(wa.y, wa.y + wa.height - wb.height - 12);
     w.setPosition(x, y);
     const final = w.getBounds();
     log("placeAtBottomRight: DPI scale=" + sf,
-        "| physical bounds=" + JSON.stringify(b),
+        "| workArea=" + JSON.stringify(wa),
         "| winSize=" + JSON.stringify(wb),
         "| set->", x, y,
         "| final=" + JSON.stringify(final));
-    return { x, y, scale: sf, bounds: b, final };
+    return { x, y, scale: sf, bounds: wa, final };
   } catch (e) { log("placeAtBottomRight error", e.message); return null; }
 }
 
@@ -168,6 +167,40 @@ function createWindow() {
     log("ready-to-show -> show, visible=", win.isVisible());
     // V-03: повторная фиксация позиции (на случай, если show сбросил координаты)
     setTimeout(() => placeAtBottomRight(win), 60);
+    // 🤖 Фаза-3: одноразовый само-тест чата при UNI_SELFTEST=1 (верификация пузыря + пруф v2, dev-only)
+    if (process.env.UNI_SELFTEST === "1") {
+      const fs = require("fs");
+      const OUT = "C:\\LLM\\UNI\\agents\\uni-codex\\outbox";
+      const cap = async (name) => {
+        try { const img = await win.webContents.capturePage(); fs.writeFileSync(OUT + "\\" + name, img.toPNG()); log("selftest capture saved", name); }
+        catch (e) { log("selftest capture error:", e.message); }
+      };
+      // (а) пустой чат — компактная плашка ввода
+      setTimeout(() => cap("CAPTURE_EMPTY.png"), 1200);
+      // два сообщения, чтобы чат расширился
+      setTimeout(() => {
+        win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('привет Юни'), true) : false")
+          .then((ok) => log("selftest UChat #1 triggered:", ok)).catch((e) => log("selftest error:", e.message));
+      }, 2500);
+      setTimeout(() => {
+        win.webContents.executeJavaScript("typeof UChat==='function' ? (UChat('расскажи коротко о себе'), true) : false")
+          .then((ok) => log("selftest UChat #2 triggered:", ok)).catch((e) => log("selftest error:", e.message));
+      }, 6000);
+      // (б) после 2 сообщений — расширился
+      setTimeout(async () => {
+        try {
+          const txt = await win.webContents.executeJavaScript(
+            "(() => { const m = document.querySelector('#messages'); return m ? m.textContent : ''; })()"
+          );
+          log("selftest bubble text:", JSON.stringify(txt).slice(0, 300));
+          const collapsed = await win.webContents.executeJavaScript(
+            "(() => { const p = document.getElementById('chatPanel'); return p ? p.classList.contains('collapsed') : null; })()"
+          );
+          log("selftest chatPanel.collapsed after 2 msgs:", collapsed);
+          await cap("CAPTURE_CHAT2.png");
+        } catch (e) { log("selftest error:", e.message); }
+      }, 9000);
+    }
   });
   win.on("closed", () => { win = null; log("window closed"); });
 
@@ -188,6 +221,34 @@ function createWindow() {
   ipcMain.handle("load-state", () => loadState());
   ipcMain.handle("get-bounds", () => (win && !win.isDestroyed()) ? win.getBounds() : null);
   ipcMain.handle("is-visible", () => (win && !win.isDestroyed()) ? win.isVisible() : false);
+
+  // 🤖 P2 (2026-08-13): отрисовать PNG-состояния аватара ИЗ VRM offscreen -> assets/states/
+  ipcMain.handle("avatar:capture-states", async () => {
+    if (!win || win.isDestroyed()) return { ok: false, error: "no window" };
+    const states = await win.webContents.executeJavaScript("window.Avatar && window.Avatar.captureStates ? window.Avatar.captureStates() : []");
+    if (!Array.isArray(states) || !states.length) return { ok: false, error: "no vrm states" };
+    const fs = require("fs");
+    const path = require("path");
+    const dir = path.join(__dirname, "assets", "states");
+    fs.mkdirSync(dir, { recursive: true });
+    let n = 0;
+    for (const s of states) {
+      const m = /^data:image\/png;base64,(.*)$/.exec(s.dataURL || "");
+      if (!m) continue;
+      fs.writeFileSync(path.join(dir, s.name + ".png"), Buffer.from(m[1], "base64"));
+      n++;
+    }
+    // 🤖 P2.4: tray.png 256x256 из отрендеренного лица (idle) — заменяем 98-байтную заглушку
+    try {
+      const idle = nativeImage.createFromPath(path.join(dir, "idle.png")).resize({ width: 256, height: 256 });
+      const old = path.join(__dirname, "assets", "tray.png");
+      if (fs.existsSync(old) && fs.statSync(old).size < 1000) {
+        fs.renameSync(old, old + ".deprecated"); // 🤖 не удаляем старую
+      }
+      fs.writeFileSync(path.join(__dirname, "assets", "tray.png"), idle.toPNG());
+    } catch (e) { log("tray render error:", e.message); }
+    return { ok: true, count: n, dir };
+  });
 
   // D-12: observe-тик — скриншот экрана -> /api/vision/capture
   ipcMain.handle("observe-tick", async () => {
@@ -280,7 +341,60 @@ app.whenReady().then(() => {
     });
   } catch (e) { log("PTT register error", e.message); }
 
+  // 🤖 P2 (2026-08-13): хоткей отрисовки PNG-состояний VRM -> assets/states/ (dev/верификация)
+  try {
+    globalShortcut.register("CommandOrControl+Shift+A", async () => {
+      try {
+        const states = await win.webContents.executeJavaScript(
+          "window.Avatar && window.Avatar.captureStates ? window.Avatar.captureStates() : []"
+        );
+        const fs = require("fs"), path = require("path");
+        const dir = path.join(__dirname, "assets", "states");
+        fs.mkdirSync(dir, { recursive: true });
+        let n = 0;
+        for (const s of (states || [])) {
+          const m = /^data:image\/png;base64,(.*)$/.exec(s.dataURL || "");
+          if (m) { fs.writeFileSync(path.join(dir, s.name + ".png"), Buffer.from(m[1], "base64")); n++; }
+        }
+        // P2.4: tray.png 256x256 из idle-кадра (заменяем 98-байтную заглушку, старую -> .deprecated)
+        try {
+          const idle = nativeImage.createFromPath(path.join(dir, "idle.png")).resize({ width: 256, height: 256 });
+          const old = path.join(__dirname, "assets", "tray.png");
+          if (fs.existsSync(old) && fs.statSync(old).size < 1000) fs.renameSync(old, old + ".deprecated");
+          fs.writeFileSync(path.join(__dirname, "assets", "tray.png"), idle.toPNG());
+        } catch (e) { log("tray render error:", e.message); }
+        log("avatar:capture-states ->", JSON.stringify({ ok: true, count: n }));
+      } catch (e) { log("capture-states error:", e.message); }
+    });
+  } catch (e) { log("capture-states register error", e.message); }
+
   log("whenReady done");
+
+  // 🤖 P2 (2026-08-13): одноразовая отрисовка PNG-состояний VRM при UNI_CAPTURE_STATES=1 (dev/верификация)
+  if (process.env.UNI_CAPTURE_STATES === "1") {
+    setTimeout(async () => {
+      try {
+        const states = await win.webContents.executeJavaScript(
+          "window.Avatar && window.Avatar.captureStates ? window.Avatar.captureStates() : []"
+        );
+        const fs = require("fs"), pth = require("path");
+        const dir = pth.join(__dirname, "assets", "states");
+        fs.mkdirSync(dir, { recursive: true });
+        let n = 0;
+        for (const s of (states || [])) {
+          const m = /^data:image\/png;base64,(.*)$/.exec(s.dataURL || "");
+          if (m) { fs.writeFileSync(pth.join(dir, s.name + ".png"), Buffer.from(m[1], "base64")); n++; }
+        }
+        try {
+          const idle = nativeImage.createFromPath(pth.join(dir, "idle.png")).resize({ width: 256, height: 256 });
+          const old = pth.join(__dirname, "assets", "tray.png");
+          if (fs.existsSync(old) && fs.statSync(old).size < 1000) fs.renameSync(old, old + ".deprecated");
+          fs.writeFileSync(pth.join(__dirname, "assets", "tray.png"), idle.toPNG());
+        } catch (e) { log("tray render error:", e.message); }
+        log("avatar:capture-states ->", JSON.stringify({ ok: true, count: n }));
+      } catch (e) { log("capture-states error:", e.message); }
+    }, 4000);
+  }
 });
 
 app.on("window-all-closed", () => { /* живём в трее */ });

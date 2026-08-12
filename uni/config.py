@@ -149,7 +149,7 @@ class CapabilitiesConfig(BaseModel):
     xtoys: XToysConfig = Field(default_factory=XToysConfig)
 
 class AgentConfig(BaseModel):
-    default_role: str = "xtoys_mistress"
+    default_role: str = "assistant"  # 🤖 Фаза-3: роль по умолчанию — assistant
     cycle_interval: float = 2.0
     max_retries: int = 3
     verification_enabled: bool = False

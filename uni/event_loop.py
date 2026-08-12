@@ -829,14 +829,14 @@ class EventLoop:
 
     async def _free_form(self, user_input: str) -> str:
         self.state = AgentState.THINKING
-        default_prompt = "Ты UNI, локальный голосовой помощник."
+        # 🤖 Фаза-3: системный промпт — ТОЛЬКО роль из assistant.md (без кухни).
+        # XToys/LM Studio/порты не упоминаются в пользовательской части промпта.
+        role_prompt = self.role_prompt or "Ты Юни, дружелюбная помощница за компьютером."
         system = (
-            (self.role_prompt or default_prompt)
-            + "\n\n## Runtime rules\n"
+            role_prompt
+            + "\n\n## Общие правила\n"
             "Отвечай по-русски, коротко, максимум 3 предложения. "
-            "Для браузера, поиска и XToys используй доступные функции. Не заявляй, что физическое "
-            "состояние XToys подтверждено, если инструмент пишет verified=false. "
-            "Не превышай запрошенную пользователем интенсивность.\n\nПамять:\n"
+            "Говори просто, по-человечески, без технических подробностей и служебной информации.\n\nПамять:\n"
             + self.memory.get_context(self.config.memory.max_context_tokens)
         )
         messages: list[dict[str, Any]] = [
@@ -849,10 +849,8 @@ class EventLoop:
             tools=get_tool_schemas(set(self.capabilities.get_names())),
         )
         if response.error:
-            return (
-                "LM Studio сейчас недоступен. Прямые команды браузера, поиска и XToys работают; "
-                "для свободного диалога запустите Local Server на порту 1234."
-            )
+            # 🤖 Фаза-3: НЕ упоминаем LM Studio / порты — только по-пользовательски
+            return "Сейчас не могу ответить — дай мне пару секунд и спроси ещё раз."
         if not response.tool_calls:
             answer = response.text or "Не удалось сформировать ответ."
             return answer
