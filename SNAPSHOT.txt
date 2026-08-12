@@ -1,7 +1,8 @@
 UNI SNAPSHOT
-Дата: 2026-08-12
-Ветка: night/uni-mouse-vision
-HEAD: 1c03098e758424c4d03d1b2ed708383fb1a16d55
-Статус: FIX-AUDIT завершён (P1-P5). check_architecture 0/0, pytest (аудит-набор) 34 passed.
+Дата: 2026-08-12 (final, pushed to main)
+Ветка: main (merged from night/uni-mouse-vision)
+HEAD: 62ddaf6 (main on origin)
+Статус: FIX-AUDIT done (P1-P5) + чистка + зеркало в UNI-mcp-server/uni/ + MERGED в main.
 Репозиторий: DieWillz/UNI-test (public).
-Зеркало: UNI-mcp-server/uni-local/uni/
+Зеркало: UNI-mcp-server/uni/ (синхронизировано с каноном).
+Правило: Hermes зеркалирует канон в UNI-mcp-server/uni/ (не uni-local/uni/).
