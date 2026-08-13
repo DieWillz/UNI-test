@@ -44,6 +44,13 @@ from uni.xtoys_motion import MotionToyController, MotionSettings
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parents[1]
+
+# 🤖 Универсальный UI-движок (Директива Hermes: универсальный UI-движок Юни).
+# In-memory хранилище ui_events по task_id / mission_id. В реальном агенте сюда
+# пишет оркестратор; здесь _handle_chat оборачивает ответ LLM в generic-события,
+# а поллинг-эндпоинты отдают их. НЕ удалять — это часть контракта backend→frontend.
+_UI_TASKS: dict[str, list[dict]] = {}
+_UI_MISSIONS: dict[str, list[dict]] = {}
 _FRONTEND = _HERE / "index.html"
 
 # ===== XToys autonomous session (device timeline + synced speech) =====
@@ -1760,6 +1767,32 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/chat":
             self._handle_chat(self._read_json_body())
             return
+        # 🤖 Универсальный UI-движок: поллинг статуса задачи/миссии (Директива §3, обязателен).
+        # GET /api/task/<id>/status  и  GET /api/mission/<id>/status
+        if self.path.startswith("/api/task/") and self.path.endswith("/status"):
+            _tid = self.path.split("/")[-2]
+            _evs = _UI_TASKS.get(_tid, [])
+            self._json(200, {"task_id": _tid, "events": _evs, "finished": True,
+                             "active": False})
+            return
+        if self.path.startswith("/api/mission/") and self.path.endswith("/status"):
+            _mid = self.path.split("/")[-2]
+            _evs = _UI_MISSIONS.get(_mid, [])
+            self._json(200, {"mission_id": _mid, "events": _evs, "finished": True,
+                             "active": False})
+            return
+        # 🤖 Действия пользователя из карточек (Директива U-07): POST /api/ui/action
+        if self.path == "/api/ui/action":
+            try:
+                _b = self._read_json_body()
+                _aid = str(_b.get("action_id", "")).strip()
+                _tid = str(_b.get("task_id", "")).strip()
+                # сервер мапит id -> реальное действие; здесь заглушка-подтверждение
+                self._json(200, {"ok": True, "action_id": _aid, "task_id": _tid,
+                                 "accepted": True})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         if self.path == "/api/camera/start":
             self._handle_camera_start(self._read_json_body())
             return
@@ -2596,7 +2629,39 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
-        self._json(200, {"text": reply, "audio_url": None, "style_hint": style_hint})
+        # 🤖 Универсальный UI-движок: оборачиваем ответ в ui_events (generic, без сценариев).
+        # Классификация ТОЛЬКО на бэкенде (фронт не решает по ключевым словам — ADR/Директива).
+        import uuid as _uuid
+        task_id = "task_" + _uuid.uuid4().hex[:8]
+        # простая эвристика: многострочный/маркированный ответ -> result_list, иначе result_text
+        _lines = [ln.strip("•- \t") for ln in reply.splitlines() if ln.strip()]
+        _looks_list = len(_lines) >= 2 and (
+            "\n" in reply or reply.count("•") >= 2
+            or (reply.count("-") >= 2 and len(reply) > 40)
+        )
+        if _looks_list:
+            _component = "result_list"
+            _ui = {
+                "component": _component,
+                "items": [{"title": ln, "description": ln} for ln in _lines[:12]],
+            }
+        else:
+            _component = "result_text"
+            _ui = {"component": _component, "text": reply}
+        events = [
+            {"type": "task.started", "task_id": task_id, "mode": "quick",
+             "title": (text[:60] or "Задача")},
+            {"type": "task.done", "task_id": task_id, "title": "Готово",
+             "message": reply[:140], "ui": _ui},
+        ]
+        _UI_TASKS[task_id] = events
+        self._json(200, {
+            "text": reply,
+            "audio_url": None,
+            "style_hint": style_hint,
+            "task_id": task_id,
+            "ui_events": events,
+        })
 
     def _handle_camera_start(self, body: dict) -> None:
         agent = self._get_chat_agent()
