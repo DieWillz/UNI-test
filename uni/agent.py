@@ -214,5 +214,17 @@ class Agent:
             pass
         return result
 
+    def update_board(self, action: str, result: str) -> None:
+        """🤖 D6: авто-обновление UNI_BOARD.md после действия (P1.5)."""
+        try:
+            from datetime import datetime
+            from pathlib import Path
+            board = Path(__file__).resolve().parents[1] / "UNI_BOARD.md"
+            line = f"- [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {action}: {result}\n"
+            with board.open("a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception:
+            pass
+
     def get_state(self):
         return self.event_loop.state

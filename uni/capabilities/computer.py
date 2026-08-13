@@ -174,47 +174,53 @@ class ComputerCapability(Capability):
 
     async def launch_app(self, app_name: str) -> ToolResult:
         key = app_name.casefold().strip()
-        if key in {"telegram", "телеграм"}:
-            return ToolResult(
-                success=False,
-                message="Укажите telegram_uni или telegram_user; общий Telegram неоднозначен",
-            )
-        if key in {"telegram_user", "телеграм_пользователя"}:
-            return ToolResult(
-                success=False,
-                message="Личный Telegram не запускается через UNI; используйте telegram_uni",
-            )
-        if key in {"telegram_uni", "телеграм_юни"}:
-            if not self.telegram_uni_path.is_file():
+        lock_name = f"runtime/locks/launch_{key}"
+        if not acquire_lock(lock_name):
+            return ToolResult(success=False, message=f"Запуск «{app_name}» уже выполняется (lock)")
+        try:
+            if key in {"telegram", "телеграм"}:
                 return ToolResult(
                     success=False,
-                    message=f"Telegram UNI не найден: {self.telegram_uni_path}",
+                    message="Укажите telegram_uni или telegram_user; общий Telegram неоднозначен",
                 )
+            if key in {"telegram_user", "телеграм_пользователя"}:
+                return ToolResult(
+                    success=False,
+                    message="Личный Telegram не запускается через UNI; используйте telegram_uni",
+                )
+            if key in {"telegram_uni", "телеграм_юни"}:
+                if not self.telegram_uni_path.is_file():
+                    return ToolResult(
+                        success=False,
+                        message=f"Telegram UNI не найден: {self.telegram_uni_path}",
+                    )
+                try:
+                    await asyncio.to_thread(
+                        subprocess.Popen,
+                        [str(self.telegram_uni_path)],
+                        cwd=str(self.telegram_uni_path.parent),
+                    )
+                    return ToolResult(success=True, message="Запущен отдельный Telegram UNI")
+                except Exception as exc:
+                    return ToolResult(success=False, message=f"Ошибка запуска Telegram UNI: {exc}")
+            apps = {
+                "notepad": "notepad.exe",
+                "блокнот": "notepad.exe",
+                "calc": "calc.exe",
+                "калькулятор": "calc.exe",
+                "explorer": "explorer.exe",
+                "проводник": "explorer.exe",
+                "chrome": "chrome.exe",
+                "браузер": "chrome.exe",
+            }
+            cmd = apps.get(key, app_name)
             try:
-                await asyncio.to_thread(
-                    subprocess.Popen,
-                    [str(self.telegram_uni_path)],
-                    cwd=str(self.telegram_uni_path.parent),
-                )
-                return ToolResult(success=True, message="Запущен отдельный Telegram UNI")
-            except Exception as exc:
-                return ToolResult(success=False, message=f"Ошибка запуска Telegram UNI: {exc}")
-        apps = {
-            "notepad": "notepad.exe",
-            "блокнот": "notepad.exe",
-            "calc": "calc.exe",
-            "калькулятор": "calc.exe",
-            "explorer": "explorer.exe",
-            "проводник": "explorer.exe",
-            "chrome": "chrome.exe",
-            "браузер": "chrome.exe",
-        }
-        self._check_command_allowed(app_name)
-        cmd = apps.get(key, app_name)
-        try:
-            await asyncio.to_thread(subprocess.Popen, cmd)
-            return ToolResult(success=True, message=f"Запущено: {app_name}")
-        except Exception as e:
+                await asyncio.to_thread(subprocess.Popen, cmd)
+                return ToolResult(success=True, message=f"Запущено: {app_name}")
+            except Exception as e:
+                return ToolResult(success=False, message=f"Ошибка: {e}")
+        finally:
+            release_lock(lock_name)
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
     async def click(self, x: int, y: int, button: str = "left") -> ToolResult:

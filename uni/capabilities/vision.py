@@ -20,6 +20,7 @@ from uni.browser_session import BrowserSession
 from uni.config import Config
 from uni.contracts import ToolResult
 from .base import Capability
+from uni.utils.file_lock import acquire_lock, release_lock
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +376,42 @@ class VisionCapability(Capability):
                 except Exception as fexc:
                     logger.debug("local UIA fallback не сработал: %s", fexc)
             return ToolResult(success=False, message=f"Ошибка Desktop Vision: {exc}")
+
+    async def capture_screen_png(self, label: str = "cva") -> ToolResult:
+        """Снимок рабочего стола -> runtime/screenshots/<label>_<ts>.png (с lock)."""
+        try:
+            image, _ = await self._capture_desktop()
+            out_dir = Path(__file__).resolve().parents[2] / "runtime" / "screenshots"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            path = out_dir / f"{label}_{ts}.png"
+            if acquire_lock(str(path)):
+                try:
+                    image.save(path)
+                finally:
+                    release_lock(str(path))
+            else:
+                image.save(path)
+            return ToolResult(success=True, data={"path": str(path)}, message=f"Снимок: {path}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"capture_screen_png ошибка: {exc}")
+
+    def compare_screenshots(self, path1: str, path2: str, threshold: float = 0.95) -> bool:
+        """Сравнение двух PNG через OpenCV (matchTemplate). similarity>threshold."""
+        try:
+            import cv2
+            import numpy as np
+            img1 = cv2.imread(path1)
+            img2 = cv2.imread(path2)
+            if img1 is None or img2 is None:
+                return False
+            if img1.shape != img2.shape:
+                img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+            res = cv2.matchTemplate(img1, img2, cv2.TM_CCOEFF_NORMED)
+            return float(np.max(res)) > threshold
+        except Exception as exc:
+            logger.warning("compare_screenshots ошибка: %s", exc)
+            return False
 
     async def execute(self, action: str, **kwargs) -> ToolResult:
         if action == "analyze_screen":
