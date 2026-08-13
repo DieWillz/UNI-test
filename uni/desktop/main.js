@@ -21,7 +21,9 @@ let sseReq = null;
 // ── F-02: логирование ───────────────────────────────────────────────
 function log(...args) {
   const line = `[${new Date().toISOString()}] ${args.map(String).join(" ")}`;
-  try { fs.appendFileSync(LOG_PATH, line + "\n"); } catch {}
+  // 🤖 A-02 (2026-08-13): async append — НЕ блокируем поток и НЕ крашим на
+  // ошибке записи (диск/квота). try/catch синхронный убран в пользу промиса.
+  fs.promises.appendFile(LOG_PATH, line + "\n").catch(() => {});
   console.log(line);
 }
 // F-02: перехват необработанных ошибок — в лог, НЕ краш-диалог

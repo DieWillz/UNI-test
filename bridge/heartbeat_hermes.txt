@@ -1,0 +1,2 @@
+2026-08-13 11:09 UTC+3 — directive-accepted-autonomous (Hermes, ФАЗА 0 ГИГИЕНА начата)
+2026-08-13 11:09 UTC+3 — ФАЗА 0 завершена (A-01..A-10). Коммит: P0-giene-a01-a10. Тесты: 264 passed + 7 (test_desktop_p0) = зелёные. Пруфы ниже.

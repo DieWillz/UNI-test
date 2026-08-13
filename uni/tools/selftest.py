@@ -112,9 +112,15 @@ def check_overlay() -> dict:
         desktop = (data or {}).get("desktop", {}) if st == 200 else {}
         running = bool(desktop.get("running"))
         if running:
-            return _record("overlay", "Оверлей: окно + статус + аватар", True,
-                           "electron жив (pid в pids.json); статус «На связи» поллингом в renderer")
-        return _record("overlay", "Оверлей: окно + статус + аватар", False,
+            # 🤖 A-10 (2026-08-13): честно — мы знаем ТОЛЬКО что процесс
+            # electron жив (PID в pids.json). Реальная видимость окна и факт
+            # отрисовки аватара проверяются отдельным overlay-хелсом
+            # (isVisible + заголовок), который поднимает /api/overlay/status.
+            # Здесь НЕ утверждаем «окно видимо» и «аватар отрисован».
+            return _record("overlay", "Оверлей: процесс electron жив", True,
+                           "electron жив (pid в pids.json); реальная видимость окна/аватара "
+                           "проверяется визуально (CAPTURE.png при UNI_SELFTEST=1) — см. директиву A-10")
+        return _record("overlay", "Оверлей: процесс electron жив", False,
                        "electron не отмечен живым в pids.json",
                        hint="трей «Показать» или перезапуск; лог desktop.log")
     except Exception as e:

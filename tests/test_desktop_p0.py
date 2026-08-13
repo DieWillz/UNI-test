@@ -33,18 +33,19 @@ def _node_exe():
 
 
 def test_desktop_files_exist():
-    # D-01: структура uni/desktop/
+    # D-01: структура uni/desktop/ (реальные файлы оверлея v4)
     for f in ("package.json", "main.js", "preload.js",
-             "renderer/index.html", "renderer/style.css",
+             "renderer/index.html", "renderer/styles.css",
              "renderer/app.js", "renderer/avatar.js", "PLAN.md"):
         assert (Path(_DESKTOP) / f).is_file(), f"нет файла {f}"
 
 
 def test_avatar_states_exist():
-    # D-08: 4 состояния аватара (SVG-плейсхолдеры)
+    # D-08: 4 состояния аватара (SVG-плейсхолдеры в assets/DieWill/)
+    avatar_dir = Path(_DESKTOP) / "assets" / "DieWill"
     for s in ("idle", "speak", "listen", "think"):
-        p = Path(_DESKTOP) / "assets" / f"avatar_{s}.svg"
-        assert p.is_file(), f"нет avatar_{s}.svg"
+        p = avatar_dir / f"avatar_{s}.svg"
+        assert p.is_file(), f"нет {p}"
 
 
 def test_js_valid():

@@ -28,7 +28,40 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');            // C:\\LLM\\UNI
-const PYTHON = 'C:\\LLM\\python312\\python.exe';
+// 🤖 A-03 (2026-08-13): разрешение интерпретатора Python БЕЗ хардкода пути.
+// Приоритет: env UNI_PYTHON -> config.yaml ключ `python` -> `py -3.12`.
+function resolvePython() {
+  if (process.env.UNI_PYTHON) {
+    log('python: из env UNI_PYTHON =', process.env.UNI_PYTHON);
+    return process.env.UNI_PYTHON;
+  }
+  // config.yaml (если есть и читается)
+  try {
+    const yamlPath = path.join(ROOT, 'config.yaml');
+    if (fs.existsSync(yamlPath)) {
+      const txt = fs.readFileSync(yamlPath, 'utf8');
+      const m = /^python:\s*(.+)$/m.exec(txt);
+      if (m && m[1].trim()) {
+        const p = m[1].trim().replace(/^['"]|['"]$/g, '');
+        log('python: из config.yaml python =', p);
+        return p;
+      }
+    }
+  } catch (e) { log('python: ошибка чтения config.yaml', e.message); }
+  // fallback: py launcher (Python Store/py.exe) — ищет 3.12
+  try {
+    const out = execSync('py -3.12 -c "import sys;print(sys.executable)"',
+      { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).toString().trim();
+    if (out && fs.existsSync(out)) {
+      log('python: py -3.12 ->', out);
+      return out;
+    }
+  } catch (e) { log('python: py -3.12 недоступен', e.message); }
+  // последний fallback — дефолт прежнего окружения
+  log('python: fallback на C:\\LLM\\python312\\python.exe');
+  return 'C:\\LLM\\python312\\python.exe';
+}
+const PYTHON = resolvePython();
 const PIDS_FILE = path.join(ROOT, 'runtime', 'pids.json');
 const LOGS_DIR = path.join(ROOT, 'runtime', 'logs');
 const PORT_LLAMA = 1235;
@@ -48,13 +81,41 @@ function pidAlive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 function portInUse(port, host = '127.0.0.1') {
-  // лёгкая проверка: попытка bind на порт; если EACCES/EADDRINUSE — занят
+  // лёгкая проверка bind'ом: EADDRINUSE/EACCES — занят.
+  // 🤖 A-04 (2026-08-13): вместо тихого exit — возвращаем PID+имя владельца,
+  // чтобы пользователь видел, КТО держит порт (и мог освободить).
   return new Promise((resolve) => {
-    const srv = require('net').createServer();
-    srv.once('error', () => resolve(true));
+    const net = require('net');
+    const srv = net.createServer();
+    srv.once('error', () => {
+      // порт занят — ищем владельца через Get-NetTCPConnection (PowerShell)
+      resolve(true);
+      // (результат не блокирует разрешение; детали логирует reportPortOwner ниже)
+    });
     srv.once('listening', () => { srv.close(() => resolve(false)); });
     srv.listen(port, host);
   });
+}
+
+// 🤖 A-04: детально узнаём владельца занятого порта (PID + имя процесса) и
+// пишем подсказку в лог. НЕ вызывает process.exit сама — решение за вызывающим.
+function reportPortOwner(port) {
+  try {
+    const ps = `Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess`;
+    const out = execSync(`powershell -NoProfile -Command "${ps}"`, { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).toString().trim();
+    const pids = [...new Set(out.split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
+    if (!pids.length) { log('порт ' + port + ': занят, но владелец не определён (Get-NetTCPConnection пуст).'); return; }
+    const names = pids.map(pid => {
+      try {
+        const n = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).Name"`, { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).toString().trim();
+        return `${pid} (${n || '?'})`;
+      } catch { return `${pid} (?)`; }
+    });
+    log('порт ' + port + ' ЗАНЯТ. Владелец(и): ' + names.join(', '));
+    log('  подсказка: освободите порт командой  taskkill /F /PID <pid>  либо смените порт в config.yaml');
+  } catch (e) {
+    log('порт ' + port + ': занят, не удалось определить владельца (' + e.message + ')');
+  }
 }
 function killPid(pid, label) {
   if (!pid || !pidAlive(pid)) return;
@@ -79,12 +140,14 @@ async function main() {
   }
   // дедуп по порту (независимо от pids.json — ловит осиротевшие инстансы)
   const [lUsed, wUsed] = await Promise.all([portInUse(PORT_LLAMA), portInUse(PORT_WEBUI)]);
+  if (lUsed) reportPortOwner(PORT_LLAMA);
+  if (wUsed) reportPortOwner(PORT_WEBUI);
   if (lUsed || wUsed) {
     log('обнаружен живой инстанс Юни на порту (1235=' + lUsed + ', 8787=' + wUsed + ').');
     anyLive = true;
   }
   if (anyLive && !RESTART) {
-    log('НЕ запускаю второй инстанс (single-instance). Выход.');
+    log('НЕ запускаю второй инстанс (single-instance). Выход. См. владельцев портов выше — освободите их или запустите с --restart.');
     log('  llama=' + (prev && prev.llama && prev.llama.pid) + ' webui=' + (prev && prev.webui && prev.webui.pid) + ' electron=' + (prev && prev.electron && prev.electron.pid));
     process.exit(0);
   }
