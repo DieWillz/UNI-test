@@ -33,6 +33,11 @@ pyautogui.PAUSE = 0.1
 class ComputerCapability(Capability):
     name = "computer"
     description = "Управление мышью, клавиатурой, приложениями"
+    # 🤖 Безопасность (P0.11): чёрный список запускаемых приложений/команд
+    BLACKLISTED_COMMANDS = (
+        "format", "del", "rm", "regedit", "shutdown",
+        "taskkill", "reboot", "poweroff", "erase", "rd", "rmdir",
+    )
 
     def __init__(
         self,
@@ -44,6 +49,7 @@ class ComputerCapability(Capability):
         telegram_user_path: str | Path | None = None,
         action_badge_enabled: bool = True,
         action_badge_label: str = "UNI",
+        verified_physical: bool = True,
     ):
         self.use_uia = use_uia
         self.mouse_move_duration = max(0.0, min(float(mouse_move_duration), 2.0))
@@ -67,6 +73,7 @@ class ComputerCapability(Capability):
         )
         pyautogui.FAILSAFE = failsafe
         self._badge = None
+        self.verified_physical = bool(verified_physical)
         if action_badge_enabled:
             try:
                 from uni.action_badge import UniActionBadge
@@ -81,6 +88,18 @@ class ComputerCapability(Capability):
                 self._badge.flash_at(x, y, action)
             except Exception:
                 pass
+
+    def _require_physical(self) -> None:
+        # 🤖 Безопасность (P0.12): gate для физических действий
+        if not self.verified_physical:
+            raise ValueError("Требуется подтверждение для физических действий (verified_physical=False)")
+
+    def _check_command_allowed(self, app_name: str) -> None:
+        # 🤖 Безопасность (P0.11): чёрный список
+        low = (app_name or "").lower()
+        for banned in self.BLACKLISTED_COMMANDS:
+            if banned in low:
+                raise ValueError(f"Запрещённая команда/приложение: {app_name!r} (содержит {banned!r})")
 
     @staticmethod
     def _activate_window(hwnd: int) -> None:
@@ -190,6 +209,7 @@ class ComputerCapability(Capability):
             "chrome": "chrome.exe",
             "браузер": "chrome.exe",
         }
+        self._check_command_allowed(app_name)
         cmd = apps.get(key, app_name)
         try:
             await asyncio.to_thread(subprocess.Popen, cmd)
@@ -198,6 +218,7 @@ class ComputerCapability(Capability):
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
     async def click(self, x: int, y: int, button: str = "left") -> ToolResult:
+        self._require_physical()
         try:
             self._flash_badge(x, y, f"click:{button}")
             await asyncio.to_thread(
@@ -214,6 +235,7 @@ class ComputerCapability(Capability):
     # 🤖 Человеко-подобные действия (win32api, реалистичные траектории).
     # Старый action="click" (pyautogui) сохранён как быстрый fallback.
     async def click_human(self, x: int, y: int, button: str = "left") -> ToolResult:
+        self._require_physical()
         if self._human_mouse is None:
             return await self.click(x, y, button)  # graceful fallback
         try:
@@ -223,6 +245,7 @@ class ComputerCapability(Capability):
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
     async def double_click_human(self, x: int, y: int, button: str = "left") -> ToolResult:
+        self._require_physical()
         if self._human_mouse is None:
             return ToolResult(success=False, message="human_mouse недоступен")
         try:
@@ -233,6 +256,7 @@ class ComputerCapability(Capability):
 
     async def drag_human(self, x1: int, y1: int, x2: int, y2: int,
                           button: str = "left") -> ToolResult:
+        self._require_physical()
         if self._human_mouse is None:
             return ToolResult(success=False, message="human_mouse недоступен")
         try:
@@ -242,6 +266,7 @@ class ComputerCapability(Capability):
             return ToolResult(success=False, message=f"Ошибка: {e}")
 
     async def type_text(self, text: str, interval: float = 0.05) -> ToolResult:
+        self._require_physical()
         try:
             await asyncio.to_thread(pyautogui.typewrite, text, interval=interval)
             return ToolResult(success=True, message=f"Напечатано: {text[:50]}")
@@ -260,6 +285,7 @@ class ComputerCapability(Capability):
             time.sleep(interval)
 
     async def type_unicode(self, text: str, interval: float = 0.01) -> ToolResult:
+        self._require_physical()
         if not text:
             return ToolResult(success=False, message="Текст пуст")
         try:

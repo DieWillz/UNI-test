@@ -33,9 +33,11 @@ class AutonomousController:
     the stop-word drops intensity to 0 immediately.
     """
 
-    def __init__(self, agent, config: Config):
+    def __init__(self, agent, config: Config, max_steps: int = 0):
         self.agent = agent
         self.config = config
+        self.max_steps = max(0, int(max_steps))  # 0 = без лимита
+        self._conductor_cycles = 0
         self.state = SessionState()
         self.acfg = config.autonomous
         # Device motion requires TWO explicit acknowledgments: autonomous.enabled
@@ -255,6 +257,12 @@ class AutonomousController:
                 await asyncio.sleep(self.acfg.conductor_interval_seconds)
                 if self.state.stopped:
                     break
+                # 🤖 B4: мягкий лимит циклов Conductor (0 = без лимита)
+                if self.max_steps > 0:
+                    self._conductor_cycles += 1
+                    if self._conductor_cycles >= self.max_steps:
+                        self.state.request_stop()
+                        break
                 prompt = (
                     "Ты Госпожа, управляешь секс-машинкой через XToys без команд пользователя. "
                     f"Сейчас интенсивность {self.state.intensity}%, экран: {self.state.screen_desc[:300]}. "

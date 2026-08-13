@@ -198,7 +198,7 @@ def check_mouse() -> dict:
         w, h = win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
         sx, sy = max(80, w // 2 - 120), max(80, h // 2 - 60)
         async def _run():
-            await ctrl.click(sx, 80)            # точка 1
+            await ctrl.click(sx, sy)             # точка 1 (безопасная зона)
             await ctrl.move_to(sx + 240, sy)    # движение (бейдж «Юни»)
             await ctrl.click(sx + 240, sy + 120)  # точка 2
         asyncio.run(_run())
@@ -214,19 +214,28 @@ def check_mouse() -> dict:
 def check_stop() -> dict:
     stop_file = _ROOT / "STOP.txt"
     try:
+        # реальный механизм остановки (P0.3): StopController прерывает действия
+        from uni.utils.stop_controller import StopController
+        sc = StopController()
+        assert sc.is_stopped() is False
+        sc.stop()
+        assert sc.is_stopped() is True
+        sc.reset()
+        controller_works = sc.is_stopped() is False
         # для теста создаём STOP.txt временно и проверяем, что он создаётся
         stop_file.write_text("STOP\nСоздан: " + time.strftime("%Y-%m-%dT%H:%M:%S") +
                              "\nИсточник: selftest (probe)\n", encoding="utf-8")
-        ok = stop_file.is_file()
+        ok = stop_file.is_file() and controller_works
         # сразу убираем пробный файл, чтобы не оставлять мусор
         try:
             stop_file.unlink()
         except Exception:
             pass
-        return _record("stop", "STOP: STOP.txt + прерывание", ok,
-                       "STOP.txt создаётся (probe); реальный стоп — кнопка СТОП/трей Выход")
+        return _record("stop", "STOP: STOP.txt + прерывание (StopController)", ok,
+                       "StopController останавливает действия; STOP.txt создаётся (probe)"
+                       if ok else "StopController не сработал")
     except Exception as e:
-        return _record("stop", "STOP: STOP.txt + прерывание", False,
+        return _record("stop", "STOP: STOP.txt + прерывание (StopController)", False,
                        f"{type(e).__name__}: {e}", hint="нет прав на запись в корень?")
 
 

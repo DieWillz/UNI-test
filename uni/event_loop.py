@@ -51,6 +51,7 @@ class EventLoop:
         config: Config,
         role_prompt: str = "",
         session_logger: SessionLogger | None = None,
+        max_steps: int = 8,
     ) -> None:
         self.brain = brain
         self.capabilities = capabilities
@@ -59,6 +60,7 @@ class EventLoop:
         self.config = config
         self.role_prompt = role_prompt
         self.session_logger = session_logger
+        self.max_steps = max_steps
         self.state = AgentState.IDLE
         self._running = False
         recent_messages = getattr(memory, "recent_messages", None)
