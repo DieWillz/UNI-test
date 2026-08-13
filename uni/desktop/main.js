@@ -8,6 +8,7 @@ const path = require("path");
 const fs = require("fs");
 
 const SERVER = process.env.UNI_SERVER || "http://127.0.0.1:8787";
+const PORT_LAUNCHER_HTTP = 8790;   // 🤖 ФИНАЛ: HTTP лаунчера для явной остановки стека
 const STATE_PATH = path.join(__dirname, "state.json");
 const LOG_PATH = path.join(__dirname, "desktop.log");
 const VRM_PATH = path.join(__dirname, "assets", "UNI.vrm");
@@ -33,6 +34,18 @@ process.on("unhandledRejection", (reason) => {
 });
 
 // ── состояние ───────────────────────────────────────────────────────
+const ROOT_DIR = path.resolve(__dirname, "..", "..");
+
+// 🤖 Единая точка входа (2026-08-13, §4): выбор интерфейса оверлея.
+// В репо: renderer/ — это команда «v4» (реальная логика),
+//         renderer/canon-design/ — классический/старый вариант.
+// Дефолт = v4: актуальный интерфейс по утверждённому макету.
+function rendererFolder(variant) {
+  const v = (variant || "v4").toLowerCase();
+  if (v === "v4") return "renderer";            // команда «v4» (реальная логика)
+  return "renderer/canon-design";               // classic (дефолт)
+}
+
 function loadState() {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf-8")); }
   catch { return {}; }
@@ -52,8 +65,10 @@ function placeAtBottomRight(w) {
     const sf = disp.scaleFactor;
     const wa = disp.workArea;            // зона без панели задач
     const wb = w.getBounds();
-    const x = Math.max(wa.x, wa.x + 0, wa.x + wa.width - wb.width - 12);
-    const y = Math.max(wa.y, wa.y + wa.height - wb.height - 12);
+    const logicalWidth = Math.round(wa.width / sf);
+    const logicalHeight = Math.round(wa.height / sf);
+    const x = Math.max(wa.x, wa.x + logicalWidth - wb.width - 12);
+    const y = Math.max(wa.y, wa.y + logicalHeight - wb.height - 12);
     w.setPosition(x, y);
     const final = w.getBounds();
     log("placeAtBottomRight: DPI scale=" + sf,
@@ -114,15 +129,21 @@ function createWindow() {
   if (win && !win.isDestroyed()) { win.show(); win.focus(); return; }
   log("createWindow");
   win = new BrowserWindow({
-    width: 383, height: 640,
+    // 🤖 ФИНАЛ (2026-08-13, §2): геометрия под новый UI — 336 CSS px ширина,
+    // высота с запасом под аватар сверху (≈120px) + панель 500/368.
+    width: 336, height: 660, minWidth: 300, minHeight: 360, maxWidth: 520, maxHeight: 720,
     transparent: true, frame: false, hasShadow: false,
-    skipTaskbar: false, alwaysOnTop: true, resizable: false,
+    skipTaskbar: true, alwaysOnTop: true, resizable: true,
+    icon: path.join(__dirname, "..", "..", "uni.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true, nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, "renderer", "index.html"));
+  const variant = (loadState().ui_variant || "v4").toLowerCase();
+  const folder = rendererFolder(variant);
+  log("createWindow: ui_variant=" + variant + " -> " + folder);
+  win.loadFile(path.join(__dirname, folder, "index.html"));
   win.once("ready-to-show", () => {
     placeAtBottomRight(win);   // ставим позицию ДО show (V-03: иначе show фиксирует дефолтную)
     win.show();
@@ -217,6 +238,15 @@ function createWindow() {
   ipcMain.handle("load-state", () => loadState());
   ipcMain.handle("get-bounds", () => (win && !win.isDestroyed()) ? win.getBounds() : null);
   ipcMain.handle("is-visible", () => (win && !win.isDestroyed()) ? win.isVisible() : false);
+  // 🤖 Единая точка входа (2026-08-13, §4): сменить вариант интерфейса
+  ipcMain.handle("set-ui-variant", (_e, variant) => {
+    const v = String(variant || "classic").toLowerCase();
+    if (v !== "classic" && v !== "v4") return { ok: false, error: "unknown variant" };
+    saveState({ ui_variant: v });
+    log("ui_variant ->", v, "(применится при пересоздании окна)");
+    return { ok: true, variant: v };
+  });
+  ipcMain.on("reload-variant", () => { if (win && !win.isDestroyed()) { win.reload(); } });
 
   // 🤖 P2 (2026-08-13): отрисовать PNG-состояния аватара ИЗ VRM offscreen -> assets/states/
   ipcMain.handle("avatar:capture-states", async () => {
@@ -314,19 +344,36 @@ app.whenReady().then(() => {
   if (st.autostart) app.setLoginItemSettings({ openAtLogin: true });
   else app.setLoginItemSettings({ openAtLogin: false });
 
+  // 🤖 ФИНАЛ (2026-08-13): полная остановка стека (llama+webui+electron+tts) по pids.json.
+  // Приоритет — launcher HTTP :8790 (глушит всё корректно); fallback — webui /api/admin/stop.
+  async function stopStack() {
+    log("tray: остановка всего стека");
+    try {
+      const r = await fetch("http://127.0.0.1:" + PORT_LAUNCHER_HTTP + "/api/launcher/stop");
+      if (r && r.ok) { log("stop -> launcher accepted"); return; }
+    } catch (e) { log("stop via launcher failed:", e.message); }
+    // fallback: webui убивает детей по pids.json
+    try {
+      const r2 = await fetch(SERVER + "/api/admin/stop", { method: "POST" });
+      log("stop -> webui/admin/stop status", r2 && r2.status);
+    } catch (e) { log("stop via webui failed:", e.message); }
+  }
+
   // F-03: трей
   const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "tray.png"));
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip("UNI Desktop Companion");
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Показать", click: () => { log("tray: Показать"); createWindow(); } },
+    { label: "Скрыть", click: () => { log("tray: Скрыть"); if (win && !win.isDestroyed()) win.hide(); } },
     { label: "Наблюдение: выкл", click: () => setConsent("off") },
     { label: "Наблюдение: observe", click: () => setConsent("observe") },
     { label: "Наблюдение: suggest", click: () => setConsent("suggest") },
     { label: "Наблюдение: act", click: () => setConsent("act") },
     { type: "separator" },
     { label: "Диагностика", click: () => { log("tray: Диагностика"); diagWindow(); } },
-    { label: "Выход", click: () => { log("tray: Выход"); app.quit(); } },
+    { label: "Стоп (остановить задачу)", click: () => { log("tray: Стоп"); httpPost("/api/stop-cycle", {}); } },
+    { label: "Выход (закрыть Юни и серверы)", click: () => { log("tray: Выход"); stopStack(); setTimeout(() => app.quit(), 1200); } },
   ]));
 
   // D-10: PTT хоткей
