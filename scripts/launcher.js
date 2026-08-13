@@ -291,11 +291,52 @@ async function main() {
     process.exit(code);
   }
 
-  // 🤖 ФИНАЛ (2026-08-13): electron.on('exit') больше НЕ глушит серверы здесь —
-  // ранний выход Electron (флейк) обрабатывается рестартом в launchElectronWithRetry.
-  // Глушим стек только если САМИ серверы упали с ошибкой (не флейк).
-  if (children.webui) children.webui.on('exit', (c) => { if (c !== 0 && !shuttingDown) { log('webui упал, глушим'); shutdown(1); } });
-  if (children.llama) children.llama.on('exit', (c) => { if (c !== 0 && !shuttingDown) { log('llama упал, глушим'); shutdown(1); } });
+  // 🤖 Q-10 (2026-08-13): watchdog — серверы (webui/llama) рестартятся при
+  // падении, а НЕ глушат весь стек (раньше было shutdown(1)). Bounded-retry
+  // по той же схеме, что и у electron: флейк-окно 10с, до 3 попыток; исчерпаны
+  // -> глушим стек. PID перезаписываем в pids.json.
+  const SVR_MAX_RETRIES = 3;
+  const SVR_FLAKE_WINDOW_MS = 10000;
+  const serverWatch = {
+    webui: { retries: 0, launchedAt: 0, fn: launchWebui },
+    llama: { retries: 0, launchedAt: 0, fn: launchLlama },
+  };
+  function restartServer(name) {
+    const w = serverWatch[name];
+    if (!w || shuttingDown) return;
+    children[name] = w.fn();
+    w.launchedAt = Date.now();
+    children[name].on('exit', (code) => onServerExit(name, code));
+    children[name].on('error', (e) => { log(name + ' error', e.message); onServerExit(name, 1); });
+    const pid = children[name].pid;
+    log(name + ' перезапущен (pid=' + pid + ')');
+    // обновляем pids.json
+    try {
+      const p = require('path').join(ROOT, 'runtime', 'pids.json');
+      const cur = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
+      cur[name] = { pid: pid, port: (cur[name] && cur[name].port) || null, restarted_at: Date.now() };
+      fs.writeFileSync(p, JSON.stringify(cur, null, 2));
+    } catch (e) { log('pids.json обновление не удалось', e.message); }
+  }
+  function onServerExit(name, code) {
+    if (shuttingDown) return;
+    const w = serverWatch[name];
+    const uptime = Date.now() - w.launchedAt;
+    const isFlake = uptime < SVR_FLAKE_WINDOW_MS;
+    if (isFlake && w.retries < SVR_MAX_RETRIES) {
+      w.retries++;
+      log(name + ' флейк (uptime=' + uptime + 'ms, code=' + code + ') — рестарт ' + w.retries + '/' + SVR_MAX_RETRIES);
+      setTimeout(() => restartServer(name), 1000);
+    } else if (w.retries >= SVR_MAX_RETRIES) {
+      log(name + ' исчерпал попытки -> глушим весь стек');
+      shutdown(1);
+    } else {
+      log(name + ' завершён (code=' + code + ') -> глушим весь стек');
+      shutdown(0);
+    }
+  }
+  if (children.webui) { serverWatch.webui.launchedAt = Date.now(); children.webui.on('exit', (c) => onServerExit('webui', c)); }
+  if (children.llama) { serverWatch.llama.launchedAt = Date.now(); children.llama.on('exit', (c) => onServerExit('llama', c)); }
 
   process.on('SIGINT', () => { log('SIGINT'); shutdown(0); });
   process.on('SIGTERM', () => { log('SIGTERM'); shutdown(0); });

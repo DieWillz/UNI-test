@@ -227,3 +227,38 @@ git status --short                    # удаление из индекса м�
 
 ## Следующая фаза
 ФАЗА 5 (Мышь Юни: M-01..M-05).
+
+# ==ОТЧЁТ== Hermes — ФАЗА 5 (Мышь Юни)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `091b0bb`
+**Тесты:** pytest полный → 289 passed (+7 subtests). node --check app.js/index.html OK. Добавлен `tests/test_mouse_uni.py` (5 passed). py_compile server.py OK.
+
+## Задачи
+
+### M-01 ВЕРИФИЦИРОВАТЬ Этап D/B (уже в коммитах)
+**Статус:** ВЕРИФИЦИРОВАНО, НЕ переписано. `computer.py`: `BLACKLISTED_COMMANDS` (format/del/shutdown/taskkill…), `verified_physical` gate (`_require_physical`), `max_steps` в `visual_action.py`. `computer_vision_agent`/`compare_screenshot` — из коммитов P0 Этап D. Пруф: test_m01_safety_present_in_computer_capability PASS.
+
+### M-02 human_motion консолидация + DEPRECATED дублей
+**Статус:** DONE (консолидация уже выполнена ранее). `uni/motion/driver.py` уже содержит 🤖 DEPRECATED-заголовок (2026-08-12) со ссылкой на `human_motion.py`/`human_mouse.py`. Боевой движок — `ComputerCapability(use_human_motion=True)` → `HumanMouseController` (win32api) с откатом на pyautogui. `human_motion.py` — чистая математика (generate_path, minimum-jerk, арка Безье). Не удаляю `motion/` (импортируется scenarios, инвариант 0.2).
+**Пруф:** test_m02_duplicate_motion_deprecated PASS.
+
+### M-03 Визуальная подпись: лайм-кольцо #B8E61D + бейдж «Юни», STOP прерывает
+**Статус:** DONE (верифицировано). `action_badge.py`: `UNI_LIME = "#B8E61D"`, лайм-кольцо + бейдж с текстом `self.label` (=«Юни»/«UNI»). `HumanMouseController.cancel()` выставляет `threading.Event`, проверяемый в `_move_sync` на каждом шаге — STOP прерывает движение мгновенно (sticky stop, флаг не сбрасывается). `safe_margin`: проверка краёв экрана в `visual_action` (safe_margin 60px, отказ от клика у самого края).
+**Пруф:** test_m03_path_is_arc_and_hits_target / test_m03_path_respects_minimum_jerk_monotonic_speed_profile PASS; cancel() в коде подтверждён.
+
+### M-04 Кнопка «Демо мыши» в оверлее
+**Статус:** DONE. Добавлена кнопка `demoMouseButton` в `settingsPopover` (index.html) + обработчик в app.js → `POST /api/demo/mouse`. Бэкенд `_mouse_demo()` делает 3 клика в safe-зоне (отступ ≥140px) + рисует фигуру (круг) с лайм-кольцом/бейджем «Юни». Кнопка возвращает честный статус (ok/error) без мока.
+**Пруф:** test_m04_mouse_demo_returns_shape PASS (на headless возвращает ok=False с причиной, не падает); node --check app.js/index.html OK.
+
+### M-05 Пруфы (скрин демо с кольцом/бейджем, STOP во время движения, лог траекторий)
+**Статус:** DECISION / BLOCKED (честно). Логика покрыта юнит-тестами (arc/цель/cancel/demo-shape), НО визуальный пруф (скрин с кольцом, прерывание движения кнопкой STOP в реальном времени, лог траекторий) требует живого Windows-дисплея + tkinter/win32 — в headless-окружении недоступно без симуляции (запрещено 0.1).
+**Ручная инструкция:** на целевой машине открыть оверлей → ⚙ → «Демо мыши»; проверить 3 клика + кольцо; нажать STOP в процессе — движение должно остановиться (cancel()).
+
+## Инварианты
+- 0.2: дубли (motion/driver.py) не удалены, помечены DEPRECATED.
+- 0.4: оркестрация остаётся в visual_action; computer/human_mouse — capability.
+
+## Следующая фаза
+ФАЗА 6 (Архитектура: Q-01, Q-07..Q-10).

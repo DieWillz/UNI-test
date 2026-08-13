@@ -1,25 +1,4 @@
-# Build 1 — Skeleton & Config
-pydantic>=2.0
-pydantic-settings>=2.0
-pyyaml>=6.0
-rich>=13.0
-numpy>=1.26
-opencv-python>=4.8
-mss>=9.0
-buttplug-py>=0.2.0
-sounddevice>=0.5
-soundfile>=0.12
-faster-whisper>=1.1
-piper-tts>=1.6
-torch>=2.6
-openai>=1.0
-
-# Зависимости следующих билдов (закомментированы — раскомментировать по мере готовности):
-# openai              # Build 2 — Brain Client (DeepSeek)
-# Optional high-expression engines are intentionally separate services:
-# - XTTS-v2: set UNI_XTTS_URL or enter its OpenAI-compatible URL in WebUI.
-# - Fish Audio: set UNI_FISH_TTS_URL/FISH_AUDIO_API_KEY or enter a local URL.
-pyautogui>=0.9      # Build 6 — Computer (Nemotron)
-comtypes>=1.2       # Build 6 — Windows UI Automation (Nemotron)
-pillow>=10.0        # Build 6 — Screenshots (Nemotron)
-playwright>=1.40    # Build 7 — Browser (Nemotron)
+# uni/requirements.txt — теперь ссылается на единый constraints.txt (Директива §6 Q-09).
+# Раньше здесь была отдельная копия диапозонов (расходилась с корнем, напр. torch).
+# Все версии — в constraints.txt.
+-r constraints.txt
