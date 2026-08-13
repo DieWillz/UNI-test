@@ -57,6 +57,19 @@ function notify(text) {
   clearTimeout(notify.t);
   notify.t = setTimeout(() => toast.classList.remove('show'), 1800);
 }
+// 🤖 U-04/U-08 (2026-08-13): клиентская очистка src/url — только локальные
+// пути (/api, /runtime, /assets), блокируем внешние/опасные схемы.
+function _cleanSrcClient(v) {
+  if (typeof v !== 'string') return '';
+  const s = v.trim();
+  if (!s) return '';
+  if (/^[a-z][a-z0-9+.\-]*:/i.test(s)) {
+    if (!s.startsWith('/')) return '';  // http(s)://, javascript:, data: -> блок
+  }
+  if (s.startsWith('/api/') || s.startsWith('/runtime/') || s.startsWith('/assets/') ||
+      s.startsWith('runtime/') || s.startsWith('assets/')) return s;
+  return '';
+}
 // Аватар — 4 PNG-состояния (uni-small-*.png), накладываются поверх окна.
 const AVATAR_MAP = {
   listening: 'listen', working: 'work', waiting: 'wait',
@@ -226,30 +239,53 @@ function renderMissionUpdate(event) {
   const expected = (metrics.expected_rub == null) ? '—' : `${metrics.expected_rub} ₽`;
   const spent = metrics.spent_rub ?? 0;
   card.innerHTML = '';
-  card.insertAdjacentHTML('beforeend', `
-    <div class="ui-card-title"><div><b></b><span class="mission-sub"></span></div><span class="mission-percent">${percent}%</span></div>
-    <div class="mission-layout">
-      <div class="steps mission-steps"></div>
-      <div class="mission-now"><div class="action-strip"><span class="mission-action"></span></div>
-        <details open><summary>Последние действия</summary><div class="mission-recent"></div></details>
-      </div>
-    </div>
-    <div class="progress-row mission-progress"><div class="progress"><i style="width:${percent}%"></i></div><span class="mission-stage"></span></div>
-    <div class="money-row">
-      <div><span>Подтверждено</span><b class="mission-confirmed">${confirmed} ₽</b></div>
-      <div><span>Ожидается</span><b class="mission-expected">${expected}</b></div>
-      <div><span>Затраты</span><b class="mission-costs">${spent} ₽</b></div>
-    </div>
-  `);
-  card.querySelector('.ui-card-title b').textContent = e.title || 'Миссия';
-  card.querySelector('.mission-sub').textContent = e.subtitle || '';
-  card.querySelector('.mission-stage').textContent = e.stage || '';
-  card.querySelector('.mission-action').textContent = e.current_action || '';
-  renderSteps(card.querySelector('.mission-steps'), e.steps || []);
-  const recent = card.querySelector('.mission-recent');
+  // 🤖 U-01 (2026-08-13): НИКАКОГО insertAdjacentHTML — только createElement +
+  // textContent. Модель НЕ контролирует разметку (U-08).
+  const titleRow = document.createElement('div'); titleRow.className = 'ui-card-title';
+  const titleMain = document.createElement('div');
+  const titleB = document.createElement('b'); titleB.textContent = e.title || 'Миссия';
+  const titleSub = document.createElement('span'); titleSub.className = 'mission-sub'; titleSub.textContent = e.subtitle || '';
+  titleMain.append(titleB, titleSub);
+  const titlePct = document.createElement('span'); titlePct.className = 'mission-percent'; titlePct.textContent = `${percent}%`;
+  titleRow.append(titleMain, titlePct);
+  card.append(titleRow);
+
+  const layout = document.createElement('div'); layout.className = 'mission-layout';
+  const stepsEl = document.createElement('div'); stepsEl.className = 'steps mission-steps';
+  renderSteps(stepsEl, e.steps || []);
+  const now = document.createElement('div'); now.className = 'mission-now';
+  const actionStrip = document.createElement('div'); actionStrip.className = 'action-strip';
+  const actionSpan = document.createElement('span'); actionSpan.className = 'mission-action'; actionSpan.textContent = e.current_action || '';
+  actionStrip.append(actionSpan);
+  const details = document.createElement('details'); details.open = true;
+  const summary = document.createElement('summary'); summary.textContent = 'Последние действия';
+  const recent = document.createElement('div'); recent.className = 'mission-recent';
   (Array.isArray(e.recent) ? e.recent : []).forEach((r) => {
     const p = document.createElement('p'); p.textContent = '• ' + r; recent.append(p);
   });
+  details.append(summary, recent);
+  now.append(actionStrip, details);
+  layout.append(stepsEl, now);
+  card.append(layout);
+
+  const progRow = document.createElement('div'); progRow.className = 'progress-row mission-progress';
+  const prog = document.createElement('div'); prog.className = 'progress';
+  const progI = document.createElement('i'); progI.style.width = `${percent}%`;
+  prog.append(progI);
+  const stage = document.createElement('span'); stage.className = 'mission-stage'; stage.textContent = e.stage || '';
+  progRow.append(prog, stage);
+  card.append(progRow);
+
+  const money = document.createElement('div'); money.className = 'money-row';
+  const m1 = document.createElement('div'); const m1s = document.createElement('span'); m1s.textContent = 'Подтверждено';
+  const m1b = document.createElement('b'); m1b.className = 'mission-confirmed'; m1b.textContent = `${confirmed} ₽`; m1.append(m1s, m1b);
+  const m2 = document.createElement('div'); const m2s = document.createElement('span'); m2s.textContent = 'Ожидается';
+  const m2b = document.createElement('b'); m2b.className = 'mission-expected'; m2b.textContent = expected; m2.append(m2s, m2b);
+  const m3 = document.createElement('div'); const m3s = document.createElement('span'); m3s.textContent = 'Затраты';
+  const m3b = document.createElement('b'); m3b.className = 'mission-costs'; m3b.textContent = `${spent} ₽`; m3.append(m3s, m3b);
+  money.append(m1, m2, m3);
+  card.append(money);
+
   // money-row реально заполняется из metrics (§5.2 — не дефолт «0 ₽/—/0 ₽» если данные есть)
   if (e.requires_confirmation) {
     const ap = document.createElement('div');
@@ -329,6 +365,8 @@ function renderComponentInto(container, spec) {
     case 'comparison_table': return renderComparisonInto(container, s);
     case 'approval_required': return renderApprovalSpecInto(container, s);
     case 'mission_card': return renderMissionSpecInto(container, s);
+    case 'form':        return renderFormInto(container, s);
+    case 'link_list':   return renderLinkListInto(container, s);
     default:            return renderResultTextInto(container, s);
   }
 }
@@ -402,6 +440,58 @@ function renderMissionSpecInto(c, s) {
   renderMissionUpdate({ mission_id: e.mission_id, title: e.title, subtitle: e.subtitle,
     percent: e.percent, stage: e.stage, steps: e.steps, current_action: e.current_action,
     recent: e.recent, metrics: e.metrics, requires_confirmation: e.requires_confirmation });
+}
+// 🤖 U-03 (2026-08-13): form — интерактивная форма (поля + submit).
+function renderFormInto(c, s) {
+  const form = s.form || {};
+  const wrap = document.createElement('div'); wrap.className = 'ui-form';
+  const fields = Array.isArray(form.fields) ? form.fields : [];
+  const inputs = [];
+  fields.forEach((f) => {
+    const name = f.name || '';
+    const label = document.createElement('label'); label.className = 'form-field';
+    const span = document.createElement('span'); span.textContent = f.label || name;
+    const input = document.createElement('input');
+    input.type = (f.type === 'textarea') ? 'text' : (f.type || 'text');
+    input.name = name; input.placeholder = f.placeholder || '';
+    input.dataset.field = name;
+    label.append(span, input); wrap.append(label); inputs.push(input);
+  });
+  const btn = document.createElement('button'); btn.className = 'result-action';
+  btn.textContent = form.submit_label || 'Отправить';
+  btn.onclick = () => {
+    const payload = {};
+    inputs.forEach((i) => { payload[i.dataset.field] = i.value; });
+    // 🤖 U-05: submit_form -> form.submit в карте действий
+    fetch(`${API}/api/ui/action`, { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_id: 'submit_form', task_id: s.task_id || null,
+        fields: payload }) }).catch(() => {});
+    btn.disabled = true; notify('Форма отправлена');
+  };
+  wrap.append(btn); c.append(wrap);
+}
+// 🤖 U-03 (2026-08-13): link_list — список ссылок (link_open в карте действий).
+function renderLinkListInto(c, s) {
+  const items = Array.isArray(s.items) ? s.items : [];
+  if (!items.length) { const p = document.createElement('p'); p.textContent = 'Нет ссылок'; c.append(p); return; }
+  const list = document.createElement('div'); list.className = 'result-list';
+  items.forEach((it) => {
+    const row = document.createElement('div'); row.className = 'result-item link-item';
+    const b = document.createElement('b'); b.textContent = it.title || it.text || 'Ссылка';
+    const d = document.createElement('small'); d.textContent = it.description || '';
+    row.append(b, d);
+    const url = (it.url && _cleanSrcClient(it.url)) || '';
+    if (url) {
+      row.style.cursor = 'pointer';
+      row.onclick = () => fetch(`${API}/api/ui/action`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_id: 'link_open', task_id: s.task_id || null,
+          url }) }).catch(() => {});
+    }
+    list.append(row);
+  });
+  c.append(list);
 }
 function renderActionButtons(c, actions, taskId) {
   const bar = document.createElement('div'); bar.className = 'result-actions';

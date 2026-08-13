@@ -104,5 +104,38 @@ git status --short                    # удаление из индекса м�
 - 0.2: физических удалений НЕТ; всё помечено DEPRECATED, файлы остались.
 - 0.12: classic-рендерер (renderer/canon-design) не тронут.
 
+# ==ОТЧЁТ== Hermes — ФАЗА 2 (Визуал)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `30368b1`
+**Тесты:** pytest полный → 266 passed (+7 subtests). node --check app.js OK.
+
+## Задачи
+
+### C-01 Токены/радиусы/тени + Manrope локальный woff2
+**Статус:** DONE. Добавлен `@font-face` с локальным `assets/fonts/Manrope.woff2` (сконвертирован TTF→woff2 через fonttools, 53KB) + ttf fallback. БЕЗ CDN. Семейство в стеке `Manrope, "Segoe UI", system-ui`. Токены (`--accent:#b8e61d`, `--danger:#f04444`, `--radius:20px`, `--shadow`) уже корректны.
+**Пруф:** файлы `uni/desktop/assets/fonts/Manrope.{woff2,ttf}` созданы (165KB/53KB); grep @font-face styles.css → есть.
+
+### C-02 Шапка: порядок микрофон→глаз→STOP(нейтр.)→⚙→−; статус одной строкой
+**Статус:** DONE. В `index.html` кнопки переупорядочены: mic → eye → **stop** → camera → overlay → settings → minimize. STOP — нейтральный (`.stop-icon` transparent, #e9eeea, hover→accent; НЕ #F04444, per инвариант 0.9). Статус — одна строка (`#headerStatus` внутри `#statusButton`).
+**Пруф:** node --check OK; diff index.html.
+
+### C-03 Аватар-peek: 4 состояния, z-index ПОД кнопками, pointer-events:none
+**Статус:** ПОДТВЕРЖДЕНО + DECISION. `.avatar { z-index:2; pointer-events:none }` (styles.css 714-715), header `z-index:10` (870) → кнопки всегда сверху. 4 состояния в AVATAR_MAP: working/waiting/listening/done (app.js 61-64), PNG `uni-small-{work,wait,listen,done}.png`.
+**DECISION:** «поза с кистями» — иллюстративный ассет отсутствует; текущие PNG — статичные аватары без рук. Фабриковать PNG запрещено (инвариант 0.1). Оставлено как есть; дорисовка — задача иллюстратора.
+
+### C-04 index.html структура (#chatThread, #dynamicCards, mission-IDs, геометрия)
+**Статус:** ПОДТВЕРЖДЕНО. `#chatThread` (50), `#dynamicCards` (58, после чата в quick-panel), `#missionConfirmed/#missionExpected/#missionCosts` (73) — все присутствуют. Ширина окна 336 (main.js 137); `placeAtBottomRight` использует workArea (≥12px над таскбаром).
+**Пруф:** чтение index.html + main.js.
+
+### C-05 Пустой чат: приветствие по времени + 3 чипа; «Юни готова» без спиннера
+**Статус:** ПОДТВЕРЖДЕНО. `greetingByTime()` (4 тира: ночь/утро/день/вечер), применяется в `initEmptyChat()`; 3 чипа в HTML; `showReadyBubble('Юни готова')` — текст, без спиннера (нет spinner-элемента).
+**Пруф:** чтение app.js 730-760; pytest не ломает.
+
+## Инварианты
+- 0.1: не фабриковали PNG-аватар с кистями (DECISION).
+- 0.5: фронт НЕ решает по ключевым словам (applyUiEvent/dispatcher уже так).
+
 ## Следующая фаза
-ФАЗА 2 (Визуал: C-01..C-05).
+ФАЗА 3 (Универсальный UI-движок: U-01..U-07).

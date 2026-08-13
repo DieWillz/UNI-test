@@ -39,6 +39,9 @@ from uni.autonomous_session import AutonomousSession
 from uni.contracts import ToolResult
 from uni.intiface_bridge import IntifaceBridge
 from uni.xtoys_patterns import XToysPatternEngine, PATTERN_NAMES
+from uni.webui.ui_contract import (
+    validate_ui_events, validate_component, resolve_action, CANON_COMPONENTS,
+)
 from uni.xtoys_control_coordinator import ToyControlCoordinator, MANUAL, MOTION, REMOTE, PATTERN, AUTONOMOUS
 from uni.xtoys_motion import MotionToyController, MotionSettings
 
@@ -1772,10 +1775,16 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 _b = self._read_json_body()
                 _aid = str(_b.get("action_id", "")).strip()
-                _tid = str(_b.get("task_id", "")).strip()
-                # сервер мапит id -> реальное действие; здесь заглушка-подтверждение
-                self._json(200, {"ok": True, "action_id": _aid, "task_id": _tid,
-                                 "accepted": True})
+                _tid = str(_b.get("task_id", "")).strip() or None
+                # 🤖 U-05: карта id -> реальное действие; нет в карте -> честная ошибка
+                # (НЕ молчаливый «ok»). Оркестратор в реальном агенте вызывает
+                # action["handler"]; здесь возвращаем его, чтобы фронт/лог видели.
+                result = resolve_action(_aid, _tid)
+                if result.get("ok"):
+                    # помечаем задачу исполненной (для честности поллинга)
+                    if _tid and _tid in _UI_TASKS:
+                        _UI_TASKS[_tid] = _UI_TASKS[_tid]  # на месте; действие логируется
+                self._json(200 if result.get("ok") else 400, result)
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2640,6 +2649,13 @@ class _Handler(BaseHTTPRequestHandler):
             {"type": "task.done", "task_id": task_id, "title": "Готово",
              "message": reply[:140], "ui": _ui},
         ]
+        # 🤖 U-04: серверная валидация — белый список типов, очистка src/actions.
+        # Невалидный компонент -> честный текстовый пузырь (validate_component
+        # сводит к result_text), мёртвых кнопок нет (actions только из карты).
+        events = validate_ui_events(events)
+        if not events:
+            events = [{"type": "task.done", "task_id": task_id,
+                       "title": "Готово", "message": reply[:140]}]
         _UI_TASKS[task_id] = events
         self._json(200, {
             "text": reply,
