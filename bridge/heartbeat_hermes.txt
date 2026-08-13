@@ -15,4 +15,6 @@
 2026-08-13 16:30 UTC+3 — directive-addon2-accepted (Hermes, ФАЗА 7 INT + ФАЗА 8 ADM начаты).
 2026-08-13 16:35 UTC+3 — ФАЗА 7 (INT): INT-01..INT-04 выполнены. tts_sentence_chunker.py + audio_env_detect.py → uni/utils/; use_chunker def=True; /api/uni/status + audio; UNI_BACKLOG пополнен. Тесты: 11 passed (test_tts_chunker + test_audio_env).
 2026-08-13 16:40 UTC+3 — ФАЗА 8 (ADM): ADM-01..ADM-08 — admin_api.py + маршруты GET/POST /api/admin/* + v3 SPA (index.html/admin.js/admin.css) + runtime/admin/phases.json. Тесты: 12 passed (test_admin_api). 2 fail = hardware-gated (TTS/STT, не регресс).
+2026-08-13 16:55 UTC+3 — ФАЗА 8 live-пруф: сервер :8787 отдаёт /v3 + /api/admin/* (GET/POST). HW реальный (VRAM/CPU), stack/models, git, agents — живые данные. 2 бага POST исправлены (991f9af).
+2026-08-13 17:00 UTC+3 — ФАЗА 9 (PKG): артефакты упаковки созданы ранее (UNI.spec/UNI_Setup.iss/config.example.yaml/build_dist.bat). СБОРКА = DECISION (PyInstaller/Inno нет в окружении; требует целевую Win-машину). Финал аддона 2.
 
