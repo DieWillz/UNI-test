@@ -177,8 +177,9 @@ def test_cancel_stops_drag_midpath() -> None:
 # ---------------------------------------------------------------------------
 # 3) driver фасад — имя API прежнее, внутри human_mouse
 # ---------------------------------------------------------------------------
-def test_driver_facade_imports_and_api() -> None:
-    from uni.motion.driver import SmoothMouseDriver
+def test_human_mouse_controller_api() -> None:
+    """HumanMouseController — реальный движок (фасад driver.py deprecated)."""
+    from uni.human_mouse import HumanMouseController
 
-    for name in ("move_to", "click", "drag_to", "wander", "circle", "draw", "wiggle", "cancel"):
-        assert hasattr(SmoothMouseDriver, name)
+    for name in ("move_to", "click", "drag", "cancel"):
+        assert hasattr(HumanMouseController, name)
