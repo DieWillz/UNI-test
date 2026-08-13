@@ -810,6 +810,25 @@ $('#opacityInput').oninput = (e) => {
 $('#motionInput').onchange = (e) => { document.body.classList.toggle('no-motion', !e.target.checked); persist(); };
 $('#notifyButton').onclick = () => { setAvatar('waiting'); notify('Юни сообщит, когда понадобится решение'); };
 $('#attachButton').onclick = () => notify('Прикрепление файлов появится после выбора безопасного хранилища');
+// 🤖 M-04 (2026-08-13): кнопка «Демо мыши» в оверлее -> POST /api/demo/mouse.
+// Бэкенд сам делает 3 клика в safe-зоне + рисует фигуру с лайм-кольцом «Юни».
+$('#demoMouseButton').onclick = async () => {
+  try {
+    setAvatar('thinking');
+    const resp = await fetch('/api/demo/mouse', { method: 'POST' });
+    const data = await resp.json();
+    if (data && data.ok) {
+      notify('Демо мыши выполнено: 3 клика + фигура «Юни»');
+      setAvatar('idle');
+    } else {
+      notify('Демо мыши недоступно: ' + (data && data.error ? data.error : 'нет дисплея'));
+      setAvatar('idle');
+    }
+  } catch (err) {
+    notify('Ошибка демо мыши: ' + err);
+    setAvatar('idle');
+  }
+};
 $$('[data-collapse]').forEach((button) => button.onclick = () => {
   const target = document.getElementById(button.dataset.collapse);
   target.classList.toggle('hidden');

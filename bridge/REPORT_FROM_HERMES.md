@@ -187,3 +187,43 @@ git status --short                    # удаление из индекса м�
 
 ## Следующая фаза
 ФАЗА 4 (Лёгкое зрение V-light: V-01..V-06).
+
+# ==ОТЧЁТ== Hermes — ФАЗА 4 (Лёгкое зрение V-light)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `571c723`
+**Тесты:** pytest полный → 284 passed (+7 subtests). py_compile vision/config/local_vision_fallback/visual_action OK. Добавлен `tests/test_vision_light.py` (10 passed).
+
+## Задачи
+
+### V-01 Аудит perception (реальные каналы vision.py)
+**Статус:** ВЕРИФИЦИРОВАНО + изменено. `find_desktop_element` шёл сразу в VLM (`_capture_desktop`+`_ask`); локальные каналы (UIA/OCR) были ТОЛЬКО crash-fallback под флагом `local_fallback_enabled`. Это противоречило директиве V-02 (Tier-0 сначала). Исправлено — см. V-02.
+
+### V-02 Tier-0 (без моделей) первым: UIA → OCR → DOM → Tier-2
+**Статус:** DONE. `find_desktop_element` теперь вызывает `find_desktop_element_tier0(description)` (UIA → OCR WinRT → DOM Playwright) ДО VLM. Только если Tier-0 пустой — идёт Tier-2 (VLM). Каждый канал тихо возвращает None при недоступности библиотеки/headless (не падает). `local_vision_fallback.py` расширен: `winrt_ocr_available()`, `ocr_find_text()` (WinRT Windows.Media.Ocr), `dom_find_element()` (Playwright), `find_desktop_element_tier0()` (каскад).
+**Пруф:** test_tier0_order_uia_first / test_tier0_fallback_to_ocr_when_uia_none / test_tier0_all_none_returns_none / test_tier0_channel_exception_is_safe PASS; py_compile OK.
+
+### V-03 Tier-1 verify: дифф региона + повтор UIA/OCR через 1.2с
+**Статус:** DONE. `vision.region_diff(path1, path2, threshold)` — доля изменившихся пикселей через numpy/opencv (0..1). В `visual_action._verify` добавлен повторный Tier-0 поиск (UIA/OCR) через `verify_delay` — если цель видна повторно, считаем достигнутой (быстрый verify без VLM); иначе VLM-проверка как fallback. `compare_screenshots` (matchTemplate) сохранён.
+**Пруф:** test_region_diff_detects_change PASS; _verify патчен.
+
+### V-04 Tier-2 (auto) gated nvidia-smi >=8ГБ
+**Статус:** DONE (логика гейтинга). `vision.tier2_gpu_available(min_vram_gb)` — честно через `nvidia-smi --query-gpu=memory.free` (FileNotFoundError → False, без мока). Флаг `tier2_min_vram_gb` в `VisionConfig`. `winrt_ocr_available()` честно проверяет пакет + русский язык (ru) в `AvailableRecognizerLanguages` — если ru нет, возвращает причину (не мок).
+**Пруф:** test_tier2_gpu_unavailable_without_nvidia PASS (в этом окружении nvidia-smi нет → False, причина). Само скачивание moondream2 GGUF + llama-server --mmproj — это упаковка/деплой (ФАЗА 7); здесь заложен ТОЛЬКО гейт, чтобы Tier-2 не грузился на слабом железе.
+**DECISION:** реальная загрузка VLM-модели на :1236 — шаг упаковки; не выполнен здесь (нет сети/модели в окружении). Гейт готов.
+
+### V-05 Fail-closed: все слои пусты → clarify/не кликаем
+**Статус:** ПОДТВЕРЖДЕНО. `visual_action.act_on_screen`: пустая цель → `clarify`; чёрный список → `blocked`; не найдено ни одним слоем → `clarify` (не кликает наугад). `_BLACKLIST` сохранён.
+**Пруф:** test_visual_action_blacklist_blocked / test_visual_action_empty_goal_clarify PASS.
+
+### V-06 Пруфы каналов (Пуск через UIA, текст через OCR, дифф фиксирует)
+**Статус:** DECISION / BLOCKED (честно). Логика каналов покрыта юнит-тестами (моки), НО реальный прогон на живом Windows (Пуск через UIA без VLM, «найди текст…» через WinRT OCR, дифф скрина фиксирует изменение, лог каналов) требует дисплея + установленных uiautomation/winrt/playwright — в headless-окружении недоступно без симуляции (запрещено 0.1).
+**Ручная инструкция:** на целевой машине `python -c "from uni.tools.local_vision_fallback import find_desktop_element_tier0; print(find_desktop_element_tier0('Пуск'))"` → должен вернуть rect через UIA; `winrt_ocr_available()` → (True, 'ok') при установленном русском OCR.
+
+## Инварианты
+- 0.4: оркестрация зрение→действие только в visual_action.py (не трогал); vision/computer — capability, не импортируют друг друга напрямую.
+- 0.1: никакого мока GPU/OCR — честные False с причиной.
+
+## Следующая фаза
+ФАЗА 5 (Мышь Юни: M-01..M-05).
