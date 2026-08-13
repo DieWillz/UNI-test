@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Юни — пользовательский интерфейс</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="demo-stage">
+    <section class="workspace" aria-label="Рабочий стол">
+      <div class="browser-bar"><i></i><div class="address">marketplace.local/research</div><span>⋮</span></div>
+      <div class="workspace-head"><div><b>Поиск возможностей</b><span>Юни работает поверх основного приложения</span></div><button>Фильтры</button></div>
+      <div class="workspace-grid" aria-hidden="true">
+        <article><em>Высокий спрос</em><b>Шаблоны презентаций</b><p>Быстрый запуск · цифровой продукт</p></article>
+        <article><em>Средний спрос</em><b>SEO-описания</b><p>Низкий порог входа · услуги</p></article>
+        <article><em>Стабильный спрос</em><b>Стоковые материалы</b><p>Долгосрочно · контент</p></article>
+        <article><em>Высокий спрос</em><b>Статьи и редактура</b><p>Проектная работа · тексты</p></article>
+        <article><em>Новая ниша</em><b>Короткие видео</b><p>Монтаж · социальные сети</p></article>
+        <article><em>Средний спрос</em><b>Переводы</b><p>Удалённо · услуги</p></article>
+      </div>
+      <div class="cursor-demo" aria-hidden="true"><span></span></div>
+    </section>
+
+    <section id="uniWidget" class="uni-widget mode-quick" aria-label="Окно Юни">
+      <div id="avatar" class="avatar avatar--working" aria-label="Юни работает">
+        <div class="avatar-art">
+          <div class="hair hair-back"></div><div class="face"><i class="eye left"></i><i class="eye right"></i><i class="mouth"></i></div>
+          <div class="hair hair-front"></div><div class="body"></div><div class="hand hand-left"></div><div class="hand hand-right"></div>
+          <div class="tablet">U</div>
+        </div>
+      </div>
+
+      <header class="widget-header">
+        <div class="brand"><span class="brand-mark">U</span><b>Юни</b></div>
+        <button id="statusButton" class="live-status" aria-haspopup="true" aria-expanded="false"><i></i><span id="headerStatus">Выполняю</span></button>
+        <nav class="header-actions" aria-label="Быстрые действия">
+          <button id="micButton" class="icon-button" title="Голосовой ввод" aria-label="Голосовой ввод">⌕</button>
+          <button id="visionButton" class="icon-button active" title="Наблюдение экрана" aria-label="Наблюдение экрана">◉</button>
+          <button id="stopButton" class="stop-button">STOP</button>
+          <button id="settingsButton" class="icon-button" title="Настройки" aria-label="Настройки">⚙</button>
+          <button id="minimizeButton" class="icon-button" title="Свернуть" aria-label="Свернуть">−</button>
+        </nav>
+      </header>
+
+      <div id="statusPopover" class="popover hidden">
+        <b>Состояние Юни</b><span><i class="ok"></i> На связи</span><span><i class="ok"></i> Экран наблюдается</span>
+      </div>
+      <div id="settingsPopover" class="popover settings-popover hidden">
+        <div><b>Оформление</b><button id="themeButton">☾ Тёмная</button></div>
+        <label>Прозрачность <input id="opacityInput" type="range" min="55" max="95" value="72"></label>
+        <label><input id="motionInput" type="checkbox" checked> Анимации аватара</label>
+      </div>
+
+      <div class="widget-content">
+        <section id="quickMode" class="mode-panel quick-panel">
+          <div class="message user">Найди фотографии крупных пород собак</div>
+          <div class="message uni">Хорошо, найду качественные фотографии и соберу варианты.</div>
+          <article class="task-card">
+            <div class="card-title"><b>Поиск фотографий</b><button class="collapse-button" data-collapse="quickSteps">⌃</button></div>
+            <div id="quickSteps" class="steps">
+              <div class="step done"><i></i><span>Открыть браузер</span></div>
+              <div class="step active"><i></i><span>Найти крупные породы</span></div>
+              <div class="step"><i></i><span>Отобрать фото</span></div>
+              <div class="step"><i></i><span>Показать результат</span></div>
+            </div>
+            <div class="progress-row"><div class="progress"><i id="quickProgress"></i></div><span>2/4</span></div>
+          </article>
+          <div class="action-strip"><i></i><span id="quickAction">Ищу изображения в браузере…</span><button>Подробнее</button></div>
+          <article class="result-card">
+            <p><b>Готово — нашла 12 фотографий.</b><br>Вот лучшие варианты:</p>
+            <div class="thumbs"><span class="dog dog-1">DOG</span><span class="dog dog-2">DOG</span><span class="dog dog-3">DOG</span></div>
+            <div class="result-actions"><button>Открыть все</button><button>Сохранить</button></div>
+          </article>
+        </section>
+
+        <section id="missionMode" class="mode-panel mission-panel hidden">
+          <article class="mission-card">
+            <div class="mission-title"><div><b>Миссия: первый доход</b><span>Исследую безопасный вариант</span></div><span id="missionPercent">38%</span></div>
+            <div class="mission-layout">
+              <div class="steps mission-steps">
+                <div class="step done"><i></i><span>Исследование</span></div><div class="step active"><i></i><span>Проверка 6 вариантов</span></div>
+                <div class="step"><i></i><span>Выбор стратегии</span></div><div class="step"><i></i><span>Подготовка</span></div><div class="step"><i></i><span>Запуск</span></div>
+              </div>
+              <div class="mission-now"><div class="action-strip"><i></i><span id="missionAction">Сравниваю спрос и конкуренцию…</span></div>
+                <details open><summary>Последние действия</summary><p>Проверила 24 ниши</p><p>Отсеяла 18 сомнительных</p></details>
+              </div>
+            </div>
+            <div class="progress-row mission-progress"><div class="progress"><i></i></div><span>Этап 2 из 5</span></div>
+            <div class="money-row"><div><span>Подтверждено</span><b>0 ₽</b></div><div><span>Ожидается</span><b>—</b></div><div><span>Затраты</span><b>0 ₽</b></div></div>
+            <div class="approval"><span>Для запуска потребуется подтверждение</span><button id="notifyButton">Сообщить</button><small>Доход учитывается после подтверждения поступления</small></div>
+          </article>
+        </section>
+      </div>
+
+      <footer class="composer">
+        <button class="attach-button" aria-label="Прикрепить">⌕</button>
+        <textarea id="messageInput" rows="1" placeholder="Напиши Юни…"></textarea>
+        <button id="composerMic" class="composer-mic" aria-label="Голосовой ввод">◉</button>
+        <button id="sendButton" class="send-button" aria-label="Отправить"><span></span></button>
+      </footer>
+    </section>
+
+    <div class="demo-switcher" aria-label="Демонстрация режимов">
+      <button class="active" data-mode="quick">Быстрая задача</button><button data-mode="mission">Длительная миссия</button>
+    </div>
+    <div id="toast" class="toast" role="status"></div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

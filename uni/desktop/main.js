@@ -57,26 +57,25 @@ function saveState(obj) {
 }
 
 // ── F-05/D-16: позиция у нижней кромки ──────────────────────────────────
+// 🤖 ФИНАЛ (2026-08-13, §2): геометрия от workArea в DIP, НЕ от bounds.
+// workArea уже в логических пикселях (DIP); делить на scaleFactor НЕЛЬЗЯ.
+// Окно ставим в правый нижний угол НАД панелью задач (workArea её исключает).
 function placeAtBottomRight(w) {
   try {
-    // 🤖 DESIGN-V2 (Qwen 2026-08-13): геометрия от workArea, а НЕ от bounds —
-    // окно НЕ залезает на таскбар. Низ окна = wa.y+wa.height-12, правый край = wa.x+wa.width-12.
     const disp = screen.getPrimaryDisplay();
     const sf = disp.scaleFactor;
-    const wa = disp.workArea;            // зона без панели задач
-    const wb = w.getBounds();
-    const logicalWidth = Math.round(wa.width / sf);
-    const logicalHeight = Math.round(wa.height / sf);
-    const x = Math.max(wa.x, wa.x + logicalWidth - wb.width - 12);
-    const y = Math.max(wa.y, wa.y + logicalHeight - wb.height - 12);
-    w.setPosition(x, y);
+    const wa = disp.workArea;            // зона без панели задач (DIP)
+    const [bw, bh] = w.getSize();         // логический размер окна (DIP)
+    const x = wa.x + wa.width - bw - 12;
+    const y = wa.y + wa.height - bh - 12;
+    w.setPosition(Math.round(x), Math.round(y));
     const final = w.getBounds();
     log("placeAtBottomRight: DPI scale=" + sf,
         "| workArea=" + JSON.stringify(wa),
-        "| winSize=" + JSON.stringify(wb),
-        "| set->", x, y,
+        "| winSize=" + bw + "x" + bh,
+        "| set->", Math.round(x), Math.round(y),
         "| final=" + JSON.stringify(final));
-    return { x, y, scale: sf, bounds: wa, final };
+    return { x: Math.round(x), y: Math.round(y), scale: sf, bounds: wa, final };
   } catch (e) { log("placeAtBottomRight error", e.message); return null; }
 }
 

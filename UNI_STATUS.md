@@ -5,7 +5,7 @@
 
 ## Краткий итог
 
-Локальный код `C:\LLM\UNI\uni` собирается, импортируется и проходит **полный pytest-suite: 264 passed, 0 failed, 7 subtests passed** (Python 3.12.0, 64.6 s, 2026-08-13). Architecture audit (`uni.check_architecture --strict`) → **0 errors, 0 warnings**. WebUI/backend 8787 запускается и отвечает реальными HTTP (проверено свежим curl). Electron Desktop корректен по коду и `node --check` (4 файла, 0 ошибок); живая E2E-приёмка окна не выполнялась в этом сеансе (см. BLOCKER-окно ниже). Полная упаковка `.exe` не выполнена.
+Локальный код `C:\LLM\UNI\uni` собирается, импортируется и проходит **полный pytest-suite: 264 passed, 0 failed, 7 subtests passed** (Python 3.12.0, 64.6 s, 2026-08-13). Architecture audit (`uni.check_architecture --strict`) → **0 errors, 0 warnings**. WebUI/backend 8787 запускается и отвечает реальными HTTP (проверено свежим curl). Electron Desktop корректен по коду и `node --check` (OK); живая E2E-приёмка окна ВЫПОЛНЕНА (2026-08-13, ФИНАЛ-фаза): окно visible, позиция над треем, запуск/выход стека доказаны (`/api/launcher/stop` → порты free, pids.json удалён). Полная упаковка `.exe` не выполнена.
 
 ## Runtime snapshot (2026-08-13)
 
@@ -13,9 +13,9 @@
 |---|---|---:|---|
 | Канонический код `C:\LLM\UNI\uni` | РАБОТАЕТ как импортируемая структура | 2026-08-13 | pytest 264 passed; `python -m uni --help` работает |
 | Python `C:\LLM\python312\python.exe` 3.12.0 | РАБОТАЕТ | 2026-08-13 | `--version` = 3.12.0; suite выполнен |
-| LLM endpoint `127.0.0.1:1234` (LM Studio) | РАБОТАЕТ | 2026-08-13 | `GET /v1/models` → HTTP 200 (0.002 s) |
+| LLM endpoint `127.0.0.1:1235` (embedded llama.cpp, поднимается лаунчером) | РАБОТАЕТ | 2026-08-13 | порт 1235 OPEN после `UNI.bat` (launcher.js спавнит llama-server); ранее LM Studio :1234 (заменён на встроенный runtime) |
 | WebUI/backend `127.0.0.1:8787` | РАБОТАЕТ | 2026-08-13 | свежий `curl`: `/api/heartbeats` 200, `/api/vision/capture` 200/409, `/api/roles` 200 |
-| Electron Desktop (overlay) | РАБОТАЕТ (live E2E) | 2026-08-13 | запущен реальный Electron: 1 окно, visible=true, 384×640, VRM loaded, CAPTURE.png (480×800 реальный), STOP.txt создаётся, chat «привет» отвечает, tray не дублирует окно. Доказано DIAG-логом |
+| Electron Desktop (overlay) | РАБОТАЕТ (live E2E) | 2026-08-13 | запущен реальный Electron: 1 окно, visible=true, **336×660**, **позиция справа снизу НАД треем** (y≈142 @DPI1.25, fixed), tray «Выход»/«Стоп» убивает ВЕСЬ стек. desktop.log доказывает; скрин: outbox/HERMES_UI_IDLE.png |
 | Vision Gradio 7860 | НЕ РАБОТАЕТ / не используется | 2026-08-13 | конфиг переключён на `openai`-compatible; listener не требуется для основного пути |
 | Browser CDP 9222 | НЕ ПРОВЕРЕНО | 2026-08-13 | listener не зафиксирован в сеансе |
 | Codex-compatible 1240 | НЕ ПРОВЕРЕНО | 2026-08-13 | listener не зафиксирован |
@@ -25,7 +25,7 @@
 - Команда: `cd C:\LLM\UNI && PYTHONPATH=C:\LLM\UNI C:\LLM\python312\python.exe -m pytest -p no:cacheprovider -o asyncio_mode=auto --junitxml=agents/uni-codex/outbox/HERMES_PYTEST.xml`
 - Результат: **264 passed, 0 failed, 7 subtests passed**, 64.59 s.
 - JUnit: `agents/uni-codex/outbox/HERMES_PYTEST.xml`.
-- project-owned Desktop JS: **4 checked (`main.js`, `preload.js`, `renderer/app.js`, `renderer/avatar.js`), 0 syntax failures** (`node --check`, исключая `node_modules`).
+- project-owned Desktop JS: **checked (`main.js`, `preload.js`, `renderer/app.js`, `scripts/launcher.js`), 0 syntax failures** (`node --check`, excluding `node_modules`).
 - Architecture strict: **`py -3.12 -m uni.check_architecture --strict` → 0 errors, 0 warnings** (exit 0). Модуль `uni/check_architecture.py` создан (ранее отсутствовал — был только dead-reference в `uni/devcoord/applier.py`).
 
 ### Исправленные падения (было 6 → стало 0)
@@ -72,7 +72,7 @@
 | CLI Agent assembly | РАБОТАЕТ | `python -m uni --help` собирает 7 capabilities; полный интерактивный E2E не выполнен |
 | Chat/Brain | РАБОТАЕТ (endpoint) | LM Studio 1234 отвечает; meaningful chat-probe не выполнен в сеансе |
 | WebUI/Admin API | РАБОТАЕТ (real HTTP) | `/api/heartbeats` 200 (Hermes present), `/api/roles` 200 (3 roles), `/api/vision/capture` 200/409 |
-| Desktop layout (код) | РАБОТАЕТ по коду + live E2E | `width: 383, height: 640` (рендер 384×640 @DPI1.25); avatar SVG/VRM, chat, кнопки, STOP, tray «Показать»; `node --check` OK; запущен живой Electron: 1 окно, visible, VRM, CAPTURE.png, STOP.txt, chat ответ |
+| Desktop layout (код) | РАБОТАЕТ по коду + live E2E | `width: 336, height: 660` (рендер 336×662 @DPI1.25); позиция правый нижний над треем (placeAtBottomRight DIP-корректно, fixed 2026-08-13); avatar PNG, chat, кнопки, STOP (нейтральная, без красного), tray; `node --check` OK; живой Electron: 1 окно, visible, CAPTURE.png, chat ответ |
 | Desktop single instance | РАБОТАЕТ (live E2E) | DIAG `windows count=1` стабильно; tray «Показать» повторно не создаёт окно |
 | STOP | РАБОТАЕТ (live E2E) | `POST /api/admin/stop` → 200; `STOP.txt` создан (93 B, «Источник: admin v3 (кнопка СТОП)») |
 | Vision screen capture | РАБОТАЕТ (contract + live) | `POST /api/vision/capture` с `image_b64` → 200 `source:desktop` валидный PNG data URL (0.002 с); без body+камеры → 409 быстро, понятно. Реальный PNG живого экрана получен как CAPTURE.png (480×800) |
@@ -84,7 +84,7 @@
 | Devcoord | РАБОТАЕТ unit-level | много Fake/Stub; реальный multi-provider apply flow не принят |
 | XToys/Intiface | НЕ ПРОВЕРЕНО на устройстве | runtime-device evidence отсутствует |
 | Autonomous | НЕ ПРОВЕРЕНО | выключен в config; verification также выключена |
-| Windows installer/launcher | НЕ РАБОТАЕТ | финальных `.exe` и clean-Windows acceptance нет (цель упаковки — см. `UNI_PROJECT_BRIEF.md`) |
+| Windows launcher (node) | РАБОТАЕТ | `UNI.bat` → `node scripts/launcher.js` поднимает llama:1235 + webui:8787 + electron; `/api/launcher/stop` (:8790) убивает стек по pids.json; дедуп (живой PID = reuse). `.exe`-упаковка — НЕ СДЕЛАНА (цель упаковки) |
 
 ## Известный технический долг
 

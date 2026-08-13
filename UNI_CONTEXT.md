@@ -38,10 +38,11 @@ User/UI
 1. `uni.config` загружает YAML в Pydantic-модели.
 2. `uni.agent.Agent` собирает Brain, BrowserSession, WorkingMemory, capabilities, ToolExecutor, EventLoop, AutonomousController.
 3. Capabilities: `speech`, `computer`, `camera`, `browser`, `vision`, `memory`, `xtoys`.
-4. `uni.brain.Brain` использует OpenAI-compatible LLM endpoint (LM Studio `127.0.0.1:1234`, `GET /v1/models` → 200).
+4. `uni.brain.Brain` использует OpenAI-compatible LLM endpoint (embedded llama.cpp `127.0.0.1:1235`, поднимается `scripts/launcher.js`; ранее LM Studio `127.0.0.1:1234`).
 5. `uni.webui.server` — локальный HTTP WebUI/admin API, **порт 8787** (из `config.yaml`; CLI `--port` игнорируется).
-6. `uni.desktop` — Electron overlay: preload bridge, чат, VRM/SVG avatar, tray «Показать», desktop-события. Layout **383×640**.
-7. `uni.council` — параллельные внешние/локальные советники (недоверенные данные).
+6. `uni.desktop` — Electron overlay: preload bridge, чат, PNG avatar, tray «Выход»/«Стоп», desktop-события. Layout **336×660**, позиция **справа снизу НАД панелью задач** (fixed 2026-08-13).
+7. `scripts/launcher.js` — единый лаунчер: поднимает llama.cpp (**порт 1235**, встроенный runtime вместо LM Studio), WebUI (8787), Electron; `/api/launcher/stop` (:8790) убивает стек. Точка входа — `UNI.bat`.
+8. `uni.council` — параллельные внешние/локальные советники (недоверенные данные).
 8. `uni.devcoord` — координация разработчиков/провайдеров, верификация и применение.
 9. `uni.check_architecture` — AST-аудит (ADR-0005), `py -3.12 -m uni.check_architecture --strict` → 0/0.
 
@@ -51,7 +52,7 @@ User/UI
 - `… -m uni --text` — текстовый режим.
 - `… -m uni --autonomous` — автономный (при разрешённой конфигурации).
 - `… -m uni.webui` — WebUI/admin на 8787.
-- `uni\desktop\start.bat` — Electron Companion.
+- `UNI.bat` (двойной клик по `ЮНИ.lnk`) — единый лаунчер: `node scripts/launcher.js` → llama:1235 + webui:8787 + electron (оверлей). Остановка стека: tray «Выход» или `POST http://127.0.0.1:8790/api/launcher/stop`.
 
 ## Контракты
 

@@ -10,18 +10,14 @@
   <!-- Оверлей прозрачный frameless: только виджет Юни, без демо-обёртки -->
   <section id="uniWidget" class="uni-widget mode-quick" aria-label="Окно Юни">
     <div id="avatar" class="avatar avatar--working" aria-label="Юни работает">
-      <div class="avatar-art">
-        <div class="hair hair-back"></div><div class="face"><i class="eye left"></i><i class="eye right"></i><i class="mouth"></i></div>
-        <div class="hair hair-front"></div><div class="body"></div><div class="hand hand-left"></div><div class="hand hand-right"></div>
-        <div class="tablet">U</div>
-      </div>
+      <img id="avatarImg" class="avatar-img" src="../assets/uni-small-work.png" alt="Юни">
     </div>
 
     <header class="widget-header">
-      <div class="brand"><span class="brand-mark">U</span><b>Юни</b></div>
+      <div class="brand"><img class="brand-logo" src="../../webui/img/logo.png" alt="Юни"><span class="brand-mark">U</span><b>Юни</b></div>
       <button id="statusButton" class="live-status" aria-haspopup="true" aria-expanded="false"><i></i><span id="headerStatus">Выполняю</span></button>
       <nav class="header-actions" aria-label="Быстрые действия">
-        <button id="micButton" class="icon-button" title="Голосовой ввод" aria-label="Голосовой ввод">⌕</button>
+        <button id="micButton" class="icon-button mic-icon" title="Голосовой ввод" aria-label="Голосовой ввод">●</button>
         <button id="visionButton" class="icon-button active" title="Наблюдение экрана" aria-label="Наблюдение экрана">◉</button>
         <button id="stopButton" class="stop-button">STOP</button>
         <button id="settingsButton" class="icon-button" title="Настройки" aria-label="Настройки">⚙</button>
@@ -38,13 +34,24 @@
 
     <div class="widget-content">
       <section id="quickMode" class="mode-panel quick-panel">
+        <!-- Пустой чат: приветствие + чипы быстрых действий (ФИНАЛ §3) -->
+        <div id="emptyChat" class="empty-chat">
+          <div class="greeting" id="greetingText">Привет</div>
+          <div class="sub">Чем займёмся?</div>
+          <div class="chips">
+            <button class="chip" data-q="Открой сайт">Открой сайт</button>
+            <button class="chip" data-q="Напиши текст">Напиши текст</button>
+            <button class="chip" data-q="Что на экране">Что на экране</button>
+          </div>
+        </div>
         <!-- чат и карточка задачи рендерятся динамически из app.js -->
         <article class="task-card" id="quickTaskCard" style="display:none">
           <div class="card-title"><b id="quickTaskTitle">Задача</b><button class="collapse-button" data-collapse="quickSteps">⌃</button></div>
           <div id="quickSteps" class="steps"></div>
           <div class="progress-row"><div class="progress"><i id="quickProgress"></i></div><span id="quickStepsCount">0/0</span></div>
         </article>
-        <div class="action-strip"><i></i><span id="quickAction">Юни готова</span></div>
+        <div id="quickActionStrip" class="action-strip done"><i></i><span id="quickAction">Юни готова</span></div>
+        <article id="quickResult" class="result-card hidden"></article>
       </section>
 
       <section id="missionMode" class="mode-panel mission-panel hidden">
@@ -52,7 +59,7 @@
           <div class="mission-title"><div><b id="missionTitle">Миссия</b><span id="missionSub">—</span></div><span id="missionPercent">—</span></div>
           <div class="mission-layout">
             <div class="steps mission-steps" id="missionSteps"></div>
-            <div class="mission-now"><div class="action-strip"><i></i><span id="missionAction">—</span></div>
+            <div class="mission-now"><div id="missionActionStrip" class="action-strip"><i></i><span id="missionAction">—</span></div>
               <details open><summary>Последние действия</summary><div id="missionRecent"></div></details>
             </div>
           </div>
@@ -64,9 +71,10 @@
     </div>
 
     <footer class="composer">
-      <button class="attach-button" aria-label="Прикрепить">⌕</button>
+      <button id="attachButton" class="attach-button" aria-label="Прикрепить" title="Прикрепить файл">⌕</button>
       <textarea id="messageInput" rows="1" placeholder="Напиши Юни…"></textarea>
-      <button id="composerMic" class="composer-mic" aria-label="Голосовой ввод">◉</button>
+      <button id="composerMic" class="composer-mic mic-icon" aria-label="Голосовой ввод">●</button>
+      <i id="connectionDot" class="connection-dot" title="Связь с сервером"></i>
       <button id="sendButton" class="send-button" aria-label="Отправить">➤</button>
     </footer>
   </section>

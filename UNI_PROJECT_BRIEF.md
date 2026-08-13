@@ -12,9 +12,9 @@ UNI is a **local-first Windows AI operator**. It is not a single chatbot — it 
 Three interfaces:
 - **CLI** (`python -m uni`) — text/voice interactive agent.
 - **WebUI / Admin** (`python -m uni.webui`) — local HTTP server on `127.0.0.1:8787`.
-- **Electron Desktop Companion** (`uni/desktop`) — transparent overlay window, 383×640, bottom-right, with avatar (SVG/VRM), chat, buttons, STOP, and a tray "Показать" (Show) item.
+- **Electron Desktop Companion** (`uni/desktop`) — transparent overlay window, **336×660**, bottom-right **above the taskbar tray** (fixed 2026-08-13), with PNG avatar, chat, buttons, neutral STOP, and a tray "Выход" (Exit) / "Стоп" (Stop) item. One-click launch via `UNI.bat`.
 
-The LLM brain is an **OpenAI-compatible endpoint** — today LM Studio at `127.0.0.1:1234` (`GET /v1/models` → 200). The product goal is to make this work on **any Windows PC** with a one-click installer and a built-in runtime (no manual LM Studio install).
+The LLM brain is an **OpenAI-compatible endpoint** — today an **embedded llama.cpp** at `127.0.0.1:1235` (launched by `scripts/launcher.js`, no manual LM Studio install needed). The product goal is to make this work on **any Windows PC** with a one-click installer and a built-in runtime.
 
 ---
 
@@ -36,9 +36,9 @@ C:\LLM\UNI\
 │  ├─ council\              # parallel external/local advisors (untrusted data)
 │  ├─ devcoord\             # dev coordination: verify + apply changes
 │  ├─ desktop\              # Electron overlay (main.js, preload.js, renderer/)
-│  │   ├─ main.js           # single BrowserWindow 383×640, tray, STOP, capture
+│  │   ├─ main.js           # single BrowserWindow 336×660, tray (Выход/Стоп), STOP, capture, position fix
 │  │   ├─ preload.js        # bridge (exposeInMainWorld 'uni')
-│  │   └─ renderer\         # index.html, app.js, avatar.js, style.css, assets/
+│  │   └─ renderer\         # index.html, app.js, styles.css, assets\ (PNG avatar states)
 │  ├─ webui\                # HTTP server (admin + chat + vision + roles + ...), port 8787
 │  │   └─ server.py         # ThreadingHTTPServer, ~2600 lines, all /api/* routes
 │  ├─ roles\                # role definitions (loader uses absolute roles dir)
@@ -55,12 +55,13 @@ C:\LLM\UNI\
 
 **Dispatch invariant (ADR-0005):** `EventLoop → CapabilityRouter → Capability`. A concrete capability MUST NOT import another capability, nor the router/planner/event_loop/agent. Enforced by `uni.check_architecture`.
 
-**Ports observed (2026-08-13):** `8787` WebUI/admin, `1234` LM Studio (LLM). Optional/legacy: `7860` Vision Gradio (unused), `9222` Browser CDP, `1240` Codex-compatible — none required for the core path.
+**Ports observed (2026-08-13):** `8787` WebUI/admin, `1235` embedded llama.cpp (LLM, launched by launcher), `8790` launcher control (`/api/launcher/stop`). Optional/legacy: `7860` Vision Gradio (unused), `9222` Browser CDP, `1240` Codex-compatible — none required for the core path.
 
-**Launch methods (verified working):**
+**Launch methods (verified working, 2026-08-13):**
 - `cd C:\LLM\UNI && set PYTHONPATH=C:\LLM\UNI && C:\LLM\python312\python.exe -m uni`
 - `… -m uni.webui` → `http://127.0.0.1:8787/`
-- `uni\desktop\start.bat` (Electron)
+- **`UNI.bat`** (double-click `ЮНИ.lnk`) → `node scripts/launcher.js` launches llama:1235 + webui:8787 + Electron overlay in one click. Stop the whole stack: tray "Выход", or `POST http://127.0.0.1:8790/api/launcher/stop`.
+- `uni\desktop\start.bat` / `start_uni.bat` — thin aliases to `UNI.bat` (DEPRECATED-shim, kept for the .lnk).
 
 > WebUI port comes from `config.yaml`; the CLI `--port` flag is ignored (documented behavior).
 
@@ -77,7 +78,8 @@ C:\LLM\UNI\
 | Vision capture contract | WORKS | `POST /api/vision/capture` + `image_b64` → 200 `source:desktop` valid PNG data URL (0.002 s); no body + no camera → 409 fast |
 | STT `/api/stt` | WORKS | JSON probe → 400 in 0.002 s (no model load); real audio path lazy-loads Whisper |
 | TTS Piper/Silero | WORKS | `test_local_piper_voice_produces_native_rate_audio` PASS (real 22050 Hz audio) |
-| Desktop (code) | WORKS (code) | `node --check` 4 JS files OK; width 383×640; avatar/STOP/tray present. Live window E2E **NOT done** (no display in this session) |
+| Desktop (code) | WORKS (code + live E2E) | `node --check` JS OK (main.js, preload.js, renderer/app.js, scripts/launcher.js); width 336×660; PNG avatar, neutral STOP, tray Выход/Стоп. Live window E2E DONE (2026-08-13): visible, positioned above tray, chat responds, tray-exit kills whole stack |
+| Launcher (node) | WORKS | `UNI.bat` → `node scripts/launcher.js` raises llama:1235 + webui:8787 + electron; `/api/launcher/stop` (:8790) kills stack by pids.json; dedup (live PID=reuse). `.exe` packaging NOT done |
 | Roles | WORKS | `/api/roles` → 3 roles; loader uses absolute dir |
 | Architecture audit | WORKS | `uni.check_architecture --strict` → 0 errors, 0 warnings |
 | Camera / real device | NOT VERIFIED | unit tests ≠ real camera; correct 409 on missing camera |
@@ -127,7 +129,7 @@ We ask an external AI (no prior project context) to propose improvements, especi
 - **Watchdog/launcher** design: what restart/health-check strategy is robust on Windows (no job-control shell quirks)?
 - **Clean-VM acceptance:** what minimal automated checks prove first-boot success without a display (headless HTTP + file artifacts)?
 - **Single source of truth** for dependencies: `root requirements.txt` vs `uni/requirements.txt` vs `pyproject.toml` currently diverge — propose one lock/constraints file.
-- **Git/versioning:** `C:\LLM\UNI` is not a git repo — recommend init + branch strategy for safe external contributions.
+- **Git/versioning:** `C:\\LLM\\UNI` **IS a git repo** (CLEAN-SLATE, 2026-08-13): branch `clean/august-2026` pushed to `DieWillz/UNI-test` (**NOT main**). Strategy: work on `clean/august-2026`, only coordinator merges to `main`. Full snapshot pushed for external AI review (2026-08-13).
 
 ---
 

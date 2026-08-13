@@ -209,7 +209,73 @@ def _safe_project_path(rel: str) -> Path:
         raise PermissionError(f"path escape blocked: {rel!r}")
     return full
 
-# ===== Состояние чат-хаба (мультимодальный режим) =====
+
+# ===== Самотест / Демо-мышь / Скриншот оверлея (Hermes 2026-08-13) =====
+def _selftest_last() -> dict:
+    """Последний сохранённый отчёт самотеста (runtime/logs/selftest_<дата>.md)."""
+    logs_dir = _ROOT / "runtime" / "logs"
+    try:
+        import glob
+        files = sorted(glob.glob(str(logs_dir / "selftest_*.md")), reverse=True)
+        if not files:
+            return {"ok": False, "error": "отчёт самотеста ещё не создан (POST /api/selftest {\"save\":true})"}
+        txt = Path(files[0]).read_text(encoding="utf-8", errors="replace")
+        return {"ok": True, "report_path": files[0], "markdown": txt}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def _mouse_demo() -> dict:
+    """Демо «Мышь Юни»: 3 клика в safe-зоне + рисунок (кольцо/бейдж «Юни»)."""
+    try:
+        import asyncio
+        import tkinter  # бейдж требует дисплея
+        from uni.capabilities.human_mouse import HumanMouseController, HumanMouseSettings
+    except Exception as e:
+        return {"ok": False, "error": f"HumanMouseController/бейдж недоступен: {type(e).__name__}: {e}",
+                "hint": "нужен Windows + дисплей + win32 + tkinter"}
+    try:
+        import math
+        import win32api
+        ctrl = HumanMouseController(HumanMouseSettings(show_badge=True, move_duration=0.5))
+        w, h = win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
+        m = 140  # safe-зона: отступ >=140px от краёв
+        pts = [
+            (max(m, w // 2 - 200), max(m, h // 2 - 120)),
+            (min(w - m, w // 2 + 200), max(m, h // 2 - 120)),
+            (min(w - m, w // 2 + 200), min(h - m, h // 2 + 120)),
+        ]
+        async def _run():
+            for (x, y) in pts:
+                await ctrl.click(x, y)            # лайм-кольцо + «Юни»
+                await asyncio.sleep(0.4)
+            # рисунок: круг (демонстрация траектории)
+            cx, cy, r = w // 2, h // 2 + 220, 90
+            arc = [(int(cx + r * math.cos(a)), int(cy + r * math.sin(a)))
+                   for a in [i * math.pi / 18 for i in range(37)]]
+            await ctrl.move_to(*arc[0])
+            for (x, y) in arc[1:]:
+                await ctrl.move_to(x, y)
+                await asyncio.sleep(0.01)
+        asyncio.run(_run())
+        ctrl.close()
+        return {"ok": True, "points": pts, "drawn": "circle",
+                "note": "клики + кольцо «Юни» выполнены в safe-зоне"}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}",
+                "hint": "win32api доступен? дисплей есть? STOP прервал?"}
+
+
+def _overlay_capture() -> dict:
+    """Скриншот оверлея: через Desktop Companion (electron) capturePage (best-effort)."""
+    cand = _ROOT / "runtime" / "logs" / "overlay_capture.png"
+    if cand.is_file():
+        import base64
+        b64 = base64.b64encode(cand.read_bytes()).decode("ascii")
+        return {"ok": True, "image_b64": "data:image/png;base64," + b64,
+                "source": "overlay_capture.png"}
+    return {"ok": False, "error": "скриншот оверлея ещё не сделан",
+            "hint": "кнопка «Скриншот» в оверлее / electron capturePage"}
 # Один Agent на процесс сервера; собирается лениво при первом чат-запросе.
 _CHAT_AGENT = None
 _CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво)
@@ -922,6 +988,19 @@ class _Handler(BaseHTTPRequestHandler):
                 since = 0
             self._json(200, {"source": src, "lines": _uni_logs(src, since)})
             return
+
+        # === Самотест (Hermes 2026-08-13, §2): GET отдаёт последний отчёт/статус ===
+        if parsed.path == "/api/selftest":
+            self._json(200, _selftest_last())
+            return
+        # === Демо-мышь (Hermes 2026-08-13, §3): клик 3 точек в safe-зоне + рисунок ===
+        if parsed.path == "/api/demo/mouse":
+            self._json(200, _mouse_demo())
+            return
+        # === Скриншот оверлея (для пруфа/самотеста) ===
+        if parsed.path == "/api/desktop/capture":
+            self._json(200, _overlay_capture())
+            return
         # === конец блока лаунчера ===
 
         def _kill_uni_children():
@@ -1384,6 +1463,28 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
+        # === Самотест / Демо-мышь / Скриншот (Hermes 2026-08-13) ===
+        if self.path == "/api/selftest":
+            body = self._read_json_body()
+            if body.get("save"):
+                try:
+                    from uni.tools.selftest import run_all, save_report, render_markdown
+                    checks = run_all()
+                    p = save_report(checks)
+                    log_message("[selftest] выполнен: " + p.name)
+                    self._json(200, {"ok": True, "report_path": str(p),
+                                      "checks": checks, "markdown": render_markdown(checks)})
+                except Exception as e:
+                    self._json(200, {"ok": False, "error": f"{type(e).__name__}: {e}"})
+                return
+            self._json(200, _selftest_last())
+            return
+        if self.path == "/api/demo/mouse":
+            self._json(200, _mouse_demo())
+            return
+        if self.path == "/api/desktop/capture":
+            self._json(200, _overlay_capture())
+            return
         # === Единый лаунчер: перезапуск LLM (Hermes 2026-08-13) ===
         if self.path == "/api/admin/restart-llm":
             try:
@@ -2420,6 +2521,10 @@ class _Handler(BaseHTTPRequestHandler):
                 loop.run_until_complete(
                     asyncio.wait_for(agent.initialize(), timeout=20.0)
                 )
+            except asyncio.TimeoutError:
+                # Медленный прогрев Speech не должен блокировать уже доступный
+                # текстовый чат. wait_for отменил прогрев; loop остаётся рабочим.
+                agent._init_warning = "initialize timeout; text chat enabled"
             except Exception as exc:  # агент без тяжёлых capability отвечает текстом
                 agent._init_error = f"{type(exc).__name__}: {exc}"
                 init_error["err"] = agent._init_error

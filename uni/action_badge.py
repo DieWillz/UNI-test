@@ -1,8 +1,9 @@
-"""Desktop action badge — always-on-top indicator next to pyautogui clicks.
+"""Desktop action badge — always-on-top indicator next to mouse actions.
 
 Not a second OS mouse (Windows has one system cursor). Shows a short-lived
-label «UNI» near the point where the agent moves/clicks so the user sees
-agent activity without confusing it with their own intent.
+lime ring (#B8E61D) at the click point PLUS a small «Юни» label so the user
+always sees that Юни (not the user) is driving the mouse. This is the required
+visual signature from директива «Мышь Юни» (2026-08-13).
 
 Uses stdlib tkinter only (ships with official Windows Python builds).
 Safe no-op if tkinter/display is unavailable (servers, headless CI).
@@ -15,22 +16,28 @@ import threading
 import time
 from typing import Optional
 
+# Лайм-кольцо «Юни» (директива: #B8E61D)
+UNI_LIME = "#B8E61D"
+UNI_LABEL = "Юни"
+
 
 class UniActionBadge:
     def __init__(
         self,
         *,
         enabled: bool = True,
-        label: str = "UNI",
-        duration_ms: int = 450,
-        offset_x: int = 18,
-        offset_y: int = 18,
+        label: str = UNI_LABEL,
+        duration_ms: int = 600,
+        offset_x: int = 20,
+        offset_y: int = 20,
+        ring_color: str = UNI_LIME,
     ) -> None:
         self.enabled = enabled
         self.label = label
         self.duration_ms = max(100, int(duration_ms))
         self.offset_x = int(offset_x)
         self.offset_y = int(offset_y)
+        self.ring_color = ring_color
         self._q: queue.Queue = queue.Queue()
         self._thread: Optional[threading.Thread] = None
         self._started = False
@@ -60,7 +67,6 @@ class UniActionBadge:
 
         root = tk.Tk()
         root.withdraw()
-        # Borderless, always on top, try click-through where supported
         overlay = tk.Toplevel(root)
         overlay.withdraw()
         overlay.overrideredirect(True)
@@ -75,30 +81,27 @@ class UniActionBadge:
         except Exception:
             overlay.configure(bg="#111111")
         try:
-            overlay.attributes("-alpha", 0.92)
+            overlay.attributes("-alpha", 0.95)
         except Exception:
             pass
 
-        frame = tk.Frame(overlay, bg="#6ee7ff", padx=1, pady=1)
-        frame.pack()
+        # --- лайм-кольцо (Canvas) + бейдж «Юни» под ним ---
+        canvas = tk.Canvas(overlay, width=120, height=120, bg="#010101",
+                           highlightthickness=0, bd=0)
+        canvas.pack()
+        # кольцо вокруг точки (центр ~ (40,40)); сама точка клика — в (40,40)
+        ring = canvas.create_oval(8, 8, 72, 72, outline=self.ring_color, width=4)
+        dot = canvas.create_oval(36, 36, 44, 44, fill=self.ring_color, outline="")
+        # бейдж «Юни» — метка у курсора во время движения
+        frame = tk.Frame(overlay, bg="#010101")
+        frame.place(x=46, y=46)
         inner = tk.Frame(frame, bg="#0b1220", padx=8, pady=4)
         inner.pack()
-        text_var = tk.StringVar(value=self.label)
-        lbl = tk.Label(
-            inner,
-            textvariable=text_var,
-            fg="#6ee7ff",
-            bg="#0b1220",
-            font=("Segoe UI", 10, "bold"),
-        )
+        lbl = tk.Label(inner, text=self.label, fg=self.ring_color,
+                       bg="#0b1220", font=("Segoe UI", 10, "bold"))
         lbl.pack()
-        sub = tk.Label(
-            inner,
-            text="agent",
-            fg="#94a3b8",
-            bg="#0b1220",
-            font=("Segoe UI", 8),
-        )
+        sub = tk.Label(inner, text="водит мышью", fg="#94a3b8",
+                       bg="#0b1220", font=("Segoe UI", 8))
         sub.pack()
 
         hide_after_id: list = []
@@ -116,9 +119,8 @@ class UniActionBadge:
                 except Exception:
                     pass
             hide_after_id.clear()
-            text_var.set(f"{self.label} · {action}" if action else self.label)
             try:
-                overlay.geometry(f"+{max(0, x + self.offset_x)}+{max(0, y + self.offset_y)}")
+                overlay.geometry(f"+{max(0, x - 40)}+{max(0, y - 40)}")
                 overlay.deiconify()
                 overlay.lift()
             except Exception:
@@ -148,7 +150,7 @@ class UniActionBadge:
             self._failed = True
 
     def flash_at(self, x: int, y: int, action: str = "click") -> None:
-        """Show badge near screen coordinates (non-blocking)."""
+        """Show lime ring + «Юни» badge near screen coordinates (non-blocking)."""
         if not self.enabled:
             return
         if not self._ensure_thread():

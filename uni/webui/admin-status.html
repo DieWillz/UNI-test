@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ЮНИ — Статус и логи</title>
+<style>
+:root{ --bg:#032121; --bg2:rgba(3,33,33,.96); --line:rgba(196,229,52,.18); --accent:#c4e534; --text:#e8edf2; --muted:#9fb3ad; --danger:#ff6b6b; }
+* { box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--text); font:13px/1.5 "Segoe UI",system-ui,sans-serif; padding:16px; }
+h1{ font-size:16px; margin:0 0 12px; color:var(--accent); }
+.row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.card{ background:var(--bg2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; min-width:200px; }
+.card .name{ color:var(--muted); font-size:12px; }
+.card .val{ font-size:15px; font-weight:600; margin-top:4px; }
+.dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.green{ background:#3ad17a; } .red{ background:var(--danger); } .grey{ background:#777; }
+.tabs{ display:flex; gap:8px; margin-bottom:10px; }
+.tab{ border:1px solid var(--line); background:var(--bg2); color:var(--muted); border-radius:10px; padding:6px 12px; cursor:pointer; }
+.tab.active{ color:var(--accent); border-color:var(--line); background:rgba(196,229,52,.1); }
+button.act{ border:0; border-radius:10px; background:var(--accent); color:#0f1419; padding:7px 12px; cursor:pointer; font-weight:600; }
+button.act.danger{ background:var(--danger); color:#fff; }
+#log{ background:#021616; border:1px solid var(--line); border-radius:12px; padding:10px; height:360px; overflow-y:auto; font:12px/1.45 Consolas,monospace; white-space:pre-wrap; }
+select{ background:var(--bg2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:5px; }
+.bar{ display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<h1>ЮНИ — Статус компонентов и логи</h1>
+<div class="row" id="cards"></div>
+<div class="bar">
+  <button class="act" id="restartLlama">Перезапустить LLM</button>
+  <button class="act danger" id="stopAll">Остановить всё</button>
+  <span id="msg" style="color:var(--muted)"></span>
+</div>
+<div class="tabs">
+  <div class="tab active" data-src="llama">Лог LLM</div>
+  <div class="tab" data-src="webui">Лог WebUI</div>
+  <div class="tab" data-src="desktop">Лог оверлея</div>
+</div>
+<div class="bar">
+  <label>Источник: <select id="src">
+    <option value="llama">llama</option>
+    <option value="webui">webui</option>
+    <option value="desktop">desktop</option>
+  </select></label>
+  <span style="color:var(--muted)">обновление каждые 3 с</span>
+</div>
+<div id="log"></div>
+<script src="admin-status.js"></script>
+</body>
+</html>

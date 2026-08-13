@@ -11,13 +11,14 @@
 | T-FIX-STT | Hermes | СДЕЛАНО | Убрать загрузку Whisper на JSON-пробе `/api/stt` | реальный HTTP: JSON → 400 за 0.002 с, без загрузки модели |
 | T-FIX-TESTS | Hermes | СДЕЛАНО | Исправить ошибочные тесты (hermes case) и patch-points (sd) | тесты проходят; детектят реальную регрессию, не ослаблены |
 | T-FIX-PIPER | Hermes | СДЕЛАНО | Добавить Piper-голос и cwd-независимый поиск | ассет загружен (63 МБ); тест генерирует реальный аудио 22050 Гц |
-| T-DESK | Hermes | СДЕЛАНО (код) / ОЖИДАЕТ E2E | Desktop Companion: 383×640, avatar, STOP, tray, chat | `node --check` 4 файла OK; живая E2E-приёмка окна — НЕ ПРОВЕРЕНО (нет дисплея) |
+| T-DESK | Hermes | СДЕЛАНО (код + live E2E) | Desktop Companion: 336×660, PNG avatar, STOP (нейтральная), tray «Выход»/«Стоп», пустой чат+чипы | `node --check` OK; живой Electron: 1 окно visible, позиция над треем (fixed), chat ответ; скрин outbox/HERMES_UI_IDLE.png |
 | T-PACK | Hermes/координатор | ОЖИДАЕТ | One-click Windows-инсталлятор + встроенный runtime | см. `UNI_PROJECT_BRIEF.md`; бинарники llama.cpp уже в `downloads/` |
-| T-COORD | координатор | В РАБОТЕ | Рассылка пакета документов внешним ИИ | 5 файлов готовы (см. `UNI_PROJECT_BRIEF.md`, `REPORT_HERMES_FINAL.md`) |
+| T-LAUNCH | Hermes | СДЕЛАНО | Единый лаунчер: одно нажатие (ЮНИ.lnk→UNI.bat→launcher.js) поднимает llama:1235+webui:8787+electron; выход (tray «Выход») убивает ВЕСЬ стек по pids.json | `/api/launcher/stop` → порты free, pids.json удалён; дедуп (живой PID=reuse); коммит 6b682a8 |
+| T-PUSH | Hermes | СДЕЛАНО | Запушить ВЕСЬ актуальный код в GitHub для анализа другими ИИ | ветка `clean/august-2026` запушена в `DieWillz/UNI-test` (НЕ main); рантайм-мусор в .gitignore |
 | T-PRE-1 | Hermes | СДЕЛАНО | Воспроизвести и классифицировать актуальные падения | 6 падений → классы: 2 ошибочный тест, 2 patch-point, 1 prod-дефект, 1 внеш. зависимость |
 | T-PRE-2 | Hermes | СДЕЛАНО | Проверить тесты на избыточный mock; добавить integration | сохранены unit-тесты; добавлены реальные HTTP-пруфы vision/admin/roles |
 | T-PREP | Hermes | В РАБОТЕ | Подготовить артефакты для Codex (outbox) | `HERMES_PYTEST.xml` готов; `REPORT_HERMES_FINAL.md`, `CAPTURE.png`, `CODEX_SHOT_1.png` — в работе |
-| T-MERGE | координатор | ОЖИДАЕТ | Слить канон `uni/` с зеркалом/другими ветками | git в `C:\LLM\UNI` отсутствует — нужна инициализация репозитория |
+| T-POS | Hermes | СДЕЛАНО | Исправить позицию окна — ровно над треем (правый нижний, над панелью задач) | DIP-корректный `placeAtBottomRight` (workArea без sf, getSize); лог final y≈142 @DPI1.25; было y:0 (вверху) |
 | T-AUDIT | Hermes | СДЕЛАНО | Создать `uni.check_architecture` (ADR-0005) | AST-скан capabilities; детектит violation (доказано инъекцией); `--strict` → 0/0 |
 | T-VLM | Hermes | ОЖИДАЕТ | Встроить torch-free VLM для vision (упаковка) | вне scope фикс-шага; цель упаковки |
 

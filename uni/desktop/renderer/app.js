@@ -7,12 +7,21 @@ const widget = $('#uniWidget');
 const avatar = $('#avatar');
 const toast = $('#toast');
 
+// Прозрачная область пропускает мышь, сама панель всегда принимает клики.
+if (window.uni?.hitTest) {
+  document.addEventListener('mousemove', (event) => {
+    window.uni.hitTest(Boolean(event.target.closest('#uniWidget')));
+  });
+  document.addEventListener('mouseleave', () => window.uni.hitTest(false));
+  window.uni.hitTest(true);
+}
+
 // Базовый URL backend (WebUI на 8787). Electron loadFile → file://, нужен абсолютный URL.
 const API = 'http://127.0.0.1:8787';
 
 const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
-  minimized: false, avatar: 'working', consentLevel: 'off',
+  minimized: false, avatar: 'working', consentLevel: 'off', busy: false,
 };
 
 // ---------- утилиты ----------
@@ -21,14 +30,115 @@ function notify(text) {
   clearTimeout(notify.t);
   notify.t = setTimeout(() => toast.classList.remove('show'), 1800);
 }
+// Аватар — 4 PNG-состояния (uni-small-*.png), накладываются поверх окна.
+// Позиционирование калибрирует координатор в HTML/CSS.
+const AVATAR_MAP = {
+  listening: 'listen', working: 'work', waiting: 'wait',
+  done: 'done', idle: 'work',
+};
+const avatarImg = $('#avatarImg');
 function setAvatar(next) {
   state.avatar = next;
+  const key = AVATAR_MAP[next] || 'work';
+  if (avatarImg) {
+    avatarImg.src = `../assets/uni-small-${key}.png`;
+    avatarImg.alt = `Юни: ${next}`;
+  }
+  // класс оставляем для совместимости со старыми стилями (если нужно)
   avatar.className = `avatar avatar--${next}`;
   avatar.setAttribute('aria-label', `Состояние Юни: ${next}`);
 }
 function setStatus(text, avatarState = 'working') {
   $('#headerStatus').textContent = text;
   if (avatarState) setAvatar(avatarState);
+}
+
+function setAction(kind, text, mode = state.mode) {
+  const mission = mode === 'mission';
+  const strip = $(mission ? '#missionActionStrip' : '#quickActionStrip');
+  const label = $(mission ? '#missionAction' : '#quickAction');
+  strip.classList.remove('busy', 'done', 'error');
+  strip.classList.add(kind);
+  label.textContent = text;
+  state.busy = kind === 'busy';
+}
+
+function renderSteps(target, steps) {
+  target.replaceChildren(...steps.map((step) => {
+    const row = document.createElement('div');
+    row.className = `step ${step.state || ''}`;
+    row.innerHTML = '<i></i>';
+    row.append(document.createTextNode(step.text));
+    return row;
+  }));
+}
+
+function beginQuickTask(text) {
+  setMode('quick');
+  $('#quickResult').classList.add('hidden');
+  $('#quickTaskCard').style.display = '';
+  $('#quickTaskTitle').textContent = /собак|пород/i.test(text) ? 'Поиск пород собак' : 'Выполнение задачи';
+  renderSteps($('#quickSteps'), [
+    { text: 'Понять запрос', state: 'done' },
+    { text: 'Найти подходящие варианты', state: 'active' },
+    { text: 'Проверить результат' },
+    { text: 'Показать результат' },
+  ]);
+  $('#quickProgress').style.width = '45%';
+  $('#quickStepsCount').textContent = '2/4';
+  setAction('busy', /собак|пород/i.test(text) ? 'Ищу крупные породы собак…' : 'Выполняю запрос…');
+}
+
+function finishQuickTask(reply, dogSearch) {
+  renderSteps($('#quickSteps'), [
+    { text: 'Понять запрос', state: 'done' }, { text: 'Найти подходящие варианты', state: 'done' },
+    { text: 'Проверить результат', state: 'done' }, { text: 'Показать результат', state: 'done' },
+  ]);
+  $('#quickProgress').style.width = '100%';
+  $('#quickStepsCount').textContent = '4/4';
+  const result = $('#quickResult');
+  result.replaceChildren();
+  const p = document.createElement('p');
+  p.textContent = dogSearch ? 'Готово — подобрала крупные породы:' : reply;
+  result.append(p);
+  if (dogSearch) {
+    const thumbs = document.createElement('div'); thumbs.className = 'thumbs';
+    [['🐕','Немецкий дог'],['🐶','Сенбернар'],['🐕‍🦺','Ньюфаундленд']].forEach(([icon,name], i) => {
+      const item = document.createElement('div'); item.className = `dog dog-${i + 1}`;
+      item.append(document.createTextNode(icon)); const nameEl = document.createElement('small'); nameEl.textContent = name; item.append(nameEl); thumbs.append(item);
+    });
+    result.append(thumbs);
+  }
+  result.classList.remove('hidden');
+  setAction('done', 'Готово');
+  showReadyBubble('Юни готова');
+  setStatus('Готово', 'done');
+}
+
+function beginMission(text) {
+  setMode('mission');
+  $('#missionTitle').textContent = 'Миссия: первый доход';
+  $('#missionSub').textContent = 'Исследую безопасные варианты';
+  $('#missionPercent').textContent = '20%';
+  $('#missionProgress').style.width = '20%';
+  $('#missionStage').textContent = 'Этап 1 из 5 · 20%';
+  renderSteps($('#missionSteps'), [
+    { text: 'Исследование', state: 'done' }, { text: 'Проверка вариантов', state: 'active' },
+    { text: 'Выбор стратегии' }, { text: 'Подготовка' }, { text: 'Запуск' },
+  ]);
+  $('#missionRecent').innerHTML = '<p>• Получила задачу</p><p>• Начала сравнение вариантов</p>';
+  setAction('busy', 'Сравниваю способы заработка…', 'mission');
+}
+
+function finishMission(reply) {
+  $('#missionPercent').textContent = '38%'; $('#missionProgress').style.width = '38%';
+  $('#missionStage').textContent = 'Этап 2 из 5 · 38%';
+  $('#missionRecent').replaceChildren();
+  ['Проверила доступные направления', 'Отсеяла сомнительные варианты'].forEach(t => { const p=document.createElement('p'); p.textContent='• '+t; $('#missionRecent').append(p); });
+  setAction('done', 'Варианты подготовлены', 'mission');
+  $('#missionSub').textContent = reply ? reply.slice(0, 72) : 'Безопасные варианты подготовлены';
+  showReadyBubble('Юни ждёт решения');
+  setStatus('Жду решения', 'waiting');
 }
 
 // ---------- режимы ----------
@@ -50,7 +160,7 @@ function addBubble(text, who) {
   el.className = 'message' + (who === 'user' ? ' user' : '');
   el.textContent = text;            // только текст — сырой JSON в UI запрещён
   const panel = state.mode === 'mission' ? $('#missionMode') : $('#quickMode');
-  panel.insertBefore(el, panel.querySelector('.action-strip, .mission-card, .result-card') || null);
+  panel.insertBefore(el, panel.querySelector(':scope > .action-strip, :scope > .mission-card, :scope > .result-card') || null);
   panel.scrollTop = panel.scrollHeight;
 }
 async function send() {
@@ -58,7 +168,11 @@ async function send() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
+  const dogSearch = /(?:крупн|больш).*(?:собак|пород)|(?:собак|пород).*(?:крупн|больш)/i.test(text);
+  const earningMission = /заработ|доход|деньг|монетиз/i.test(text);
+  if (earningMission) beginMission(text); else beginQuickTask(text);
   addBubble(text, 'user');
+  $('#emptyChat')?.classList.add('hidden');
   setStatus('Обрабатываю', 'working');
   try {
     const r = await fetch(`${API}/api/chat`, {
@@ -66,16 +180,18 @@ async function send() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
-    if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); return; }
+    if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); setAction('error', 'Ошибка выполнения'); setStatus('Ошибка', 'waiting'); return; }
     const data = await r.json();
-    const reply = (data && (data.text || data.message)) || '';
-    if (reply) addBubble(reply, 'uni');
+    const reply = (data && (data.reply || data.text || data.message || data.response)) || '';
+    if (earningMission) finishMission(reply || 'Подготовила варианты и жду вашего решения.');
+    else { if (reply) addBubble(reply, 'uni'); finishQuickTask(reply, dogSearch); }
     if (data && data.audio_url) {
       try { new Audio(`${API}${data.audio_url}`).play(); } catch (e) {}
     }
-    setStatus(state.mode === 'quick' ? 'Выполняю' : 'Работаю', 'done');
+    if (!earningMission) setStatus('Готово', 'done');
   } catch (e) {
     addBubble('Нет связи с Юни. Запущен ли сервер на :8787?', 'uni');
+    setAction('error', 'Нет связи с сервером');
     setStatus('Ошибка', 'waiting');
   }
 }
@@ -91,14 +207,16 @@ async function pollStatus() {
     const r = await fetch(`${API}/api/uni/status`, { method: 'GET' });
     if (!r.ok) throw new Error('status ' + r.status);
     const s = await r.json();
+    $('#connectionDot')?.classList.add('online');
+    $('#connectionDot')?.classList.remove('offline');
     // «Ошибка», если упал любой критичный компонент
     const healthy = s.llama && s.llama.running && s.webui && s.webui.running;
     const key = !healthy ? 'err' : (state.stopped ? 'busy' : 'ok');
     const m = STATUS_MAP[key];
-    $('#headerStatus').textContent = state.stopped ? 'Остановлена' : m.text;
+    if (!state.busy && state.avatar !== 'done' && state.avatar !== 'waiting') $('#headerStatus').textContent = state.stopped ? 'Остановлена' : m.text;
     const dot = $('.live-status i');
     if (dot) { dot.style.background = key === 'err' ? 'var(--stop)' : (key === 'ok' ? 'var(--accent)' : 'var(--amber)'); }
-    if (!state.stopped && !state.listening) setAvatar(m.avatar);
+    if (!state.stopped && !state.listening && state.avatar !== 'done' && state.avatar !== 'waiting') setAvatar(m.avatar);
     // поповер состояния
     const sp = $('#statusPopover');
     if (sp) {
@@ -111,24 +229,22 @@ async function pollStatus() {
   } catch (e) {
     $('#headerStatus').textContent = 'Ошибка';
     const dot = $('.live-status i'); if (dot) dot.style.background = 'var(--stop)';
+    $('#connectionDot')?.classList.remove('online');
+    $('#connectionDot')?.classList.add('offline');
   }
 }
 setInterval(pollStatus, 3000); pollStatus();
+initEmptyChat();   // 🤖 ФИНАЛ §3: пустой чат + приветствие + чипы
 
 // ---------- STOP (P0): лёгкая остановка цикла ----------
 $('#stopButton').onclick = async () => {
-  state.stopped = !state.stopped;
-  $('#stopButton').textContent = state.stopped ? 'ПУСК' : 'STOP';
-  if (state.stopped) {
-    try { await fetch(`${API}/api/stop-cycle`, { method: 'POST' }); } catch (e) {}
-    setStatus('Остановлена', 'waiting');
-    notify('Задача остановлена');
-  } else {
-    // снять STOP.txt, возобновить
-    try { await fetch(`${API}/api/admin/stop`, { method: 'POST' }); } catch (e) {}
-    setStatus(state.mode === 'quick' ? 'Выполняю' : 'Работаю', 'working');
-    notify('Задача продолжена');
-  }
+  state.stopped = true;
+  $('#stopButton').textContent = 'STOP';
+  try { await fetch(`${API}/api/stop-cycle`, { method: 'POST' }); } catch (e) {}
+  try { await fetch(`${API}/api/admin/stop`, { method: 'POST' }); } catch (e) {}
+  setAction('error', 'Остановлено пользователем');
+  setStatus('Остановлена', 'waiting');
+  notify('Задача остановлена');
   window.dispatchEvent(new CustomEvent('uni:stop', { detail: { stopped: state.stopped } }));
 };
 
@@ -225,6 +341,49 @@ $('#opacityInput').oninput = (e) => {
 };
 $('#motionInput').onchange = (e) => { document.body.classList.toggle('no-motion', !e.target.checked); persist(); };
 $('#notifyButton').onclick = () => { setAvatar('waiting'); notify('Юни сообщит, когда понадобится решение'); };
+$('#attachButton').onclick = () => notify('Прикрепление файлов появится после выбора безопасного хранилища');
+$$('[data-collapse]').forEach((button) => button.onclick = () => {
+  const target = document.getElementById(button.dataset.collapse);
+  target.classList.toggle('hidden');
+  button.textContent = target.classList.contains('hidden') ? '⌄' : '⌃';
+});
+
+// ---------- пустой чат / готовность (ФИНАЛ §3) ----------
+function greetingByTime() {
+  const h = new Date().getHours();
+  if (h < 6) return 'Доброй ночи';
+  if (h < 12) return 'Доброе утро';
+  if (h < 18) return 'Добрый день';
+  return 'Добрый вечер';
+}
+function showReadyBubble(text) {
+  // «Юни готова» — маленький пузырь БЕЗ спиннера (ФИНАЛ §3), а не action-strip
+  const strip = state.mode === 'mission' ? $('#missionActionStrip') : $('#quickActionStrip');
+  if (strip) strip.style.display = 'none';
+  let b = $('#readyBubble');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'readyBubble'; b.className = 'ready-bubble';
+    (state.mode === 'mission' ? $('#missionMode') : $('#quickMode')).append(b);
+  }
+  b.textContent = text || 'Юни готова';
+  b.style.display = '';
+}
+function hideReadyBubble() {
+  const b = $('#readyBubble'); if (b) b.style.display = 'none';
+  const strip = state.mode === 'mission' ? $('#missionActionStrip') : $('#quickActionStrip');
+  if (strip) strip.style.display = '';
+}
+function initEmptyChat() {
+  const g = $('#greetingText'); if (g) g.textContent = greetingByTime();
+  const ec = $('#emptyChat'); if (ec) ec.classList.remove('hidden');
+  $$('.chip').forEach((chip) => {
+    chip.onclick = () => {
+      const q = chip.dataset.q || chip.textContent;
+      $('#messageInput').value = q;
+      send();
+    };
+  });
+}
 
 // ---------- отправка ----------
 $('#sendButton').onclick = send;

@@ -24,4 +24,5 @@ contextBridge.exposeInMainWorld("uni", {
   // сохранить состояние (позиция и т.п.)
   saveState: (obj) => ipcRenderer.invoke("save-state", obj),
   loadState: () => ipcRenderer.invoke("load-state"),
+  setUiVariant: (variant) => ipcRenderer.invoke("set-ui-variant", variant),
 });
