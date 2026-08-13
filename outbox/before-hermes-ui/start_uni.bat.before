@@ -1,0 +1,23 @@
+@echo off
+REM 🤖 DEPRECATED by Hermes 2026-08-13: используйте корневой UNI.bat (единая точка входа).
+REM (Ранее указывал на start.bat.) Файл оставлен для совместимости, НЕ удалён.
+REM Этот файл оставлен для совместимости, не удалён.
+chcp 65001 >nul
+REM ЮНИ — единый лаунчер. Запускает scripts/launcher.js (родитель процессов)
+REM и СРАЗУ завершается — окно cmd НЕ висит. Видимы только оверлей и админка.
+REM Hermes 2026-08-13, директива «Единый лаунчер».
+setlocal
+set UNI_ROOT=C:\LLM\UNI
+cd /d %UNI_ROOT%
+if not exist runtime\llama\llama-server.exe (
+  echo [ЮНИ] runtime/llama не распакован — распакуйте downloads/llama-*-win-cuda-*.zip в runtime/llama
+  pause
+  exit /b 1
+)
+if "%1"=="--restart" (
+  start "" /min node "%UNI_ROOT%\scripts\launcher.js" --restart
+) else (
+  start "" /min node "%UNI_ROOT%\scripts\launcher.js"
+)
+echo [ЮНИ] Запущено (оверлей видим, серверы скрыты). Админка: http://127.0.0.1:8787/
+exit /b 0
