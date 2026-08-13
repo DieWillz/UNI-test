@@ -68,5 +68,41 @@ git status --short                    # удаление из индекса м�
 - `nul` (stray shell-артефакт, 82 байта с текстом ошибки tail) — удалён (не канон, не источник). Не влияет на инвариант 0.2 (не кодовый ассет).
 - Тесты требуют `PYTHONPATH=C:/LLM/UNI` чистым (иначе подхватывают venv Hermes с битым pydantic_core). Это окружение запуска, не баг кода.
 
+# ==ОТЧЁТ== Hermes — ФАЗА 1 (Роли файлов + legacy)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `e50eeae`
+**Тесты:** pytest полный → 266 passed (+7 subtests). node --check на uni/webui/desktop/main.js — OK.
+
+## Задачи
+
+### B-01 index-new.html → index-demo.html (DEPRECATED); боевые = index.html/app.js/styles.css
+**Статус:** DONE. `git mv` обоих index-new.html → index-demo.html (v4 и uni-interface). Препенд DEPRECATED-комментарий (что боевой = renderer/index.html, эти — .demo-stage болванки, не грузятся из main.js).
+**Пруф:** `git status` показывает R (rename) для обоих; grep "index-new" в main.js/app.js → пусто (никто не грузит).
+
+### B-02 styles.css: дубли убрать (.stop-button дважды), секции по порядку, демо-стили только под .demo-stage
+**Статус:** ПОДТВЕРЖДЕНО/частично применено. В styles.css три блока `.stop-button`:
+- 272: базовый (live, легитимный)
+- 1005: `.header-actions .stop-button` — scoped override (легитимный CSS-каскад, НЕ дубль)
+- 1111: третья копия — УЖЕ под 🤖 DEPRECATED-комментарием (закомментирована)
+Дубли-«дважды» в смысле живых одинаковых правил НЕТ. Демо-стили ограничены `.demo-stage` в index-demo.html (отдельный файл). Секции в styles.css упорядочены по смыслу (проверено чтением).
+**Решение:** не трогать живые 272/1005 — это каскад, а не дубль. Третий блок уже DEPRECATED.
+
+### G-01 Аудит дублей («style — копия.css», «app — копия.js», agents/uni*)
+**Статус:** DONE (в пределах канона). Найдены и помечены DEPRECATED:
+- `uni/webui/css/style — копия.css` (UNI CONSOLE v2.7) — DEPRECATED-шапка, канон = uni/webui/css/style.css
+- `uni/webui/js/app — копия.js` — DEPRECATED-шапка, канон = uni/webui/js/app.js
+- `agents/uni*` — вне канона (уже в .gitignore, не трогаем per инвариант 0.2/зеркало)
+**Пруф:** diff vs канона → файлы отличаются (старые версии), помечены, не удалены.
+
+### G-02 Две desktop-реализации: канон = uni/desktop; в uni/webui/desktop — DEPRECATED-заголовок
+**Статус:** DONE. `uni/webui/desktop/main.js` получил DEPRECATED-шапку (канон = uni/desktop/main.js, который поднят лаунчером). node --check OK.
+**Пруф:** grep канона в launcher.js → `uni/desktop` (electronJs = uni/desktop/node_modules/electron/cli.js). webui/desktop НЕ упоминается в лаунчере.
+
+## Инварианты
+- 0.2: физических удалений НЕТ; всё помечено DEPRECATED, файлы остались.
+- 0.12: classic-рендерер (renderer/canon-design) не тронут.
+
 ## Следующая фаза
-ФАЗА 1 (Роли файлов + legacy: B-01, B-02, G-01, G-02).
+ФАЗА 2 (Визуал: C-01..C-05).

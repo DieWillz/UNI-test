@@ -1,3 +1,14 @@
+/* 🤖 C-01 (2026-08-13): Manrope — ЛОКАЛЬНЫЙ woff2 (без CDN).
+   Скачан один раз (google/fonts), конвертирован TTF->woff2 через fonttools.
+   Fallback: system-ui (если файл недоступен на целевой машине). */
+@font-face {
+  font-family: "Manrope";
+  src: url("../assets/fonts/Manrope.woff2") format("woff2"),
+       url("../assets/fonts/Manrope.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
 :root {
   --bg: #0B1115;
   --shell: 11, 17, 21;
