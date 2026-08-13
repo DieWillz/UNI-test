@@ -1495,11 +1495,12 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/admin/actions":
             if self.client_address[0] not in ("127.0.0.1", "::1"):
                 self._json(403, {"ok": False, "error": "admin API только для 127.0.0.1"}); return
+            from uni.webui.admin_api import _handle_admin_action
             payload = self._read_json_body()
             action = str(payload.get("action") or "").strip()
             params = payload.get("params") or {}
             confirm = bool(payload.get("confirm"))
-            log_message(f"[admin-actions] action={action} confirm={confirm}")
+            self.log_message(f"[admin-actions] action={action} confirm={confirm}")
             # белый список
             DANGEROUS = {"stop_stack", "run_packaging", "restart_webui"}
             ALLOWED = DANGEROUS | {
