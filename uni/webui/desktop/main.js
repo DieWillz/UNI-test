@@ -1,3 +1,9 @@
+// 🤖 DEPRECATED (Hermes, 2026-08-13, G-02): ВТОРАЯ реализация desktop-оверлея.
+// КАНОН = uni/desktop/main.js (оно поднято из scripts/launcher.js и содержит
+// весь актуальный функционал: single-instance, VRM-аватар, captureStates,
+// tray «Стоп/Выход», защищённый renderer v4). Этот каталог (uni/webui/desktop)
+// — СТАРАЯ/дублирующая реализация, НЕ используется лаунчером.
+// Не развивать; при необходимости — мержить в uni/desktop. Удалять запрещено (инвариант 0.2).
 // UNI Desktop Companion — Electron main process (Hermes SOLO, 2026-08-11)
 // Прозрачное frameless окно, always-on-top, click-through по альфе, трей, PTT-хоткей.
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require("electron");

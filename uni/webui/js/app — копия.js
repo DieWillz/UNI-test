@@ -1,3 +1,6 @@
+// 🤖 DEPRECATED (Hermes, 2026-08-13, G-01): старая копия логики веб-консоли.
+// Канон = uni/webui/js/app.js. Этот файл НЕ загружается сервером.
+// Удалять запрещено (инвариант 0.2).
 "use strict";
 const $=s=>document.querySelector(s);
 const el=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
