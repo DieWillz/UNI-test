@@ -14,7 +14,7 @@ function showToast(m){const t=$('toast');t.textContent=m;t.classList.add('show')
 function setTheme(v){document.documentElement.setAttribute('data-theme',v);localStorage.setItem('uni_theme',v);$('themeSel').value=v;$('themeBtn').textContent=v==='dark'?'☀ Тема':'🌙 Тема'}
 function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
 function toggleChatPanel(){$('chatPanel').classList.toggle('collapsed')}
-function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='xtoys'){initXtoysFullLayout();toyControlPoll();toyDevicePoll();xtoysSessionPoll();intifacePoll();xtoysPatternPoll();motionPoll();remotePoll()}}
+function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='dashboard')loadStatus();if(v==='xtoys'){initXtoysFullLayout();toyControlPoll();toyDevicePoll();xtoysSessionPoll();intifacePoll();xtoysPatternPoll();motionPoll();remotePoll()}}
 function setStep(n){document.querySelectorAll('.pstep').forEach((el,i)=>{el.classList.remove('active','done');if(n>=0){if(i<n)el.classList.add('done');if(i===n)el.classList.add('active')}})}
 async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||2500);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e}}
 async function pingServers(){
@@ -475,6 +475,35 @@ async function computerStop(){
     compLog(d.stopped ? 'остановлено по команде' : 'нет активного цикла');
     const st = document.getElementById('compStatus'); if(st) st.textContent='остановлено';
   }catch(e){ compLog('ошибка СТОП: ' + e.message, 'err'); }
+}
+
+// 🤖 Интеграция статуса (вместо удалённого admin-status.html)
+async function loadStatus(){
+  const el = document.getElementById('statusCards'); if(!el) return;
+  try{
+    const r = await fetch('/api/uni/status'); const d = await r.json();
+    const items = [
+      ['LLM (llama)', d.llama && d.llama.running, d.llama && d.llama.model ? 'model: ' + d.llama.model.split('\\').pop() : 'port ' + (d.llama && d.llama.port)],
+      ['WebUI', d.webui && d.webui.running, d.webui && d.webui.port ? 'port ' + d.webui.port : 'off'],
+      ['Desktop (оверлей)', d.desktop && d.desktop.running, d.desktop && d.desktop.pid ? 'pid ' + d.desktop.pid : 'off'],
+      ['LM Studio', d.lmstudio && d.lmstudio.reachable, d.lmstudio && d.lmstudio.reachable ? 'reachable' : 'off']
+    ];
+    el.innerHTML = items.map(([n, ok, sub]) => '<div class="stat-card"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || '') + '</p></div></div>').join('');
+  }catch(e){
+    el.innerHTML = '<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/uni/status недоступен</p></div></div>';
+  }
+}
+async function restartLlama(){
+  const m = document.getElementById('statusMsg'); if(m) m.textContent = 'перезапуск LLM…';
+  try{ const r = await fetch('/api/admin/restart-llm', {method:'POST'}); const d = await r.json().catch(()=>({})); if(m) m.textContent = d.ok ? 'LLM перезапущен' : 'ошибка: ' + (d.error || r.status); }
+  catch(e){ if(m) m.textContent = 'ошибка: ' + e.message; }
+  setTimeout(loadStatus, 2500);
+}
+async function stopAll(){
+  const m = document.getElementById('statusMsg'); if(m) m.textContent = 'остановка…';
+  try{ const r = await fetch('/api/admin/stop', {method:'POST'}); const d = await r.json().catch(()=>({})); if(m) m.textContent = d.ok ? 'всё остановлено' : 'ошибка: ' + (d.error || r.status); }
+  catch(e){ if(m) m.textContent = 'ошибка: ' + e.message; }
+  setTimeout(loadStatus, 2500);
 }
 
 showToast('UNI Platform v3.3: темы #c4e534/#032121 + авто-детект модели LM Studio');

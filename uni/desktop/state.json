@@ -1,10 +1,17 @@
 {
   "initiative_history": [
-    1786563704.0378842,
-    1786563806.1350684,
-    1786563917.6110249,
-    1786564228.1820595
+    1786598586.2984035,
+    1786598694.727217,
+    1786599768.3174865
   ],
   "autostart": true,
-  "opacity": 0.8
+  "opacity": "0.55",
+  "theme": "dark",
+  "motion": true,
+  "observing": true,
+  "avatar": "png-live",
+  "interface": "v4",
+  "window_x": 1020,
+  "window_y": 150,
+  "transparent_overlay": false
 }

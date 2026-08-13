@@ -1,11 +1,22 @@
 # NOTES — что полезно из hermes-agent/ для Юни (выжимка)
 
-> Папка-источник: `C:\LLM\UNI\agents\uni-hermes\hermes-agent\` — это **исходники
-> самого Hermes Agent** (движка ИИ, которым управляет пользователь), НЕ проекта
-> Юни. Юни живёт в `C:\LLM\UNI\uni`. Файлы здесь — **не готовый код Юни**,
+> Папка-источник: `C:\LLM\UNI\agents\uni-hermes\python-for-check\python-for-check\`
+> (плоская выгрузка Hermes Agent; оригинал `hermes-agent/` переименован).
+> Это **исходники самого Hermes Agent** (движка ИИ), НЕ проекта Юни.
+> Юни живёт в `C:\LLM\UNI\uni`. Файлы здесь — **не готовый код Юни**,
 > а переиспользуемые **паттерны**, очищенные от зависимостей Hermes.
 
-## Прочитанные модули и вердикт
+## Структура папки UNI-reuse-candidates/
+
+- `voice_silence_detect.py`, `tts_sentence_chunker.py`, `audio_env_detect.py`
+  — **самостоятельные выжимки** (без импортов Hermes), готовые к адаптации
+  в `uni/capabilities/speech.py`. См. ниже «Прочитанные модули».
+- `hermes-ref/` — **оригинальные исходники Hermes** (референс, НЕ копировать
+  в Юни). 11 файлов по запросу пользователя + `README.md` с аннотациями.
+  См. `hermes-ref/README.md`.
+- `NOTES.md` (этот файл), `HERMES_ANALYSIS.md` — моё заключение.
+
+## Прочитанные модули и вердикт (из ранней выжимки)
 
 ### tools/voice_mode.py (2308 строк) — ПОЛЕЗНО (высокая)
 - Push-to-talk: запись sounddevice → WAV, STT-диспетчер, TTS-проигрывание.

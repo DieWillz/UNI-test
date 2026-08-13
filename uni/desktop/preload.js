@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("uni", {
   observeTick: () => ipcRenderer.invoke("observe-tick"),
   // запрос bounds/visible (F-03)
   getBounds: () => ipcRenderer.invoke("get-bounds"),
+  moveWindow: (x, y) => ipcRenderer.invoke("move-window", x, y),
   isVisible: () => ipcRenderer.invoke("is-visible"),
   // сохранить состояние (позиция и т.п.)
   saveState: (obj) => ipcRenderer.invoke("save-state", obj),

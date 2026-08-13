@@ -14,14 +14,16 @@
     </div>
 
     <header class="widget-header">
-      <div class="brand"><img class="brand-logo" src="../../webui/img/logo.png" alt="Юни"><span class="brand-mark">U</span><b>Юни</b></div>
+      <div class="brand" aria-label="Юни"><img class="brand-logo" src="../assets/logo-U-transparent.png" alt="Юни"><b>Юни</b></div>
       <button id="statusButton" class="live-status" aria-haspopup="true" aria-expanded="false"><i></i><span id="headerStatus">Выполняю</span></button>
       <nav class="header-actions" aria-label="Быстрые действия">
-        <button id="micButton" class="icon-button mic-icon" title="Голосовой ввод" aria-label="Голосовой ввод">●</button>
-        <button id="visionButton" class="icon-button active" title="Наблюдение экрана" aria-label="Наблюдение экрана">◉</button>
-        <button id="stopButton" class="stop-button">STOP</button>
-        <button id="settingsButton" class="icon-button" title="Настройки" aria-label="Настройки">⚙</button>
-        <button id="minimizeButton" class="icon-button" title="Свернуть" aria-label="Свернуть">−</button>
+        <button id="micButton" class="icon-button" title="Голосовой ввод" aria-label="Голосовой ввод"><img src="../assets/icons/mic-svgrepo-com.svg" alt=""></button>
+        <button id="visionButton" class="icon-button vision-icon active" title="Наблюдение экрана" aria-label="Наблюдение экрана"><img src="../assets/icons/eye-2-svgrepo-com.svg" alt=""></button>
+        <button id="cameraButton" class="icon-button camera-icon active" title="Камера включена" aria-label="Камера"><img src="../assets/icons/computer-camera-svgrepo-com.svg" alt=""></button>
+        <button id="overlayButton" class="icon-button overlay-icon" title="Прозрачный режим" aria-label="Прозрачный режим"><img src="../assets/icons/ghost-svgrepo-com.svg" alt=""></button>
+        <button id="stopButton" class="icon-button stop-icon" title="Остановить задачу" aria-label="Остановить задачу"><img src="../assets/icons/stop-circle-svgrepo-com.svg" alt=""></button>
+        <button id="settingsButton" class="icon-button settings-icon" title="Настройки" aria-label="Настройки"><img src="../assets/icons/settings-3-svgrepo-com.svg" alt=""></button>
+        <button id="minimizeButton" class="icon-button minimize-button" title="Развернуть окно" aria-label="Развернуть окно"><img src="../assets/icons/fullscreen-2-svgrepo-com.svg" alt=""></button>
       </nav>
     </header>
 
@@ -44,6 +46,8 @@
             <button class="chip" data-q="Что на экране">Что на экране</button>
           </div>
         </div>
+        <!-- Чат-тред: пузыри пользователя и Юни -->
+        <div id="chatThread" class="chat-thread"></div>
         <!-- чат и карточка задачи рендерятся динамически из app.js -->
         <article class="task-card" id="quickTaskCard" style="display:none">
           <div class="card-title"><b id="quickTaskTitle">Задача</b><button class="collapse-button" data-collapse="quickSteps">⌃</button></div>
@@ -73,9 +77,9 @@
     </div>
 
     <footer class="composer">
-      <button id="attachButton" class="attach-button" aria-label="Прикрепить" title="Прикрепить файл">⌕</button>
+      <button id="attachButton" class="attach-button" aria-label="Прикрепить" title="Прикрепить файл"><img src="../assets/icons/attachment-2-svgrepo-com.svg" alt=""></button>
       <textarea id="messageInput" rows="1" placeholder="Напиши Юни…"></textarea>
-      <button id="composerMic" class="composer-mic mic-icon" aria-label="Голосовой ввод">●</button>
+      <button id="composerMic" class="composer-mic" aria-label="Голосовой ввод"><img src="../assets/icons/mic-svgrepo-com.svg" alt=""></button>
       <i id="connectionDot" class="connection-dot" title="Связь с сервером"></i>
       <button id="sendButton" class="send-button" aria-label="Отправить">➤</button>
     </footer>

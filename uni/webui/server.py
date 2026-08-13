@@ -1088,20 +1088,6 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"camera preview missing", "text/plain")
             return
-        if parsed.path in ("/admin-status", "/admin-status.html"):
-            page = _HERE / "admin-status.html"
-            if page.is_file():
-                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
-            else:
-                self._send(404, b"admin-status missing", "text/plain")
-            return
-        if parsed.path in ("/admin-status.js",):
-            js = _HERE / "admin-status.js"
-            if js.is_file():
-                self._send_file_with_cache(js, "application/javascript; charset=utf-8", no_cache=True)
-            else:
-                self._send(404, b"missing", "text/plain")
-            return
         if parsed.path in ("/v3", "/v3/"):
             # R-01: админка v3 (отдельный SPA в uni/webui/v3/)
             page = _HERE / "v3" / "index.html"

@@ -11,17 +11,39 @@ const widget = $('#uniWidget');
 const avatar = $('#avatar');
 const toast = $('#toast');
 
-// Прозрачная область пропускает мышь, сама панель всегда принимает клики.
-if (window.uni?.hitTest) {
-  document.addEventListener('mousemove', (event) => {
-    window.uni.hitTest(Boolean(event.target.closest('#uniWidget')));
-  });
-  document.addEventListener('mouseleave', () => window.uni.hitTest(false));
-  window.uni.hitTest(true);
+// Only actual UI surfaces capture the mouse. Empty overlay space passes clicks
+// to the browser/desktop behind the transparent Electron window.
+function updateHitTest(event) {
+  const target = event?.target;
+  const interactive = Boolean(target?.closest?.(
+    '.widget-header, button, textarea, input, select, details, .message, .ui-card, .task-card, .result-card, .mission-card, .approval-card, .chip'
+  ));
+  window.uni?.hitTest?.(interactive);
 }
+document.addEventListener('mousemove', updateHitTest, { passive: true });
+document.addEventListener('mouseenter', updateHitTest, { passive: true });
+document.addEventListener('mouseleave', () => window.uni?.hitTest?.(false), { passive: true });
+window.uni?.hitTest?.(false);
 
 // Базовый URL backend (WebUI на 8787). Electron loadFile → file://, нужен абсолютный URL.
 const API = 'http://127.0.0.1:8787';
+
+// Native drag-region is retained, with an explicit fallback for transparent
+// frameless windows where Chromium may not start a drag reliably.
+const dragHeader = document.querySelector('.widget-header');
+let dragStart = null;
+dragHeader?.addEventListener('pointerdown', async (e) => {
+  if (e.button !== 0 || e.target.closest('button')) return;
+  const b = await window.uni?.getBounds?.();
+  if (!b) return;
+  dragStart = { x: e.screenX, y: e.screenY, wx: b.x, wy: b.y };
+  dragHeader.setPointerCapture?.(e.pointerId);
+});
+dragHeader?.addEventListener('pointermove', (e) => {
+  if (!dragStart || !e.buttons) return;
+  window.uni?.moveWindow?.(dragStart.wx + e.screenX - dragStart.x, dragStart.wy + e.screenY - dragStart.y);
+});
+dragHeader?.addEventListener('pointerup', () => { dragStart = null; });
 
 const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
@@ -412,9 +434,16 @@ function addBubble(text, who) {
   const el = document.createElement('div');
   el.className = 'message' + (who === 'user' ? ' user' : '');
   el.textContent = text;            // только текст — сырой JSON в UI запрещён
-  const panel = state.mode === 'mission' ? $('#missionMode') : $('#quickMode');
-  panel.insertBefore(el, panel.querySelector(':scope > .action-strip, :scope > .mission-card, :scope > .result-card') || null);
-  panel.scrollTop = panel.scrollHeight;
+  const thread = $('#chatThread');
+  if (thread) {
+    thread.appendChild(el);
+    thread.scrollTop = thread.scrollHeight;
+  } else {
+    // fallback для mission mode или если thread не найден
+    const panel = state.mode === 'mission' ? $('#missionMode') : $('#quickMode');
+    panel.insertBefore(el, panel.querySelector(':scope > .action-strip, :scope > .mission-card, :scope > .result-card') || null);
+    panel.scrollTop = panel.scrollHeight;
+  }
 }
 
 // поллинг ui_events по task_id (Директива §3 — для долгих задач)
@@ -437,6 +466,7 @@ async function send() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
+  autoGrowInput();
   addBubble(text, 'user');
   hideEmptyChat();
   setStatus('Обрабатываю', 'working');
@@ -456,12 +486,15 @@ async function send() {
     if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); setAction('error', 'Ошибка выполнения'); setStatus('Ошибка', 'waiting'); return; }
     const data = await r.json();
     const reply = (data && (data.reply || data.text || data.message || data.response)) || '';
-    if (reply) addBubble(reply, 'uni');
+    // When the backend supplies structured UI events, the reply is represented
+    // by the rendered card. Adding it as a second bubble caused duplicated chat.
+    const hasUi = Array.isArray(data.ui_events) || data.ui_event || data.task_id;
+    if (reply && !hasUi) renderGenericMessage(reply);
     // универсальный контракт: backend присылает ui_events (или task_id для поллинга)
     if (Array.isArray(data.ui_events)) data.ui_events.forEach(applyUiEvent);
     else if (data.ui_event) applyUiEvent(data.ui_event);
     else if (data.task_id) pollTask(data.task_id);
-    else renderGenericMessage(reply || data.text || '');
+    else if (!reply) renderGenericMessage(data.text || '');
     if (data && data.audio_url) { try { new Audio(`${API}${data.audio_url}`).play(); } catch (e) {} }
     if (!data || (!data.ui_events && !data.task_id)) setStatus('Готово', 'done');
   } catch (e) {
@@ -470,6 +503,21 @@ async function send() {
     setStatus('Ошибка', 'waiting');
   }
 }
+
+function autoGrowInput() {
+  const input = $('#messageInput');
+  if (!input) return;
+  input.style.height = 'auto';
+  const max = Math.min(150, Math.max(42, input.scrollHeight));
+  input.style.height = `${max}px`;
+  input.style.overflowY = input.scrollHeight > max ? 'auto' : 'hidden';
+  const footer = document.querySelector('.composer');
+  const base = state.mode === 'mission' ? 368 : 500;
+  const extra = Math.max(0, max - 42);
+  if (footer) footer.style.height = `${58 + extra}px`;
+  if (widget) widget.style.height = `${base + extra}px`;
+}
+$('#messageInput').addEventListener('input', autoGrowInput);
 function renderGenericMessage(text) {
   if (!text) return;
   const card = makeCard();
@@ -493,6 +541,7 @@ async function pollStatus() {
     const healthy = s.llama && s.llama.running && s.webui && s.webui.running;
     const key = !healthy ? 'err' : (state.stopped ? 'busy' : 'ok');
     const m = STATUS_MAP[key];
+    if (!healthy) hideReadyBubble();
     if (!state.busy && state.avatar !== 'done' && state.avatar !== 'waiting') $('#headerStatus').textContent = state.stopped ? 'Остановлена' : m.text;
     const dot = $('.live-status i');
     if (dot) { dot.style.background = key === 'err' ? 'var(--stop)' : (key === 'ok' ? 'var(--accent)' : 'var(--amber)'); }
@@ -512,6 +561,26 @@ async function pollStatus() {
     $('#connectionDot')?.classList.add('offline');
   }
 }
+async function restoreAppearance() {
+  try {
+    const saved = await window.uni?.loadState?.();
+    if (!saved) return;
+    const theme = saved.theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.setProperty('--opacity', String(Math.min(1, Math.max(.55, Number(saved.opacity) || .72))));
+    document.documentElement.style.setProperty('--shell', theme === 'light' ? '235,240,238' : '11,17,21');
+    document.documentElement.style.setProperty('--text', theme === 'light' ? '#18201c' : '#f2f4ef');
+    document.documentElement.style.setProperty('--muted', theme === 'light' ? '#68736e' : '#8d989a');
+    if ($('#opacityInput')) $('#opacityInput').value = Math.round(Number(saved.opacity || .72) * 100);
+    if ($('#motionInput')) $('#motionInput').checked = saved.motion !== false;
+    if (saved.transparent_overlay) {
+      document.body.classList.add('transparent-overlay');
+      $('#overlayButton')?.classList.add('active');
+    }
+    if ($('#themeButton')) $('#themeButton').textContent = theme === 'light' ? '☀ Светлая' : '☾ Тёмная';
+  } catch (e) { window.uni?.log?.('restore appearance failed', e.message); }
+}
+restoreAppearance();
 setInterval(pollStatus, 3000); pollStatus();
 initEmptyChat();
 
@@ -542,6 +611,25 @@ $('#visionButton').onclick = async () => {
   notify(state.observing ? 'Наблюдение включено' : 'Наблюдение выключено');
   persist();
 };
+$('#cameraButton').onclick = () => {
+  const button = $('#cameraButton');
+  const active = !button.classList.contains('active');
+  button.classList.toggle('active', active);
+  button.querySelector('img').src = active
+    ? '../assets/icons/computer-camera-svgrepo-com.svg'
+    : '../assets/icons/computer-camera-off-svgrepo-com.svg';
+  button.title = active ? 'Камера включена' : 'Камера выключена';
+  notify(active ? 'Камера включена' : 'Камера выключена');
+};
+$('#overlayButton').onclick = () => {
+  const active = !document.body.classList.contains('transparent-overlay');
+  document.body.classList.toggle('transparent-overlay', active);
+  $('#overlayButton').classList.toggle('active', active);
+  $('#overlayButton').title = active ? 'Обычный режим' : 'Прозрачный режим';
+  $('#overlayButton').setAttribute('aria-label', $('#overlayButton').title);
+  persist();
+  notify(active ? 'Прозрачный режим включён' : 'Обычный режим включён');
+};
 
 // ---------- микрофон PTT (P0): /api/stt — try/finally для треков (Директива §5.5) ----------
 let mediaRecorder = null, micChunks = [];
@@ -565,7 +653,7 @@ async function toggleListening() {
           const r = await fetch(`${API}/api/stt`, { method: 'POST',
             headers: { 'Content-Type': 'audio/webm' }, body: buf });
           const d = await r.json();
-          if (d && d.text) { $('#messageInput').value = d.text; notify('Распознано: ' + d.text); }
+          if (d && d.text) { $('#messageInput').value = d.text; autoGrowInput(); $('#messageInput').focus(); notify('Распознано: ' + d.text); }
           else if (r.status === 501) notify('STT недоступен (Whisper не установлен)');
         } catch (e) { notify('STT недоступен'); }
       };
@@ -589,7 +677,11 @@ $('#composerMic').onclick = toggleListening;
 $('#minimizeButton').onclick = () => {
   state.minimized = !state.minimized;
   widget.classList.toggle('minimized', state.minimized);
-  $('#minimizeButton').textContent = state.minimized ? '□' : '−';
+  const button = $('#minimizeButton');
+  const image = button.querySelector('img');
+  button.title = state.minimized ? 'Развернуть окно' : 'Свернуть окно';
+  button.setAttribute('aria-label', button.title);
+  image.src = state.minimized ? '../assets/icons/fullscreen-2-svgrepo-com.svg' : '../assets/icons/fullscreen-exit-2-svgrepo-com.svg';
   setAvatar(state.minimized ? 'idle' : 'working');
 };
 
@@ -608,6 +700,7 @@ function persist() {
       theme: document.documentElement.dataset.theme,
       opacity: getComputedStyle(document.documentElement).getPropertyValue('--opacity').trim(),
       motion: !document.body.classList.contains('no-motion'),
+      transparent_overlay: document.body.classList.contains('transparent-overlay'),
       observing: state.observing, avatar: 'png-live', interface: 'v4',
     });
   }
@@ -643,12 +736,15 @@ function greetingByTime() {
 }
 function hideEmptyChat() { $('#emptyChat')?.classList.add('hidden'); }
 function showReadyBubble(text) {
+  if ($('#headerStatus')?.textContent === 'Ошибка') return;
   const strip = state.mode === 'mission' ? $('#missionActionStrip') : $('#quickActionStrip');
   if (strip) strip.style.display = 'none';
   let b = $('#readyBubble');
   if (!b) {
     b = document.createElement('div'); b.id = 'readyBubble'; b.className = 'ready-bubble';
-    (state.mode === 'mission' ? $('#missionMode') : $('#quickMode')).append(b);
+    const thread = $('#chatThread');
+    if (thread) thread.appendChild(b);
+    else (state.mode === 'mission' ? $('#missionMode') : $('#quickMode')).append(b);
   }
   b.textContent = text || 'Юни готова';
   b.style.display = '';

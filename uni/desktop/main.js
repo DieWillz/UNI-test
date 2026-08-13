@@ -66,14 +66,18 @@ function placeAtBottomRight(w) {
     const sf = disp.scaleFactor;
     const wa = disp.workArea;            // зона без панели задач (DIP)
     const [bw, bh] = w.getSize();         // логический размер окна (DIP)
-    const x = wa.x + wa.width - bw - 12;
-    const y = wa.y + wa.height - bh - 12;
-    w.setPosition(Math.round(x), Math.round(y));
+    const saved = loadState();
+    const hasSaved = Number.isFinite(Number(saved.window_x)) && Number.isFinite(Number(saved.window_y));
+    const x = hasSaved ? Number(saved.window_x) : wa.x + wa.width - bw - 12;
+    const y = hasSaved ? Number(saved.window_y) : wa.y + wa.height - bh - 12;
+    const safeX = Math.max(wa.x, Math.min(x, wa.x + wa.width - bw));
+    const safeY = Math.max(wa.y, Math.min(y, wa.y + wa.height - bh));
+    w.setPosition(Math.round(safeX), Math.round(safeY));
     const final = w.getBounds();
     log("placeAtBottomRight: DPI scale=" + sf,
         "| workArea=" + JSON.stringify(wa),
         "| winSize=" + bw + "x" + bh,
-        "| set->", Math.round(x), Math.round(y),
+        "| set->", Math.round(safeX), Math.round(safeY),
         "| final=" + JSON.stringify(final));
     return { x: Math.round(x), y: Math.round(y), scale: sf, bounds: wa, final };
   } catch (e) { log("placeAtBottomRight error", e.message); return null; }
@@ -133,7 +137,7 @@ function createWindow() {
     width: 336, height: 660, minWidth: 300, minHeight: 360, maxWidth: 520, maxHeight: 720,
     transparent: true, frame: false, hasShadow: false,
     skipTaskbar: true, alwaysOnTop: true, resizable: true,
-    icon: path.join(__dirname, "..", "..", "uni.ico"),
+    icon: path.join(__dirname, "uni.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true, nodeIntegration: false,
@@ -238,6 +242,19 @@ function createWindow() {
   ipcMain.handle("save-state", (_e, obj) => saveState(obj));
   ipcMain.handle("load-state", () => loadState());
   ipcMain.handle("get-bounds", () => (win && !win.isDestroyed()) ? win.getBounds() : null);
+  ipcMain.handle("move-window", (_e, x, y) => {
+    if (!win || win.isDestroyed()) return false;
+    const b = win.getBounds();
+    const display = screen.getDisplayNearestPoint({ x: Number(x) || b.x, y: Number(y) || b.y });
+    const wa = display.workArea;
+    // Permit intentional overlap with the taskbar/tray area; keep only a
+    // small reachable part of the window on-screen.
+    const nx = Math.round(Number(x) || b.x);
+    const ny = Math.round(Number(y) || b.y);
+    win.setPosition(nx, ny);
+    saveState({ window_x: nx, window_y: ny });
+    return true;
+  });
   ipcMain.handle("is-visible", () => (win && !win.isDestroyed()) ? win.isVisible() : false);
   // 🤖 Единая точка входа (2026-08-13, §4): сменить вариант интерфейса
   ipcMain.handle("set-ui-variant", (_e, variant) => {

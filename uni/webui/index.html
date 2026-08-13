@@ -27,11 +27,16 @@
 <div class="nav-label">Основное</div>
 <button class="nav-item active" onclick="showView('dashboard',this)"><span class="ni">🏠</span> Обзор</button>
 <button class="nav-item" onclick="showView('participants',this)"><span class="ni">👥</span> Участники</button>
-<button class="nav-item" onclick="showView('qwen',this)"><span class="ni">🎛</span> Пульт QWN</button>
+<div class="nav-group">
+<button class="nav-item" onclick="showView('qwen',this)"><span class="ni">📡</span> Передача данных</button>
+<div style="margin-left:16px;border-left:1px solid var(--border);padding-left:4px">
+<button class="nav-item" style="font-size:11px;padding:5px 12px" onclick="showView('qwen',this)">🎛 Пульт QWN</button>
+<button class="nav-item" style="font-size:11px;padding:5px 12px" onclick="showView('bridge',this)">📁 Файловый мост</button>
+<button class="nav-item" style="font-size:11px;padding:5px 12px" onclick="showView('logs',this)">📜 Логи сервера</button>
+</div>
+</div>
 <button class="nav-item" onclick="showView('browser',this)"><span class="ni">🌐</span> Браузер</button>
 <button class="nav-item" onclick="showView('xtoys',this)"><span class="ni">🔌</span> Dorch <span class="badge-new">L4</span></button>
-<button class="nav-item" onclick="showView('bridge',this)"><span class="ni">📁</span> Файловый мост</button>
-<button class="nav-item" onclick="showView('logs',this)"><span class="ni">📜</span> Логи сервера</button>
 <button class="nav-item" onclick="showView('settings',this)"><span class="ni">⚙</span> Настройки</button>
 <div class="nav-label">Данные</div>
 <button class="nav-item" onclick="showView('tasks',this)"><span class="ni">📋</span> Задачи и процессы</button>
@@ -53,6 +58,7 @@
 <div class="stat-card"><div class="stat-icon">🔄</div><div class="stat-info"><h4>Консенсус</h4><h2 id="stConsensus">OFF</h2><p>ручной режим</p></div></div>
 <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-info"><h4>Задержка</h4><h2 id="stLatency">—</h2><p id="stLatencySub">проверка серверов</p></div></div>
 </div>
+<div class="card"><div class="ch">📡 Статус компонентов <button class="tbtn" style="padding:2px 7px;font-size:10px" onclick="loadStatus()">🔄</button></div><div class="cb"><div class="stats-grid" id="statusCards" style="margin-bottom:10px">загрузка…</div><div class="bar" style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn primary" onclick="restartLlama()">🔄 Перезапустить LLM</button><button class="tbtn danger" onclick="stopAll()">⏹ Остановить всё</button><span id="statusMsg" style="color:var(--text3);font-size:11px"></span></div></div></div>
 <div style="display:grid;grid-template-columns:330px 1fr;gap:10px">
 <div class="card"><div class="ch">Участники ИИ <button class="tbtn" style="padding:2px 7px;font-size:10px" onclick="runRollCall()">🔄</button></div><div class="cb ptable"><div class="prow header"><div>Агент</div><div>Статус</div><div>Режим</div><div>Источник</div></div><div id="partList"><div class="prow"><div class="ag-name">загрузка…</div></div></div></div></div>
 <div class="card"><div class="ch">Автоматизация и процессы</div><div class="cb" style="display:flex;flex-direction:column;gap:10px">
@@ -79,6 +85,7 @@
 <div class="card"><div class="ch">📋 Заметки координатора</div><div class="cb board-notes" id="boardNotes">загрузка…</div></div>
 </div>
 </div>
+
 <div class="view-wrap" id="view-participants"><div class="card"><div class="ch">👥 Все участники (live по heartbeat) <button class="tbtn" style="padding:2px 7px;font-size:10px" onclick="runRollCall()">🔄 Обновить</button></div><div class="cb ptable"><div class="prow header"><div>Агент</div><div>Статус</div><div>Транспорт</div><div>Источник / последняя активность</div></div><div id="partListFull">загрузка…</div></div></div></div>
 <div class="view-wrap" id="view-qwen"><div class="qwen-grid">
 <div class="qw-card"><div class="qw-h">Участники</div><div id="qwParts">…</div><div class="qw-h">Автоматизация</div><div id="qwAuto">…</div><div class="qw-h">Сервер 8000</div><div class="qw-row"><span>Статус</span><span id="qwSrv" class="qw-warn">…</span></div></div>

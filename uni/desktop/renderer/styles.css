@@ -1,13 +1,15 @@
 :root {
+  --bg: #0B1115;
   --shell: 11, 17, 21;
   --layer: #172026;
   --layer-2: #202a30;
   --text: #f2f4ef;
   --muted: #8d989a;
   --accent: #b8e61d;
-  --amber: #e7a92f;
-  --stop: #f04444;
+  --warning: #e7a92f;
+  --danger: #f04444;
   --opacity: .72;
+  --blur: 24px;
   --radius: 20px;
   --shadow: 0 16px 48px rgba(0, 0, 0, .24)
 }
@@ -165,12 +167,12 @@ body { background: transparent; user-select: none }
   right: 28px;
   bottom: 72px;
   width: 336px;
-  background: linear-gradient(145deg, rgba(20, 30, 36, .86), rgba(var(--shell), var(--opacity)));
+  background: linear-gradient(145deg, rgba(var(--shell), calc(var(--opacity) * 0.95)), rgba(var(--shell), var(--opacity)));
   border: 1px solid rgba(255, 255, 255, .13);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(24px) saturate(120%);
-  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
   z-index: 5;
   transition: height .35s ease, opacity .25s, transform .3s;
   overflow: visible;
@@ -195,7 +197,8 @@ body { background: transparent; user-select: none }
   border-bottom: 1px solid rgba(255, 255, 255, .09);
   position: relative;
   z-index: 4;
-  -webkit-app-region: drag
+  /* dragging is handled explicitly in app.js for transparent Windows windows */
+  -webkit-app-region: no-drag
 }
 
 .widget-header button { -webkit-app-region: no-drag }
@@ -205,6 +208,8 @@ body { background: transparent; user-select: none }
   align-items: center;
   gap: 7px
 }
+
+.brand-logo { width: 29px; height: 29px; object-fit: contain; border-radius: 5px; margin: 0; }
 
 .brand-mark {
   font-size: 26px;
@@ -225,7 +230,8 @@ body { background: transparent; user-select: none }
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: 12px;
+  margin-left: auto;
+  flex: 0 1 auto;
   padding: 4px;
   cursor: pointer;
   white-space: nowrap;
@@ -241,7 +247,7 @@ body { background: transparent; user-select: none }
 }
 
 .header-actions {
-  margin-left: auto;
+  margin-left: 8px;
   display: flex;
   gap: 3px;
   align-items: center
@@ -265,14 +271,19 @@ body { background: transparent; user-select: none }
 
 .stop-button {
   height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--stop);
-  color: #ff7777;
-  background: rgba(240, 68, 68, .06);
+  padding: 0 9px;
+  border: 1px solid rgba(242,244,239,.32);
+  color: var(--text);
+  background: rgba(255,255,255,.06);
   border-radius: 8px;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer
+}
+
+.stop-button:hover {
+  background: rgba(255,255,255,.12);
+  border-color: var(--accent);
 }
 
 .stop-button:disabled {
@@ -291,6 +302,14 @@ body { background: transparent; user-select: none }
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #465158 transparent
+}
+
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+  min-height: 60px;
 }
 
 .message {
@@ -589,26 +608,35 @@ body { background: transparent; user-select: none }
 }
 
 .composer {
-  height: 54px;
+  height: 58px;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 7px 8px;
-  border-top: 1px solid rgba(255, 255, 255, .08)
+  padding: 8px 10px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(11,17,21,.12)
 }
 
 .composer textarea {
+  min-height: 39px;
   height: 39px;
+  max-height: 150px;
   flex: 1;
   resize: none;
   border: 1px solid rgba(255, 255, 255, .09);
-  border-radius: 11px;
-  background: rgba(0, 0, 0, .2);
+  border-radius: 20px;
+  background: rgba(12,20,25,.34);
   color: var(--text);
-  padding: 10px 34px 8px 10px;
+  padding: 10px 42px 8px 14px;
   outline: none;
-  user-select: text
+  user-select: text;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(184,230,29,.75) rgba(255,255,255,.06)
 }
+.composer textarea::-webkit-scrollbar { width: 6px; }
+.composer textarea::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
+.composer textarea::-webkit-scrollbar-thumb { background: rgba(184,230,29,.72); border-radius: 8px; }
 
 .composer textarea:focus {
   border-color: rgba(184, 230, 29, .35)
@@ -624,12 +652,13 @@ body { background: transparent; user-select: none }
   font-size: 16px
 }
 
-.composer-mic {
-  margin-left: -39px
-}
+.composer-mic { margin-left: -43px; z-index: 2; border-radius: 50%; }
 
 .attach-button { transform: rotate(-38deg); cursor: pointer }
 .mic-icon { position: relative; font-size: 0 }
+.mic-icon::before, .mic-icon::after { display: none; }
+.mic-icon img { width: 22px; height: 22px; object-fit: contain; filter: invert(92%) sepia(7%) saturate(180%) hue-rotate(94deg) brightness(96%); }
+.mic-icon.active img { filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%); }
 .mic-icon::before { content: ""; display: block; width: 7px; height: 13px; margin: auto; border: 1.5px solid currentColor; border-radius: 6px }
 .mic-icon::after { content: ""; position: absolute; width: 12px; height: 8px; left: 50%; top: 13px; transform: translateX(-50%); border: 1.5px solid currentColor; border-top: 0; border-radius: 0 0 8px 8px }
 .connection-dot { width: 7px; height: 7px; margin-left: -13px; margin-right: 5px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 7px currentColor; z-index: 2 }
@@ -637,26 +666,51 @@ body { background: transparent; user-select: none }
 .connection-dot.offline { background: var(--stop) }
 
 .send-button {
-  width: 43px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
   box-shadow: 0 5px 16px rgba(184, 230, 29, .16);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   color: #0b1115;
   display: grid;
   place-items: center
 }
 
+/* Unified mini icon system: all toolbar/composer assets are SVGs from one folder. */
+.icon-button img, .attach-button img, .composer-mic img, .send-button img {
+  width: 17px;
+  height: 17px;
+  display: block;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(91%) sepia(8%) saturate(180%) hue-rotate(94deg) brightness(96%);
+}
+.icon-button.active img, .icon-button:hover img, .composer-mic.active img, .send-button:hover img {
+  filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%);
+}
+.header-actions .icon-button img { width: 16px; height: 16px; }
+.stop-button img { width: 18px; height: 18px; filter: brightness(0) saturate(100%) invert(91%) sepia(8%) saturate(180%) hue-rotate(94deg) brightness(96%); }
+.attach-button img { width: 18px; height: 18px; }
+.composer-mic img { width: 18px; height: 18px; }
+.minimize-button img { width: 16px; height: 16px; }
+.camera-icon img, .vision-icon img { width: 16px; height: 16px; }
+.camera-icon:not(.active) img, .vision-icon:not(.active) img { filter: grayscale(1) opacity(.48); }
+.camera-icon.active img, .vision-icon.active img { filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%); }
+.stop-icon { border: 0; background: transparent; color: #e9eeea; }
+.stop-icon:hover { color: var(--accent); background: rgba(184,230,29,.08); }
+.attach-button { transform: none; }
+.stop-icon img { width: 17px; height: 17px; display: block; filter: brightness(0) saturate(100%) invert(91%) sepia(8%) saturate(180%) hue-rotate(94deg) brightness(96%); }
+.stop-button:hover img { filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%); }
+
 .avatar {
   position: absolute;
-  right: 155px;
-  top: -92px;
-  width: 130px;
-  height: 96px;
+  left: 12px;
+  top: -78px;
+  width: 120px;
+  height: 110px;
   z-index: 2;
   pointer-events: none;
   transition: transform .25s
@@ -799,7 +853,7 @@ body { background: transparent; user-select: none }
   width: 100%;
   height: 100%;
   object-fit: contain;
-  max-width: 130px
+  max-width: none
 }
 
 .avatar--working .avatar-img { animation: avatarBreathe 3.2s ease-in-out infinite }
@@ -932,6 +986,62 @@ body.no-motion * {
 
 @keyframes avatarBreathe { 50% { transform: translateX(4px) rotate(.35deg) } }
 
+/* Reference polish: tighter 336px glass widget, legible controls and an avatar
+   that visibly belongs to the window instead of sitting inside the content. */
+.uni-widget {
+  background: linear-gradient(145deg, rgba(23, 32, 38, .88), rgba(var(--shell), var(--opacity)));
+  border-color: rgba(242, 244, 239, .22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .20), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.widget-header { height: 58px; padding: 0 10px; }
+.brand { gap: 7px; min-width: 76px; flex: 0 0 76px; padding-left: 7px; }
+.brand-mark { font-size: 29px; }
+.brand b { font-size: 15px; font-weight: 650; }
+.header-actions { gap: 1px; flex: 0 0 auto; }
+.icon-button { width: 27px; height: 32px; display: grid; place-items: center; color: #e9eeea; padding: 0; }
+.icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button.active, .vision-icon.active { color: var(--accent); }
+.icon-button:hover { color: var(--accent); background: rgba(184,230,29,.08); border-radius: 8px; }
+.stop-button { min-width: 50px; height: 32px; border-radius: 8px; letter-spacing: .03em; font-weight: 700; padding: 0 7px; }
+.minimize-button { font-size: 22px; line-height: 1; }
+.widget-content { padding: 10px 12px 8px; }
+.message { font-size: 12px; line-height: 1.4; padding: 9px 11px; }
+.task-card, .result-card, .mission-card, .ui-card { border-radius: 14px; }
+.card-title, .ui-card-title { font-size: 12px; }
+.step { font-size: 12px; gap: 8px; }
+.step i { flex: 0 0 10px; }
+.progress { height: 4px; }
+.action-strip { min-height: 38px; font-size: 11px; padding: 8px 10px; }
+.result-card p { font-size: 11px; line-height: 1.35; }
+.dog { height: 58px; border: 1px solid rgba(255,255,255,.12); }
+.composer { height: 58px; padding: 8px 9px; gap: 5px; }
+.composer textarea { height: 42px; border-radius: 12px; font-size: 12px; }
+.send-button { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; }
+.attach-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.avatar { top: -92px; bottom: auto; right: 18px; width: 300px; z-index: 6; pointer-events: none; filter: drop-shadow(0 5px 9px rgba(0,0,0,.20)); }
+.avatar-img { width: 100%; }
+.avatar--working .avatar-img { animation: avatarBreathe 3.2s ease-in-out infinite; }
+.uni-widget.mode-mission .avatar { top: -80px; right: 10px; width: 285px; }
+.mode-panel { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+.quick-panel, .mission-panel { padding-top: 2px; }
+.settings-popover { border-color: rgba(184,230,29,.28); box-shadow: 0 14px 32px rgba(0,0,0,.35); }
+.toast { border: 1px solid rgba(184,230,29,.3); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+
+/* Light mode is a real alternate surface, not only a text-color swap. */
+html[data-theme="light"] body { color: #182126; }
+html[data-theme="light"] .uni-widget {
+  background: linear-gradient(145deg, rgba(248,250,251,.88), rgba(230,237,239,var(--opacity)));
+  border-color: rgba(24,33,38,.22);
+  box-shadow: 0 16px 48px rgba(20,35,45,.22), inset 0 1px 0 rgba(255,255,255,.8);
+}
+html[data-theme="light"] .widget-header { border-bottom-color: rgba(24,33,38,.12); }
+html[data-theme="light"] .icon-button, html[data-theme="light"] .attach-button, html[data-theme="light"] .composer-mic { color: #354147; }
+html[data-theme="light"] .stop-button { color: #182126; border-color: rgba(24,33,38,.3); background: rgba(255,255,255,.38); }
+html[data-theme="light"] .task-card, html[data-theme="light"] .result-card, html[data-theme="light"] .mission-card, html[data-theme="light"] .ui-card, html[data-theme="light"] .action-strip { background: rgba(255,255,255,.44); border-color: rgba(24,33,38,.12); }
+html[data-theme="light"] .composer { border-top-color: rgba(24,33,38,.12); }
+html[data-theme="light"] .composer textarea { background: rgba(255,255,255,.42); border-color: rgba(24,33,38,.16); color: #182126; }
+html[data-theme="light"] .popover { background: rgba(248,250,251,.96); color: #182126; border-color: rgba(24,33,38,.2); }
+
 @media(max-width:380px) {
   .uni-widget { right: 8px; width: calc(100% - 16px) }
   .live-status { margin-left: 6px }
@@ -959,15 +1069,45 @@ body.no-motion * {
   }
 }
 
-/* 🤖 ФИНАЛ (2026-08-13, §3): логотип, нейтральный STOP, пустой чат, чипы */
+/* 🤖 ФИНАЛ (2026-08-13, §3): логотип, пустой чат, чипы — STOP button moved to main section */
 .brand-logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
+  width: 29px;
+  height: 29px;
+  border-radius: 4px;
   object-fit: contain;
   margin-right: 2px
 }
 
+/* Keep every header control visible inside the fixed 336px widget. */
+.live-status { font-size: 10px; gap: 4px; margin-left: auto; padding: 3px 2px; }
+.live-status i { width: 6px; height: 6px; box-shadow: 0 0 0 3px rgba(184,230,29,.09); }
+.header-actions .icon-button { width: 23px; }
+.header-actions .icon-button svg { width: 17px; height: 17px; }
+.header-actions .stop-button { min-width: 47px; padding: 0 5px; font-size: 10px; }
+.header-actions .minimize-button { width: 23px; display: grid; }
+.uni-widget.minimized .avatar { display: none; }
+.uni-widget.minimized .widget-header { border-bottom: 0; }
+
+/* Focus mode: the desktop remains visible through the empty chat surface. */
+body.transparent-overlay .uni-widget,
+body.transparent-overlay .widget-content,
+body.transparent-overlay .composer { background: transparent; }
+body.transparent-overlay .uni-widget { border-color: transparent; box-shadow: none; }
+body.transparent-overlay .widget-content { background: transparent; }
+body.transparent-overlay .message,
+body.transparent-overlay .ui-card,
+body.transparent-overlay .task-card,
+body.transparent-overlay .result-card,
+body.transparent-overlay .mission-card,
+body.transparent-overlay .action-strip { opacity: 1; background: rgba(12,20,25,.86); }
+body.transparent-overlay .empty-chat { opacity: 0; pointer-events: none; }
+body.transparent-overlay .composer { border-top-color: rgba(255,255,255,.12); }
+body.transparent-overlay .uni-widget.minimized { background: transparent; border-color: transparent; box-shadow: none; }
+.overlay-icon.active img { filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%); }
+.overlay-icon img { width: 16px; height: 16px; }
+
+/* 🤖 DEPRECATED: old neutral STOP button style, replaced by reference design (danger accent) */
+/*
 .stop-button {
   height: 28px;
   padding: 0 9px;
@@ -987,6 +1127,7 @@ body.no-motion * {
 .stop-button:disabled {
   opacity: .4
 }
+*/
 
 .empty-chat {
   padding: 14px 4px 10px;
