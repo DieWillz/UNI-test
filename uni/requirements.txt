@@ -19,7 +19,7 @@ openai>=1.0
 # Optional high-expression engines are intentionally separate services:
 # - XTTS-v2: set UNI_XTTS_URL or enter its OpenAI-compatible URL in WebUI.
 # - Fish Audio: set UNI_FISH_TTS_URL/FISH_AUDIO_API_KEY or enter a local URL.
-# pyautogui           # Build 6 — Computer (Nemotron)
-# comtypes            # Build 6 — Windows UI Automation (Nemotron)
-# pillow              # Build 6 — Screenshots (Nemotron)
-# playwright          # Build 7 — Browser (Nemotron)
+pyautogui>=0.9      # Build 6 — Computer (Nemotron)
+comtypes>=1.2       # Build 6 — Windows UI Automation (Nemotron)
+pillow>=10.0        # Build 6 — Screenshots (Nemotron)
+playwright>=1.40    # Build 7 — Browser (Nemotron)

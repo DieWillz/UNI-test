@@ -13,5 +13,5 @@ Hermes берёт по порядку, чинит, помечает `- [x] ис�
 - Лаунчер: `UNI.bat` → `scripts/launcher.js` (hidden-spawn llama+webui+electron, логи → runtime/logs/, pids.json, дедуп по PID и порту, single-instance, трей «Выход»).
 - Бейдж мыши: `uni/action_badge.py` теперь лайм-кольцо #B8E61D + бейдж «Юни».
 - Самотест: `uni/tools/selftest.py` + эндпоинты `/api/selftest`, `/api/demo/mouse`, `/api/desktop/capture`.
-- ui_variant: classic (по умолчанию) / v4, переключение в оверлее (canon-design).
+- ui_variant: v4 (по умолчанию) / classic (legacy), переключение в оверлее (canon-design).
 - ЧЕСТНО: полный end-to-end (двойной клик UNI.bat → ≤60с оверлей «На связи») не прогнан в этом окружении — здесь нет Windows-дисплея/llama-бинаря/electron-рантайма в пути. Код собран и проверен синтаксически (node --check, py_compile); рантайм-пруфы (скриншоты, tasklist/netstat) нужно снять на целевой машине координатора.

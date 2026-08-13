@@ -146,12 +146,13 @@ function createWindow() {
   win.once("ready-to-show", () => {
     placeAtBottomRight(win);   // ставим позицию ДО show (V-03: иначе show фиксирует дефолтную)
     win.show();
+    if (process.env.UNI_DIAG === "1" || process.env.UNI_SELFTEST === "1") {
     setTimeout(async () => {
       try {
         const windows = BrowserWindow.getAllWindows();
         log("DIAG windows count=" + windows.length,
             windows.map((item, index) => `#${index} ${JSON.stringify(item.getBounds())}`).join(" | "));
-        const capturePath = "C:\\LLM\\UNI\\agents\\uni-codex\\outbox\\CAPTURE.png";
+        const capturePath = "C:\\LLM\\UNI\\runtime\\diagnostics\\CAPTURE.png";
         fs.mkdirSync(path.dirname(capturePath), { recursive: true });
         const image = await win.webContents.capturePage();
         fs.writeFileSync(capturePath, image.toPNG());
@@ -172,6 +173,7 @@ function createWindow() {
         log("DIAG DOM", JSON.stringify(dom));
       } catch (e) { log("DIAG capture/DOM error", e && e.stack || e); }
     }, 1500);
+    }
     // DIAGNOSTIC-VISIBLE: пост-показ диагностика
     try {
       const disp = screen.getPrimaryDisplay();

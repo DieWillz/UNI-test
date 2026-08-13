@@ -148,3 +148,10 @@ body_tmp.json
 .h.json
 .r.json
 electron_diag.log
+
+# Runtime state artifacts (added 2026-08-13 by Hermes)
+STOP.txt*
+*.bak
+*.consumed
+.hb.json
+state.json
