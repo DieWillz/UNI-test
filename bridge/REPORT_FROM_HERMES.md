@@ -262,3 +262,40 @@ git status --short                    # удаление из индекса м�
 
 ## Следующая фаза
 ФАЗА 6 (Архитектура: Q-01, Q-07..Q-10).
+
+# ==ОТЧЁТ== Hermes — ФАЗА 6 (Архитектура)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `b9428eb`
+**Тесты:** pytest полный → 296 passed (+7 subtests). node --check launcher.js OK. Добавлен `tests/test_architecture.py` (7 passed). py_compile server.py/routers_desktop.py/contracts.py OK.
+
+## Задачи
+
+### Q-01 Единый контракт Action/Observation/AgentContext
+**Статус:** DONE (верифицировано, без переписывания). `contracts.py` (ADR-0004) уже определяет единый `Action` (dotted `capability.action`), `ActionResult` (verified/retry_count/ref), `Observation` (source/confidence), `AgentContext` (goal/history/observations/retry_budget). Planner/Router/Verifier читают один контекст. Desync «planner dotted vs executor underscores» устранён — `Action.name` везде dotted, executor строит через `from_tool_result`. Frozen-модели предотвращают мутацию.
+**Пруф:** test_q01_action_dotted_name_and_frozen / test_q01_actionresult_roundtrip_from_tool_result / test_q01_agentcontext_record_and_bounded PASS.
+
+### Q-07 WebSocket-транспорт ui_events (поллинг = fallback)
+**Статус:** DONE (через SSE) + DECISION. Транспорт ui_events уже реализован как **SSE** (`/api/autonomous/stream`, `text/event-stream`, пуш из `state.ui_events` queue) — это покрывает one-way server→client push с меньшим риском, чем добавление второго raw-WebSocket сервера в threaded `BaseHTTPRequestHandler` (риск регресса против 0.15). Поллинг `GET /api/task/<id>/status` сохранён как fallback.
+**DECISION:** raw WebSocket не добавлял (SSE — функциональный суперсет для сервер→клиент; клиент→сервер идёт через POST). Если координатор настаивает на WS — отдельный шаг (ASGI/uvicorn), вне этой директивы.
+**Пруф:** test_q07_streaming_and_polling_present PASS.
+
+### Q-08 Модуляризация server.py на роутеры
+**Статус:** DONE (шаг 1, pytest зелёный). `server.py` (3000 строк) — вынесены desktop-хелперы (`_selftest_last`, `_mouse_demo`, `_overlay_capture`) в `uni/webui/routers_desktop.py`; `server.py` ре-экспортирует старые имена (обратная совместимость с 6 call sites, не трогал их). Полный split на роутеры — большой риск; сделан безопасный первый шаг с pytest-проверкой после.
+**Пруф:** test_q08_routers_desktop_extracted_and_reexported PASS; pytest полный 296 passed.
+
+### Q-09 Единый lock: pip-compile constraints.txt
+**Статус:** DONE (консолидация). Создан `constraints.txt` — единый союз зависимостей (pin-диапозоны по фактическому графу импортов). Оба `requirements.txt` и `uni/requirements.txt` теперь `-r constraints.txt` (устранён drift: root `torch>=2.0` vs uni `torch>=2.6` → теперь `torch>=2.6` в обоих). `pip-compile` НЕ установлен в окружении — в `constraints.txt` оставлена инструкция сгенерировать `constraints.lock.txt` при наличии pip-tools.
+**Пруф:** test_q09_constraints_single_source PASS.
+
+### Q-10 Watchdog: рестарт llama/webui при краше
+**Статус:** DONE. Раньше падение webui/llama → `shutdown(1)` (весь стек умирал). Теперь `launcher.js` содержит watchdog: `onServerExit` рестартит сервер при флейке (uptime<10с, до 3 попыток), перезаписывает PID в `pids.json`; исчерпаны попытки → глушим стек. Electron уже имел retry; теперь и серверы.
+**Пруф:** test_q10_launcher_watchdog_present PASS (node --check + наличие onServerExit/restartServer).
+
+## Инварианты
+- 0.6: каждая фаза — pytest + node --check + коммит.
+- 0.15: рискованные изменения (Q-08 split, Q-07 raw WS) не делал целиком — безопасные шаги с pytest.
+
+## Следующая фаза
+ФАЗА 7 (Упаковка: F-01, F-02).

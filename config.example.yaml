@@ -1,0 +1,74 @@
+# UNI — ПРИМЕР конфигурации (config.example.yaml)
+# 🤖 F-01 (2026-08-13): этот файл копируется в dist/ как config.yaml БЕЗ секретов.
+# Реальные секреты (api_key внешних сервисов) НЕ кладутся в dist — пользователь
+# заполняет их сам после первого запуска. uni-local — локальный ключ llama-server,
+# не секрет, но здесь оставлен пустым для чистоты дистрибутива.
+
+brain:
+  base_url: http://localhost:1234/v1
+  llm_provider: embedded
+  embedded_base_url: http://127.0.0.1:1235/v1
+  api_key: ""            # локальный llama-server: "uni-local" (не секрет, но не в dist)
+  model: auto
+  vision_model: ""
+  vision_base_url: null
+  vision_api_key: null
+  temperature: 0.85
+  max_tokens: 2000
+  timeout_seconds: 20.0
+
+capabilities:
+  vision:
+    enabled: false
+    provider: openai
+    model: qwen3.5-9b
+    gradio_url: http://127.0.0.1:7860/
+    gradio_api_name: /answer_question
+    gradio_fallback_api_name: /answer_question_1
+    resize_width: 320
+    resize_height: 240
+    save_screenshots: false
+    local_fallback_enabled: false
+    # 🤖 V-light (ФАЗА 4): Tier-0 сначала (UIA/OCR/DOM) -> Tier-2 (VLM)
+    tier0_uia_enabled: true
+    tier0_ocr_enabled: true
+    tier0_dom_enabled: true
+    tier1_verify_enabled: true
+    tier1_verify_delay: 1.2
+    tier1_diff_threshold: 0.15
+    tier2_min_vram_gb: 8
+  browser:
+    headless: false
+    viewport_width: 1280
+    viewport_height: 720
+    channel: chrome
+    user_data_dir: .uni-browser-profile
+    search_engine: https://yandex.ru/search/?text={query}
+    image_search_engine: https://yandex.ru/images/search?text={query}
+    cdp_url: http://127.0.0.1:9222
+    agent_cursor:
+      enabled: true
+      label: UNI
+      move_ms: 220
+      hide_after_ms: 1200
+  computer:
+    use_human_motion: true
+    verified_physical: true
+    mouse_move_duration: 0.35
+    action_badge_enabled: true
+    action_badge_label: UNI
+  tts:
+    enabled: true
+    provider: silero
+    voice: xenia
+  xtoys:
+    url: https://xtoys.app
+    max_intensity: 50
+    autonomous_physical: false
+
+intiface:
+  enabled: false
+  url: ws://127.0.0.1:12345
+
+logging:
+  level: INFO
