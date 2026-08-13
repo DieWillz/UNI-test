@@ -49,6 +49,7 @@ const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
   minimized: false, avatar: 'working', consentLevel: 'off', busy: false,
   pollTimer: null,
+  startingLlm: false,
 };
 
 // ---------- утилиты ----------
@@ -643,12 +644,54 @@ async function pollStatus() {
         `${s.llama && s.llama.running ? 'LLM на связи' : 'LLM недоступен'}</span>` +
         `<span><i class="${s.webui && s.webui.running ? 'ok' : ''}" style="background:${s.webui && s.webui.running ? 'var(--accent)' : 'var(--stop)'}"></i> ` +
         `${s.webui && s.webui.running ? 'WebUI на связи' : 'WebUI недоступен'}</span>`;
+      if (!s.llama || !s.llama.running) {
+        const btn = document.createElement('button');
+        btn.className = 'status-start-llm';
+        btn.textContent = state.startingLlm ? 'Запускаю LLM…' : '▶ Запустить LLM';
+        btn.disabled = state.startingLlm;
+        btn.onclick = startLlmFromOverlay;
+        sp.append(btn);
+      }
     }
   } catch (e) {
     $('#headerStatus').textContent = 'Ошибка';
     const dot = $('.live-status i'); if (dot) dot.style.background = 'var(--stop)';
     $('#connectionDot')?.classList.remove('online');
     $('#connectionDot')?.classList.add('offline');
+  }
+}
+async function startLlmFromOverlay() {
+  if (state.startingLlm) return;
+  state.startingLlm = true;
+  $('#headerStatus').textContent = 'Запускаю…';
+  setStatus('Запускаю…', 'working');
+  notify('Запускаю LLM-сервер…');
+  try {
+    const r = await fetch(`${API}/api/admin/restart-llm`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || `HTTP ${r.status}`);
+    const deadline = Date.now() + 30000;
+    let ready = false;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      try {
+        const sr = await fetch(`${API}/api/uni/status`, { cache: 'no-store' });
+        const s = await sr.json();
+        if (s.llama?.running) { ready = true; break; }
+      } catch (_) {}
+    }
+    if (!ready) throw new Error('LLM не вышел на связь за 30 секунд');
+    notify('LLM запущен и отвечает');
+    $('#headerStatus').textContent = 'Готово';
+    await pollStatus();
+  } catch (e) {
+    $('#headerStatus').textContent = 'Ошибка';
+    notify(`LLM не запущен: ${e.message}`);
+    await pollStatus();
+  } finally {
+    state.startingLlm = false;
   }
 }
 async function restoreAppearance() {

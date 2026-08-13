@@ -12,4 +12,7 @@
 2026-08-13 15:20 UTC+3 — перехожу к ФАЗЕ 7 (Упаковка: F-01, F-02).
 2026-08-13 16:00 UTC+3 — ФАЗА 7 завершена (F-01, F-02): артефакты упаковки созданы (UNI.spec/UNI_Setup.iss/config.example.yaml/build_dist.bat), сборка=DECISION (PyInstaller/Inno нет в окружении). REPORT_PACKAGING.md написан.
 2026-08-13 16:10 UTC+3 — ФИНАЛ (R-01, R-02): регресс 296 passed; финальный отчёт REPORT_FINAL.md написан. Ветка clean/august-2026, коммиты по фазам.
+2026-08-13 16:30 UTC+3 — directive-addon2-accepted (Hermes, ФАЗА 7 INT + ФАЗА 8 ADM начаты).
+2026-08-13 16:35 UTC+3 — ФАЗА 7 (INT): INT-01..INT-04 выполнены. tts_sentence_chunker.py + audio_env_detect.py → uni/utils/; use_chunker def=True; /api/uni/status + audio; UNI_BACKLOG пополнен. Тесты: 11 passed (test_tts_chunker + test_audio_env).
+2026-08-13 16:40 UTC+3 — ФАЗА 8 (ADM): ADM-01..ADM-08 — admin_api.py + маршруты GET/POST /api/admin/* + v3 SPA (index.html/admin.js/admin.css) + runtime/admin/phases.json. Тесты: 12 passed (test_admin_api). 2 fail = hardware-gated (TTS/STT, не регресс).
 

@@ -73,6 +73,7 @@ class Agent:
             sample_rate=speech_config.sample_rate,
             input_device=speech_config.input_device,
             output_device=speech_config.output_device,
+            use_chunker=speech_config.use_chunker,
         )
         self.speech = speech
         speech._session_logger = self.session_logger

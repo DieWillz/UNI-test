@@ -86,6 +86,11 @@ class SpeechConfig(BaseModel):
     listen_duration: float = Field(default=2.5, ge=0.5, le=30.0)
     input_device: Optional[int | str] = None
     output_device: Optional[int | str] = None
+    # 🤖 INT-02 (2026-08-13): потоковая нарезка на фразы (SentenceChunker из
+    # uni/utils/tts_sentence_chunker.py) вместо простого re.split. Дефолт True
+    # после зелёных тестов на 10 фраз. Старый _split_sentences оставлен как
+    # DEPRECATED-фоллбэк (не удалён, инвариант 0.2).
+    use_chunker: bool = True
 
 class VisionConfig(BaseModel):
     enabled: bool = False

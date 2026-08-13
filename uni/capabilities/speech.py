@@ -64,6 +64,7 @@ class SpeechCapability(Capability):
         sample_rate: int = 16000,
         input_device: int | str | None = None,
         output_device: int | str | None = None,
+        use_chunker: bool = True,
     ) -> None:
         self.stt_model = stt_model
         self.stt_device = stt_device.casefold().strip()
@@ -85,6 +86,7 @@ class SpeechCapability(Capability):
         self.sample_rate = sample_rate
         self.input_device = input_device
         self.output_device = output_device
+        self.use_chunker = use_chunker
         self._session_logger = None
         self._whisper: WhisperModel | None = None
         self._piper: PiperVoice | None = None
@@ -153,11 +155,6 @@ class SpeechCapability(Capability):
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned or " "
 
-    @staticmethod
-    def _split_sentences(text: str) -> list[str]:
-        parts = re.split(r"(?<=[.!?…])\s+", text)
-        return [p.strip() for p in parts if p.strip()]
-
     def _synthesize_chunk(self, chunk: str) -> tuple[np.ndarray, int]:
         """Synthesize one sentence; raises on failure."""
         if self.tts_provider == "silero":
@@ -181,16 +178,42 @@ class SpeechCapability(Capability):
         audio = np.concatenate([f.audio_float_array.reshape(-1) for f in frames]).astype(np.float32)
         return audio, frames[0].sample_rate
 
-    def _synthesize_audio_safe(self, text: str) -> tuple[np.ndarray, int]:
-        """Clean text, then synthesize sentence-by-sentence.
+    @staticmethod
+    def _split_sentences(text: str) -> list[str]:
+        # 🤖 DEPRECATED (INT-02, 2026-08-13): простой re.split оставлен как
+        # фоллбэк. Основной путь — SentenceChunker (use_chunker=True).
+        parts = re.split(r"(?<=[.!?…])\s+", text)
+        return [p.strip() for p in parts if p.strip()]
 
-        A failing sentence is logged and skipped instead of aborting the whole
-        utterance (partial success). Returns concatenated (audio, sample_rate).
+    def _split_for_tts(self, text: str) -> list[str]:
+        """Нарезка на фразы для озвучки.
+
+        🤖 INT-02 (2026-08-13): при use_chunker=True использует SentenceChunker
+        (режет по .!? + вырезает <think>-блоки, склеивает короткие фрагменты).
+        Иначе — старый _split_sentences (DEPRECATED-фоллбэк).
         """
-        cleaned = self._clean_for_tts(text)
-        sentences = self._split_sentences(cleaned)
-        if not sentences:
-            sentences = [cleaned]
+        if self.use_chunker:
+            try:
+                from uni.utils.tts_sentence_chunker import SentenceChunker
+                ch = SentenceChunker(min_len=20)
+                sentences = ch.feed(text)
+                sentences += ch.flush()
+                return [s.strip() for s in sentences if s.strip()]
+            except Exception as exc:  # фоллбэк при любой ошибке чанкера
+                if self._log is not None:
+                    self._log("TTS_CHUNKER_FALLBACK", f"SentenceChunker упал, re.split: {exc}")
+        return self._split_sentences(text)
+
+        def _synthesize_audio_safe(self, text: str) -> tuple[np.ndarray, int]:
+            """Clean text, then synthesize sentence-by-sentence.
+
+            A failing sentence is logged and skipped instead of aborting the whole
+            utterance (partial success). Returns concatenated (audio, sample_rate).
+            """
+            cleaned = self._clean_for_tts(text)
+            sentences = self._split_for_tts(cleaned)
+            if not sentences:
+                sentences = [cleaned]
         chunks: list[np.ndarray] = []
         rate = self.silero_sample_rate if self.tts_provider == "silero" else 48000
         for sentence in sentences:

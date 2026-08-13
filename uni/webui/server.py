@@ -910,6 +910,26 @@ class _Handler(BaseHTTPRequestHandler):
             desktop_running = alive(desktop_pid)
             # lmstudio: порт 1234 (опц.)
             lmstudio_reachable = _tcp_alive("127.0.0.1", 1234)
+            # 🤖 INT-03 (2026-08-13): честный аудио-статус (STT/TTS) через
+            # detect_audio_environment(). Любая ошибка = STT отключён (fail-closed,
+            # НЕ краш). Результат идёт в админку (ADM-04) и клиентский статус.
+            audio = {"stt": "НЕ ПРОВЕРЕНО", "tts": "НЕ ПРОВЕРЕНО", "warnings": [], "notices": []}
+            try:
+                from uni.utils.audio_env_detect import detect_audio_environment
+                env = detect_audio_environment()
+                audio["warnings"] = env.get("warnings", [])
+                audio["notices"] = env.get("notices", [])
+                if env.get("available"):
+                    audio["stt"] = "микрофон есть"
+                    audio["tts"] = "вывод есть"
+                else:
+                    # есть предупреждение (контейнер/ssh без звука) → STT отключён
+                    audio["stt"] = "STT отключён"
+                    audio["tts"] = "вывод отключён"
+            except Exception as _ae:
+                audio["stt"] = "STT отключён"
+                audio["tts"] = "вывод отключён"
+                audio["notices"] = [f"audio_env_detect недоступен: {_ae}"]
             return {
                 "llama": {"running": llama_running, "pid": (pids.get("llama") or {}).get("pid"),
                           "port": 1235, "model": model,
@@ -918,6 +938,7 @@ class _Handler(BaseHTTPRequestHandler):
                 "webui": {"running": webui_running, "pid": (pids.get("webui") or {}).get("pid"), "port": 8787},
                 "desktop": {"running": desktop_running, "pid": desktop_pid},
                 "lmstudio": {"reachable": lmstudio_reachable},
+                "audio": audio,
             }
 
         def _uni_logs(source, since=0):
@@ -949,6 +970,37 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception:
                 since = 0
             self._json(200, {"source": src, "lines": _uni_logs(src, since)})
+            return
+
+        # === Админка v3 (ADM-01, 2026-08-13): /api/admin/* — только 127.0.0.1 ===
+        if parsed.path.startswith("/api/admin/") or parsed.path == "/api/admin":
+            # 🤖 ЗАПРЕТ внешнего доступа: админка только для localhost
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                self._json(403, {"error": "admin API только для 127.0.0.1"})
+                return
+            from uni.webui.admin_api import (
+                admin_stack, admin_hw, admin_git, admin_dev,
+                admin_agents, admin_stats, admin_reports_list, admin_report_content,
+            )
+            head = parsed.path
+            if head == "/api/admin/stack":
+                self._json(200, admin_stack()); return
+            if head == "/api/admin/hw":
+                self._json(200, admin_hw()); return
+            if head == "/api/admin/git":
+                self._json(200, admin_git()); return
+            if head == "/api/admin/dev":
+                self._json(200, admin_dev()); return
+            if head == "/api/admin/agents":
+                self._json(200, admin_agents()); return
+            if head == "/api/admin/stats":
+                self._json(200, admin_stats()); return
+            if head == "/api/admin/reports":
+                self._json(200, admin_reports_list()); return
+            if head.startswith("/api/admin/reports/"):
+                name = head[len("/api/admin/reports/"):]
+                self._json(200, admin_report_content(name)); return
+            self._json(404, {"error": "unknown admin endpoint"})
             return
 
         # === Самотест (Hermes 2026-08-13, §2): GET отдаёт последний отчёт/статус ===
@@ -1411,7 +1463,60 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
-        # === Самотест / Демо-мышь / Скриншот (Hermes 2026-08-13) ===
+        # Automation control is persisted locally and exposed as a real stateful
+        # API for the admin dashboard. Actions are deliberately bounded: they
+        # update the coordinator state and do not claim tests/sync succeeded.
+        if self.path in ("/api/automation/config", "/api/automation/action"):
+            import json as _automation_json
+            payload = self._read_json_body()
+            state_path = _ROOT / "runtime" / "automation.json"
+            try:
+                current = _automation_json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+            except Exception:
+                current = {}
+            if self.path.endswith("/config"):
+                name = str(payload.get("name") or "").strip()
+                if not name:
+                    self._json(400, {"ok": False, "error": "automation name required"}); return
+                current.setdefault("features", {})[name] = bool(payload.get("enabled"))
+                message = f"{name}: {'включён' if current['features'][name] else 'выключен'}"
+            else:
+                action = str(payload.get("action") or "").strip()
+                if action not in {"start", "pause", "stop", "sync", "test", "review"}:
+                    self._json(400, {"ok": False, "error": "unknown automation action"}); return
+                current["last_action"] = action
+                current["status"] = "running" if action == "start" else ("paused" if action == "pause" else "stopped" if action == "stop" else "requested")
+                message = f"Команда {action} принята координатором"
+            current["updated_at"] = time.time()
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(_automation_json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+            self._json(200, {"ok": True, "state": current, "message": message}); return
+        # === Админка v3 (ADM-02, 2026-08-13): POST /api/admin/actions (whitelist) ===
+        if self.path == "/api/admin/actions":
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                self._json(403, {"ok": False, "error": "admin API только для 127.0.0.1"}); return
+            payload = self._read_json_body()
+            action = str(payload.get("action") or "").strip()
+            params = payload.get("params") or {}
+            confirm = bool(payload.get("confirm"))
+            log_message(f"[admin-actions] action={action} confirm={confirm}")
+            # белый список
+            DANGEROUS = {"stop_stack", "run_packaging", "restart_webui"}
+            ALLOWED = DANGEROUS | {
+                "run_pytest", "run_selftest", "run_arch_check", "create_stop_txt",
+                "set_ui_variant", "set_role", "set_consent", "demo_mouse",
+                "vision_capture", "show_overlay",
+            }
+            if action not in ALLOWED:
+                self._json(400, {"ok": False, "error": f"unknown admin action: {action}"}); return
+            if action in DANGEROUS and not confirm:
+                self._json(400, {"ok": False, "error": f"action '{action}' требует confirm:true"}); return
+            try:
+                result = _handle_admin_action(action, params)
+                self._json(200, {"ok": True, "action": action, "result": result})
+            except Exception as e:
+                self._json(500, {"ok": False, "action": action, "error": f"{type(e).__name__}: {e}"})
+            return
         if self.path == "/api/selftest":
             body = self._read_json_body()
             if body.get("save"):
@@ -1460,7 +1565,8 @@ class _Handler(BaseHTTPRequestHandler):
                               creationflags=0x08000000)  # CREATE_NO_WINDOW
                 pids["llama"] = {"pid": p.pid, "port": 1235}
                 pf.write_text(_j.dumps(pids, indent=2), encoding="utf-8")
-                self._json(200, {"restarted": True, "pid": p.pid})
+                self._json(200, {"ok": True, "restarted": True, "pid": p.pid,
+                                 "message": "LLM-сервер запускается"})
             except Exception as exc:
                 self._json(500, {"error": str(exc)})
             return
@@ -1837,6 +1943,7 @@ class _Handler(BaseHTTPRequestHandler):
                             tts_voice=selected_voice,
                             silero_speaker=selected_voice if provider == "silero" else "xenia",
                             silero_sample_rate=48000,
+                            use_chunker=True,
                         )
                         _TTS_ENGINES[key] = sp
                     if provider == "silero":

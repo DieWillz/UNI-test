@@ -15,11 +15,29 @@ function setTheme(v){document.documentElement.setAttribute('data-theme',v);local
 function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
 function toggleChatPanel(){$('chatPanel').classList.toggle('collapsed')}
 function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='dashboard')loadStatus();if(v==='xtoys'){initXtoysFullLayout();toyControlPoll();toyDevicePoll();xtoysSessionPoll();intifacePoll();xtoysPatternPoll();motionPoll();remotePoll()}}
+function showDataTab(tab, el){
+  document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  const target=$('view-'+tab); if(target) target.classList.add('active');
+  document.querySelectorAll('.data-tabs .tbtn').forEach((b,i)=>b.classList.toggle('primary',['qwen','bridge','logs'][i]===tab));
+  if(el) el.classList.add('active');
+  if(tab==='logs') loadLogs();
+}
+const automationState=JSON.parse(localStorage.getItem('uni_automation')||'{}');
+async function toggleAutomation(el){
+  const name=el.dataset.auto||'sync'; const on=el.classList.toggle('on'); automationState[name]=on; localStorage.setItem('uni_automation',JSON.stringify(automationState));
+  try{const r=await fetch(HRM+'/api/automation/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,enabled:on})});if(!r.ok)throw new Error('HTTP '+r.status);showToast((on?'▶ ':'⏸ ')+name+(on?' включён':' выключен'))}catch(e){el.classList.toggle('on',on);automationState[name]=!on;showToast('⚠ Автоматизация недоступна: '+e.message)}
+}
+async function automationAction(action){
+ try{const r=await fetch(HRM+'/api/automation/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));showToast('⚙ '+(d.message||action));}catch(e){showToast('⚠ '+e.message)}
+}
+function restoreAutomation(){document.querySelectorAll('.auto-toggle').forEach(el=>{const n=el.dataset.auto;if(Object.prototype.hasOwnProperty.call(automationState,n))el.classList.toggle('on',!!automationState[n])})}
 function setStep(n){document.querySelectorAll('.pstep').forEach((el,i)=>{el.classList.remove('active','done');if(n>=0){if(i<n)el.classList.add('done');if(i===n)el.classList.add('active')}})}
 async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||2500);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e}}
 async function pingServers(){
 try{await api(FS+'/ping');$('dotFs').className='dot on';$('qwSrv').textContent='онлайн';$('qwSrv').className='qw-ok';$('intFs').className='pill p-ok';$('intFs').textContent='онлайн'}catch(e){$('dotFs').className='dot err';$('qwSrv').textContent='офлайн';$('qwSrv').className='qw-bad';$('intFs').className='pill p-err';$('intFs').textContent='офлайн'}
 try{await api(HRM+'/api/participants');$('dotHermes').className='dot on';$('intHrm').className='pill p-ok';$('intHrm').textContent='онлайн'}catch(e){$('dotHermes').className='dot err';$('intHrm').className='pill p-err';$('intHrm').textContent='офлайн'}
+try{const r=await api(HRM+'/api/intiface/status',1800);const d=await r.json();const x=$('intXtoys');if(x){x.className='pill '+(d.connected?'p-ok':'p-warn');x.textContent=d.connected?'подключено':'отключено'}}catch(e){const x=$('intXtoys');if(x){x.className='pill p-err';x.textContent='недоступно'}}
 try{
 const r=await api(LMS+'/v1/models',1800);const d=await r.json();
 if(d.data&&d.data.length){LMS_MODEL=d.data[0].id;$('dotLms').className='dot on';$('lmsLabel').textContent=LMS_MODEL;$('chatModel').textContent=LMS_MODEL;$('intLms').className='pill p-ok';$('intLms').textContent=LMS_MODEL;$('rchatDot').className='dot on';$('rchatStatus').textContent='LM: '+LMS_MODEL}
@@ -182,7 +200,7 @@ try{const es=new EventSource(HRM+'/api/round/progress');es.onmessage=e=>{try{con
 }
 function qwStartRound(){startRound()}
 function qwSendChat(){const i=$('qwCin');const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('qwChat')])}
-function emergencyStop(){setStep(-1);$('stRound').textContent='остановлен';showToast('🛑 Аварийная остановка')}
+async function emergencyStop(){setStep(-1);$('stRound').textContent='остановка…';await automationAction('stop');try{await fetch(HRM+'/api/admin/stop',{method:'POST'});}catch(e){}$('stRound').textContent='остановлен';}
 /* ===== Роли: подгрузка из uni/roles/*.md через Hermes API ===== */
 async function loadRoles(){
 try{
@@ -398,9 +416,10 @@ function addRule(){const t=(prompt('Новое правило, которому 
 function editRule(i){const r=getRules();const v=(prompt('Изменить правило:',r[i])||'').trim();if(!v)return;r[i]=v;saveRules(r)}
 function delRule(i){const r=getRules();if(!confirm('Удалить правило «'+r[i]+'»?'))return;r.splice(i,1);saveRules(r)}
 function moveCursor(x,y){const c=$('uniCursor');c.classList.add('moving');c.style.left=x+'%';c.style.top=y+'%';setTimeout(()=>c.classList.remove('moving'),600)}
-setInterval(()=>{if($('view-browser').classList.contains('active'))moveCursor(15+Math.random()*70,15+Math.random()*60)},5000);
+// Browser view is an honest placeholder until a real CDP/browser transport is connected.
 setInterval(()=>{pingServers();loadLogs();loadMail()},15000);
 setTheme(localStorage.getItem('uni_theme')||'light');
+restoreAutomation();
 pingServers();runRollCall();loadLogs();loadBoard();loadMail();loadDocs();loadStats();renderRules();loadRoles();initAutonomousStream();loadTtsSettings();
 document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='l'){e.preventDefault();startRound()}});
 /* ===== Анимированная favicon: U → N → i (смена href у <link rel=icon>) ===== */
@@ -488,7 +507,7 @@ async function loadStatus(){
       ['Desktop (оверлей)', d.desktop && d.desktop.running, d.desktop && d.desktop.pid ? 'pid ' + d.desktop.pid : 'off'],
       ['LM Studio', d.lmstudio && d.lmstudio.reachable, d.lmstudio && d.lmstudio.reachable ? 'reachable' : 'off']
     ];
-    el.innerHTML = items.map(([n, ok, sub]) => '<div class="stat-card"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || '') + '</p></div></div>').join('');
+    el.innerHTML = items.map(([n, ok, sub]) => '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || 'нет данных') + '</p></div></div>').join('');
   }catch(e){
     el.innerHTML = '<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/uni/status недоступен</p></div></div>';
   }
