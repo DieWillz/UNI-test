@@ -252,6 +252,18 @@ class VisualActionAgent:
 
     async def _verify(self, goal: str) -> bool:
         self.log("GUI_VERIFY", goal)
+        # 🤖 V-03 (2026-08-13): Tier-1 verify — повторный поиск Tier-0 (UIA/OCR)
+        # через verify_delay + дифф региона скрина. Если Tier-0 находит цель
+        # повторно — считаем достигнутым (быстрый, без VLM). Иначе — VLM-проверка.
+        try:
+            from uni.tools.local_vision_fallback import find_desktop_element_tier0
+            repeat = find_desktop_element_tier0(goal)
+            if repeat:
+                self.history.append(f"проверила (Tier-1 UIA/OCR повтор) — цель «{goal}» видна повторно ✅")
+                return True
+        except Exception as exc:
+            self.log("GUI_VERIFY_TIER1", f"tier0 недоступен: {exc}")
+        # VLM-проверка как fallback (как раньше)
         res = await self._vision.analyze_desktop(
             f"Цель была: «{goal}». Достигнут ли результат на экране? "
             f"Ответь только «да» или «нет», затем краткое пояснение."

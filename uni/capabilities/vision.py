@@ -314,6 +314,22 @@ class VisionCapability(Capability):
     async def find_desktop_element(self, description: str) -> ToolResult:
         if not description.strip():
             return ToolResult(success=False, message="Описание элемента пусто")
+        # 🤖 V-02 (2026-08-13): порядок БЕЗ модели сначала — Tier-0 каскад
+        # (UIA -> OCR -> DOM). Только если Tier-0 пустой — идём в Tier-2 (VLM).
+        # Это «лёгкое зрение»: базовые клики (Пуск, кнопка) без VLM.
+        try:
+            from uni.tools.local_vision_fallback import find_desktop_element_tier0
+            local = find_desktop_element_tier0(description)
+            if local:
+                local = dict(local)
+                src = local.get("source", "uia")
+                return ToolResult(
+                    success=True, data=local,
+                    message=f"Элемент «{description}» найден локально (Tier-0: {src})",
+                )
+        except Exception as exc:
+            logger.debug("Tier-0 поиск пропущен: %s", exc)
+        # Tier-2: VLM (как раньше).
         try:
             image, original_size = await self._capture_desktop()
             analyzed_size = image.size
@@ -413,6 +429,51 @@ class VisionCapability(Capability):
             logger.warning("compare_screenshots ошибка: %s", exc)
             return False
 
+    # 🤖 V-03 (2026-08-13): Tier-1 verify — дифф РЕГИОНА скрина через numpy.
+    # Возвращает долю изменившихся пикселей (0..1). Выше threshold -> изменение.
+    def region_diff(self, path1: str, path2: str, threshold: float = 0.15) -> float:
+        """Доля отличающихся пикселей между двумя PNG (0..1). None при ошибке."""
+        try:
+            import cv2
+            import numpy as np
+            a = cv2.imread(path1)
+            b = cv2.imread(path2)
+            if a is None or b is None:
+                return float("nan")
+            if a.shape != b.shape:
+                b = cv2.resize(b, (a.shape[1], a.shape[0]))
+            diff = cv2.absdiff(a, b)
+            gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+            changed = (gray > 25).mean()
+            return float(changed)
+        except Exception as exc:
+            logger.warning("region_diff ошибка: %s", exc)
+            return float("nan")
+
+    # 🤖 V-04 (2026-08-13): Tier-2 (VLM) доступна ли по железу?
+    # nvidia-smi -> свободно >= tier2_min_vram_gb ГБ. False при отсутствии GPU/
+    # утилиты/недостатке памяти. Честно (без мока): если nvidia-smi нет — False.
+    def tier2_gpu_available(self, min_vram_gb: int | None = None) -> tuple[bool, str]:
+        min_vram = min_vram_gb or self.config.capabilities.vision.tier2_min_vram_gb
+        try:
+            out = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if out.returncode != 0:
+                return False, "nvidia-smi недоступен (не nvidia GPU или утилита не в PATH)"
+            frees = [int(x.strip()) for x in out.stdout.splitlines() if x.strip().isdigit()]
+            if not frees:
+                return False, "nvidia-smi не вернул данные о памяти"
+            best = max(frees)
+            if best < min_vram * 1024:
+                return False, f"свободно {best} МБ < {min_vram} ГБ (Tier-2 VLM пропускается)"
+            return True, f"свободно {best} МБ >= {min_vram} ГБ"
+        except FileNotFoundError:
+            return False, "nvidia-smi не найден (не nvidia GPU)"
+        except Exception as exc:
+            return False, f"проверка GPU упала: {exc}"
+
     async def execute(self, action: str, **kwargs) -> ToolResult:
         if action == "analyze_screen":
             return await self.analyze_screen(str(kwargs.get("prompt", "Что находится на активной вкладке?")))
@@ -429,4 +490,21 @@ class VisionCapability(Capability):
                 str(kwargs.get("path", "")),
                 str(kwargs.get("prompt", "Опиши этот кадр с камеры фактически, по-русски.")),
             )
+        if action == "region_diff":
+            # 🤖 V-03: дифф региона двух скринов
+            p1 = str(kwargs.get("path1", ""))
+            p2 = str(kwargs.get("path2", ""))
+            if not p1 or not p2:
+                return ToolResult(success=False, message="region_diff требует path1 и path2")
+            thr = float(kwargs.get("threshold", 0.15))
+            d = self.region_diff(p1, p2, thr)
+            if d != d:  # nan
+                return ToolResult(success=False, message="region_diff не удался (ошибка чтения)")
+            return ToolResult(success=True, data={"changed_ratio": d, "changed": d >= thr},
+                              message=f"изменено {d:.3f} пикселей (threshold {thr})")
+        if action == "tier2_gpu_available":
+            # 🤖 V-04: проверка GPU для Tier-2 VLM
+            ok, why = self.tier2_gpu_available(int(kwargs["min_vram_gb"]) if kwargs.get("min_vram_gb") else None)
+            return ToolResult(success=ok, data={"available": ok, "reason": why},
+                              message=why)
         return ToolResult(success=False, message=f"Неизвестное действие vision.{action}")

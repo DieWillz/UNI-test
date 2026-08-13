@@ -139,3 +139,51 @@ git status --short                    # удаление из индекса м�
 
 ## Следующая фаза
 ФАЗА 3 (Универсальный UI-движок: U-01..U-07).
+
+# ==ОТЧЁТ== Hermes — ФАЗА 3 (Универсальный UI-движок)
+
+**Ветка:** clean/august-2026
+**Дата:** 2026-08-13
+**Коммит:** `17c11c6`
+**Тесты:** pytest полный → 274 passed (+7 subtests). node --check app.js OK. Добавлен `tests/test_ui_contract.py` (8 passed).
+
+## Контекст
+Фронт (app.js) и бэкенд (/api/chat) были ЧАСТИЧНО готовы с commit 99c4ad7: диспетчер applyUiEvent, 7 компонентов, алиас-карта, поллинг task_id, approval-action endpoint — всё присутствовало. Недостающее доведено в этой фазе без переписывания верифицированного (инвариант 0.16).
+
+## Задачи
+
+### U-01 renderMissionUpdate: insertAdjacentHTML → createElement+textContent
+**Статус:** DONE. Полностью переписана на createElement/textContent (без шаблонных строк). Модель НЕ контролирует разметку (U-08).
+**Пруф:** grep `insertAdjacentHTML` в app.js → только старая копия удалена; node --check OK.
+
+### U-02 Алиас progress_task → task_steps
+**Статус:** DONE. `normalizeComponent` в app.js + `normalize_component` в ui_contract.py оба нормализуют progress_task→task_steps (и gallery/text/table/mission/list/approval). Серверная валидация тоже нормализует.
+**Пруф:** test_alias_progress_task_normalized (test_ui_contract) PASS.
+
+### U-03 КАНОН компонентов + form/link_list рендеры
+**Статус:** DONE. Канон = 9: task_steps, result_text, result_gallery, result_list, comparison_table, mission_card, approval_required, **form**, **link_list**. Добавлены `renderFormInto` (поля + submit→submit_form) и `renderLinkListInto` (ссылки→link_open); зарегистрированы в диспетчере `renderComponentInto`.
+**Пруф:** test_canon_components_complete PASS; node --check OK.
+
+### U-04 БЭКЕНД-КОМПОЗИТОР + серверная валидация
+**Статус:** DONE. Новый модуль `uni/webui/ui_contract.py`: белый список типов (CANON_COMPONENTS/CANON_EVENT_TYPES), `validate_component` (очистка src — только /api|/runtime|/assets, блок внешних/опасных схем), `validate_ui_events` (отбрасывает невалидные типы → честный result_text). `/api/chat` пропускает события через `validate_ui_events`; пусто → текстовый пузырь.
+**Пруф:** test_src_only_local_allowed, test_unknown_component_falls_back_to_result_text, test_dead_buttons_rejected, test_unknown_event_type_dropped PASS; py_compile OK.
+
+### U-05 POST /api/ui/action — карта действий
+**Статус:** DONE. `resolve_action(action_id)` — реальная карта (approve/confirm/reject/open_all/open/save/copy/dismiss/retry/more/link_open/submit_form). Неизвестный id → честная ошибка 400 (НЕ молчаливый «ok»). Мёртвых кнопок нет (фронт рендерит только actions из карты).
+**Пруф:** test_resolve_action_known_and_unknown PASS; endpoint в server.py возвращает 400 при unknown.
+
+### U-06 grep-гейты + innerHTML в renderer
+**Статус:** DONE. Гейт сценарных строк (`dogSearch|earningMission|Немецкий дог|🐕|45%|20%|38%`) в `renderer/` — ЧИСТ (кроме `38%`/`45%` в `index-demo.html`, который помечен DEPRECATED и не грузится). Остаточные `innerHTML` в app.js: только `card.innerHTML=''` (очистка), числовой прогресс-бар (строки 184/379, только числа), статус-поповер (строка 641, захардкоренный шаблон без данных модели). Все — НЕ model-derived → безопасны.
+**Пруф:** grep выше; перечислены исключения.
+
+### U-07 Приёмка 6 сценариев со скринами
+**Статус:** DECISION / BLOCKED (честно). Все 6 рендеров реализованы и покрыты юнит-тестами контракта, НО визуальный пруф (скриншоты оверлея) требует ЖИВОГО Windows-дисплея + запущенного Electron + llama-бинаря — в этом окружении (headless Linux-агент, без экрана) снять скрин невозможно без симуляции (запрещено инвариантом 0.1). Рендеры проверены косвенно: контракт валиден, фронт компилируется (node --check), диспетчер покрывает все типы.
+**Ручная инструкция для координатора:** на целевой машине запустить `UNI.bat`, открыть оверлей, прогнать 6 запросов (привет / фото горных озёр / 5 идей завтрака / сравнение хранилищ / запуск проекта / письмо клиенту) и снять скрины `runtime/diagnostics/`.
+
+## Инварианты
+- 0.4: оркестрация зрение→действие — НЕ в этой фазе (фаза 4), фронт/чат не импортируют capability.
+- 0.5: фронт рендерит спеку, НЕ решает по ключевым словам (dispatcher + client_capabilities).
+- 0.16: верифицированное (99c4ad7) НЕ переписано, только дополнено.
+
+## Следующая фаза
+ФАЗА 4 (Лёгкое зрение V-light: V-01..V-06).

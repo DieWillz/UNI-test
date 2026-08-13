@@ -100,6 +100,19 @@ class VisionConfig(BaseModel):
     # 🤖 локальный fallback (UIA/OCR) когда VLM недоступна. Opt-in, default False
     # — не меняет поведение по умолчанию, включается в config.yaml.
     local_fallback_enabled: bool = False
+    # 🤖 V-light (2026-08-13, Директива ФАЗА 4): порядок поиска элемента
+    # БЕЗ модели сначала (Tier-0), затем VLM (Tier-2). Опции включают/выключают
+    # соответствующие каналы; при отсутствии библиотеки канал тихо пропускается.
+    tier0_uia_enabled: bool = True     # UIA (comtypes/uiautomation): имена+rect->центр
+    tier0_ocr_enabled: bool = True     # WinRT OCR: поиск текста на экране
+    tier0_dom_enabled: bool = True     # Playwright DOM: только для браузера
+    # Tier-1 verify: повторный UIA/OCR через verify_delay и дифф региона скрина
+    tier1_verify_enabled: bool = True
+    tier1_verify_delay: float = 1.2
+    tier1_diff_threshold: float = 0.15  # порог изменения региона (0..1), выше = изменение
+    # Tier-2 (VLM) лениво поднимается только при пустых Tier-0/1 и фразе
+    # «опиши сцену»/явном запросе; gated nvidia-smi >= tier2_min_vram_gb.
+    tier2_min_vram_gb: int = 8
 
 class XToysConfig(BaseModel):
     url: str = "https://xtoys.app"
