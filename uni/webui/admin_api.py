@@ -276,6 +276,12 @@ def admin_reports_list() -> list[dict]:
         reps.append({"name": p.name, "kind": "outbox"})
     for p in sorted(_BRIDGE.glob("REPORT_*")):
         reps.append({"name": p.name, "kind": "bridge"})
+    # 🤖 Hermes (2026-08-14): добавлен скан отчётов Hermes из
+    # agents/uni-codex/outbox (там лежат REPORT_*/DIRECTIVE_*/ANALYSIS_*).
+    _HERMES_OUTBOX = _ROOT / "agents" / "uni-codex" / "outbox"
+    if _HERMES_OUTBOX.is_dir():
+        for p in sorted(_HERMES_OUTBOX.glob("*.md")):
+            reps.append({"name": p.name, "kind": "hermes-outbox"})
     if not reps:
         return [{"name": "нет данных", "kind": "—"}]
     return reps
@@ -286,7 +292,9 @@ def admin_report_content(name: str) -> dict:
     name = os.path.basename(name)
     if not name or name in (".", ".."):
         return {"error": "bad name"}
-    for base in (_OUTBOX, _BRIDGE):
+    # 🤖 Hermes (2026-08-14): добавлен базовый путь agents/uni-codex/outbox
+    _HERMES_OUTBOX = _ROOT / "agents" / "uni-codex" / "outbox"
+    for base in (_OUTBOX, _BRIDGE, _HERMES_OUTBOX):
         cand = (base / name)
         try:
             if cand.resolve().is_relative_to(base.resolve()) and cand.is_file():

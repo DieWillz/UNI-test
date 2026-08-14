@@ -1135,6 +1135,16 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"admin v3 missing", "text/plain")
             return
+        if parsed.path in ("/v4", "/v4/"):
+            # 🤖 Hermes (2026-08-14): админка v4 — новый SPA в uni/webui/v4/.
+            # Добавлено аддитивно, не трогает v3. Полноценный интерфейс с
+            # честными бейджами статуса (нерабочие места видны сразу).
+            page = _HERE / "v4" / "index.html"
+            if page.is_file():
+                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
+            else:
+                self._send(404, b"admin v4 missing", "text/plain")
+            return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
             self._handle_context_feed_get()
