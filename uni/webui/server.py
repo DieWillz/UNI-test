@@ -252,6 +252,7 @@ def _overlay_capture() -> dict:
 
 # Один Agent на процесс сервера; собирается лениво при первом чат-запросе.
 _CHAT_AGENT = None
+_CHAT_AGENT_LOCK = threading.Lock()
 _CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво)
 
 # ===== Единый event-loop агента (T-04) =====
@@ -994,9 +995,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True, "mode": _CONTROL_MODE})
             return
         if parsed.path == "/api/uni/logs":
-            src = (parse_qs(parsed.query).get("source") or ["llama"])[0]
+            query = parse_qs(parsed.query)
+            src = (query.get("source") or ["llama"])[0]
             try:
-                since = int(parsed.query.get("since", "0") or 0)
+                since = int((query.get("since") or ["0"])[0] or 0)
             except Exception:
                 since = 0
             self._json(200, {"source": src, "lines": _uni_logs(src, since)})
@@ -2493,11 +2495,12 @@ class _Handler(BaseHTTPRequestHandler):
                 agent = self._get_chat_agent()
 
                 async def _run():
+                    run_goal = goal
                     if mouse_only:
-                        goal = ("MOUSE_ONLY: Используй только скриншоты, физическую мышь и физическую клавиатуру. "
+                        run_goal = ("MOUSE_ONLY: Используй только скриншоты, физическую мышь и физическую клавиатуру. "
                                 "Запрещены browser tools, DOM, Playwright, API-навигация и прямое открытие URL. " + goal)
                     return await agent.act_on_screen(
-                        goal, max_steps=min(max_steps, 12),
+                        run_goal, max_steps=min(max_steps, 12),
                         control_mode="mouse_only" if mouse_only else "auto",
                     )
 
@@ -2798,15 +2801,15 @@ class _Handler(BaseHTTPRequestHandler):
     def _get_chat_agent(self):
         global _CHAT_AGENT
         if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):
-            from uni.agent import Agent
+            with _CHAT_AGENT_LOCK:
+                if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):
+                    from uni.agent import Agent
 
-            cfg = load_config()
-            agent = Agent(cfg)
-            # T-04: инициализируем агента в отдельном потоке с постоянным
-            # event-loop, чтобы все последующие вызовы (run_cycle, camera.*)
-            # шли в ОДИН loop — убирает "bound to a different event loop".
-            self._start_agent_runtime(agent, cfg)
-            _CHAT_AGENT = agent
+                    cfg = load_config()
+                    agent = Agent(cfg)
+                    # Один процесс WebUI должен иметь ровно один Agent и один loop.
+                    self._start_agent_runtime(agent, cfg)
+                    _CHAT_AGENT = agent
         return _CHAT_AGENT
 
     def _start_agent_runtime(self, agent, cfg) -> None:

@@ -23,8 +23,6 @@
         <!-- 🤖 Hermes (2026-08-14): кнопка режима мыши Юни (аддитивно к 👁).
              Отдельный id uniMouseButton, чтобы не конфликтовать с существующей
              mouseModeButton (toggleMouseOnly / goal mouse_only). -->
-        <button id="uniMouseButton" class="icon-button mouse-icon" title="Режим мыши Юни (визуальный)" aria-label="Режим мыши Юни (визуальный)"><img src="../assets/icons/mouse-svgrepo-com.svg" alt="🖱️"></button>
-        <button id="stopButton" class="icon-button stop-icon" title="Остановить задачу" aria-label="Остановить задачу"><img src="../assets/icons/stop-circle-svgrepo-com.svg" alt=""></button>
         <button id="cameraButton" class="icon-button camera-icon active" title="Камера включена" aria-label="Камера"><img src="../assets/icons/computer-camera-svgrepo-com.svg" alt=""></button>
         <button id="mouseModeButton" class="icon-button mouse-icon" title="Физический режим мыши" aria-label="Физический режим мыши" aria-pressed="false"><img src="../assets/icons/mouse-svgrepo-com.svg" alt=""></button>
         <button id="overlayButton" class="icon-button overlay-icon" title="Прозрачный режим" aria-label="Прозрачный режим"><img src="../assets/icons/ghost-svgrepo-com.svg" alt=""></button>
@@ -38,6 +36,7 @@
       <div><b>Оформление</b><button id="themeButton">☾ Тёмная</button></div>
       <label>Прозрачность <input id="opacityInput" type="range" min="55" max="95" value="72"></label>
       <label><input id="motionInput" type="checkbox" checked> Анимации аватара</label>
+      <label><input id="autoVoiceInput" type="checkbox"> Автоматически слушать голос</label>
       <div><b>Демо</b><button id="demoMouseButton" title="Прогон мыши Юни: 3 клика + фигура с лайм-кольцом">🖱 Демо мыши</button></div>
     </div>
 

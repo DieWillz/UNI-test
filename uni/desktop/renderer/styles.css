@@ -177,7 +177,7 @@ body { background: transparent; user-select: none }
   position: absolute;
   right: 28px;
   bottom: 72px;
-  width: 336px;
+  width: 310px;
   background: linear-gradient(145deg, rgba(var(--shell), calc(var(--opacity) * 0.95)), rgba(var(--shell), var(--opacity)));
   border: 1px solid rgba(255, 255, 255, .13);
   border-radius: var(--radius);
@@ -193,17 +193,18 @@ body { background: transparent; user-select: none }
 .uni-widget::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 40px rgba(184,230,29,.015); z-index: -1 }
 
 .uni-widget.mode-quick {
-  height: 500px
+  height: 460px
 }
 
 .uni-widget.mode-mission {
-  height: 368px
+  height: 340px
 }
 
 .widget-header {
-  height: 58px;
+  height: 72px;
   padding: 0 12px 0 14px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, .09);
   position: relative;
@@ -220,7 +221,7 @@ body { background: transparent; user-select: none }
   gap: 7px
 }
 
-.brand-logo { width: 29px; height: 29px; object-fit: contain; border-radius: 5px; margin: 0; }
+.brand-logo { width: 23px; height: 23px; object-fit: contain; border-radius: 4px; margin: 0; }
 
 .brand-mark {
   font-size: 26px;
@@ -231,7 +232,7 @@ body { background: transparent; user-select: none }
 }
 
 .brand b {
-  font-size: 14px
+  font-size: 12px
 }
 
 .live-status {
@@ -241,8 +242,10 @@ body { background: transparent; user-select: none }
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
-  flex: 0 1 auto;
+  order: 3;
+  flex: 0 0 100%;
+  height: 18px;
+  margin: -2px 0 0 0;
   padding: 4px;
   cursor: pointer;
   white-space: nowrap;
@@ -276,7 +279,7 @@ body { background: transparent; user-select: none }
 
 .icon-button:hover,
 .icon-button.active {
-  background: rgba(255, 255, 255, .08);
+  background: transparent;
   color: var(--accent)
 }
 
@@ -304,7 +307,7 @@ body { background: transparent; user-select: none }
 }
 
 .widget-content {
-  height: calc(100% - 112px);
+  height: calc(100% - 130px);
   overflow: hidden;
   padding: 10px 12px;
   user-select: text
@@ -325,6 +328,7 @@ body { background: transparent; user-select: none }
   min-height: 60px;
   overflow: visible;
   flex: 0 1 auto;
+  min-width: 0;
 }
 
 .message {
@@ -335,7 +339,8 @@ body { background: transparent; user-select: none }
   font-size: 11px;
   background: rgba(42, 52, 57, .72);
   white-space: pre-wrap;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
+  flex: 0 0 auto;
 }
 
 .quick-panel {
@@ -727,6 +732,7 @@ body { background: transparent; user-select: none }
 .icon-button.active img, .icon-button:hover img, .composer-mic.active img, .send-button:hover img {
   filter: brightness(0) saturate(100%) invert(79%) sepia(89%) saturate(702%) hue-rotate(26deg) brightness(104%);
 }
+.icon-button.active, .icon-button:hover { box-shadow: none; background: transparent; }
 .header-actions .icon-button img { width: 16px; height: 16px; }
 .stop-button img { width: 18px; height: 18px; filter: brightness(0) saturate(100%) invert(91%) sepia(8%) saturate(180%) hue-rotate(94deg) brightness(96%); }
 .attach-button img { width: 18px; height: 18px; }
@@ -745,8 +751,8 @@ body { background: transparent; user-select: none }
   position: absolute;
   left: 12px;
   top: -78px;
-  width: 120px;
-  height: 110px;
+  width: 108px;
+  height: 99px;
   z-index: 2;
   pointer-events: none;
   transition: transform .25s
@@ -1042,15 +1048,15 @@ body.no-motion * {
   border-color: rgba(242, 244, 239, .22);
   box-shadow: 0 8px 22px rgba(0, 0, 0, .20), inset 0 1px 0 rgba(255,255,255,.08);
 }
-.widget-header { height: 58px; padding: 0 10px; }
+.widget-header { height: 72px; padding: 0 10px; flex-wrap: wrap; }
 .brand { gap: 7px; min-width: 76px; flex: 0 0 76px; padding-left: 7px; }
 .brand-mark { font-size: 29px; }
-.brand b { font-size: 15px; font-weight: 650; }
+.brand b { font-size: 12px; font-weight: 650; }
 .header-actions { gap: 1px; flex: 0 0 auto; }
 .icon-button { width: 27px; height: 32px; display: grid; place-items: center; color: #e9eeea; padding: 0; }
 .icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button.active, .vision-icon.active { color: var(--accent); }
-.icon-button:hover { color: var(--accent); background: rgba(184,230,29,.08); border-radius: 8px; }
+.icon-button:hover { color: var(--accent); background: transparent; border-radius: 8px; }
 .minimize-button { font-size: 22px; line-height: 1; }
 .widget-content { padding: 10px 12px 8px; }
 .message { font-size: 12px; line-height: 1.4; padding: 9px 11px; }
@@ -1119,22 +1125,26 @@ html[data-theme="light"] .popover { background: rgba(248,250,251,.96); color: #1
 
 /* 🤖 ФИНАЛ (2026-08-13, §3): логотип, пустой чат, чипы — STOP button moved to main section */
 .brand-logo {
-  width: 29px;
-  height: 29px;
+  width: 23px;
+  height: 23px;
   border-radius: 4px;
   object-fit: contain;
   margin-right: 2px
 }
 
 /* Keep every header control visible inside the fixed 336px widget. */
-.live-status { font-size: 10px; gap: 4px; margin-left: auto; padding: 3px 2px; }
+.live-status { order: 3; flex: 0 0 100%; justify-content: center; height: 22px; font-size: 10px; gap: 4px; margin: 0; padding: 4px 2px; border-top: 1px solid rgba(255,255,255,.12); }
 .live-status i { width: 6px; height: 6px; box-shadow: 0 0 0 3px rgba(184,230,29,.09); }
 .header-actions .icon-button { width: 23px; }
+.header-actions { margin-left: auto; justify-content: flex-end; }
 .header-actions .icon-button svg { width: 17px; height: 17px; }
 .header-actions .stop-button { min-width: 47px; padding: 0 5px; font-size: 10px; }
 .header-actions .minimize-button { width: 23px; display: grid; }
 .uni-widget.minimized .avatar { display: none; }
 .uni-widget.minimized .widget-header { border-bottom: 0; }
+.composer { min-height: 58px; max-height: 150px; }
+.composer textarea { min-height: 42px; max-height: 92px; overflow-y: auto; }
+.chat-thread { overflow-x: hidden; overflow-y: auto; }
 
 /* Focus mode: the desktop remains visible through the empty chat surface. */
 body.transparent-overlay .uni-widget,

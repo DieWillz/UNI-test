@@ -47,7 +47,7 @@ dragHeader?.addEventListener('pointerup', () => { dragStart = null; });
 
 const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
-  mouseOnly: false,
+  mouseOnly: false, autoVoice: false,
   minimized: false, avatar: 'working', consentLevel: 'off', busy: false,
   pollTimer: null,
   startingLlm: false,
@@ -520,9 +520,18 @@ function setMode(mode) {
 
 // ---------- чат (P0) ----------
 function addBubble(text, who, technical = false) {
+  const value = String(text ?? '').trim();
+  if (!value) return;
+  const existingThread = $('#chatThread');
+  const previous = existingThread?.lastElementChild;
+  // Computer-task history echoes the command already rendered by send().
+  // Suppress only an immediate exact duplicate; repeated commands later remain visible.
+  if (previous && previous.dataset.message === value) return;
   const el = document.createElement('div');
   el.className = 'message' + (who === 'user' ? ' user' : '') + (technical ? ' technical' : '');
-  el.textContent = text;            // только текст — сырой JSON в UI запрещён
+  el.dataset.message = value;
+  el.dataset.who = who || 'uni';
+  el.textContent = value;            // только текст — сырой JSON в UI запрещён
   const thread = $('#chatThread');
   if (thread) {
     thread.appendChild(el);
@@ -567,6 +576,7 @@ async function send() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok || data.ok === false) throw new Error(data.error || `HTTP ${r.status}`);
+      if (data.message) addBubble(data.message, 'uni');
       setStatus('Выполняю мышью', 'working');
       pollComputerTask();
       return;
@@ -586,10 +596,9 @@ async function send() {
     if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); setAction('error', 'Ошибка выполнения'); setStatus('Ошибка', 'waiting'); return; }
     const data = await r.json();
     const reply = (data && (data.reply || data.text || data.message || data.response)) || '';
-    // When the backend supplies structured UI events, the reply is represented
-    // by the rendered card. Adding it as a second bubble caused duplicated chat.
-    const hasUi = Array.isArray(data.ui_events) || data.ui_event || data.task_id;
-    if (reply && !hasUi) renderGenericMessage(reply);
+    // The textual reply is the canonical chat message. Structured UI events are
+    // an additional view and must never hide what UNI actually said.
+    if (reply) renderGenericMessage(reply);
     // универсальный контракт: backend присылает ui_events (или task_id для поллинга)
     if (Array.isArray(data.ui_events)) data.ui_events.forEach(applyUiEvent);
     else if (data.ui_event) applyUiEvent(data.ui_event);
@@ -629,11 +638,11 @@ function autoGrowInput() {
   const input = $('#messageInput');
   if (!input) return;
   input.style.height = 'auto';
-  const max = Math.min(150, Math.max(42, input.scrollHeight));
+  const max = Math.min(92, Math.max(42, input.scrollHeight));
   input.style.height = `${max}px`;
   input.style.overflowY = input.scrollHeight > max ? 'auto' : 'hidden';
   const footer = document.querySelector('.composer');
-  const base = state.mode === 'mission' ? 368 : 500;
+  const base = state.mode === 'mission' ? 340 : 460;
   const extra = Math.max(0, max - 42);
   if (footer) footer.style.height = `${58 + extra}px`;
   if (widget) widget.style.height = `${base + extra}px`;
@@ -747,6 +756,8 @@ async function restoreAppearance() {
     document.documentElement.style.setProperty('--muted', theme === 'light' ? '#68736e' : '#8d989a');
     if ($('#opacityInput')) $('#opacityInput').value = Math.round(Number(saved.opacity || .72) * 100);
     if ($('#motionInput')) $('#motionInput').checked = saved.motion !== false;
+    state.autoVoice = saved.autoVoice === true;
+    if ($('#autoVoiceInput')) $('#autoVoiceInput').checked = state.autoVoice;
     if (saved.transparent_overlay) {
       document.body.classList.add('transparent-overlay');
       $('#overlayButton')?.classList.add('active');
@@ -759,7 +770,7 @@ setInterval(pollStatus, 3000); pollStatus();
 initEmptyChat();
 
 // ---------- STOP (P0): лёгкая остановка цикла ----------
-$('#stopButton').onclick = async () => {
+if ($('#stopButton')) $('#stopButton').onclick = async () => {
   state.stopped = true;
   $('#stopButton').textContent = 'STOP';
   try { await fetch(`${API}/api/stop-cycle`, { method: 'POST' }); } catch (e) {}
@@ -936,7 +947,7 @@ const AUTO_VOICE_SILENCE_MS = 3200;
 const AUTO_VOICE_THRESHOLD = 0.018;
 
 async function startAutoVoice() {
-  if (autoVoiceStream || state.listening) return;
+  if (!state.autoVoice || autoVoiceStream || state.listening) return;
   try {
     autoVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     autoVoiceContext = new AudioContext();
@@ -976,6 +987,16 @@ async function startAutoVoice() {
     notify('Микрофон не разрешён: включите его в настройках Windows');
   }
 }
+function stopAutoVoice() {
+  if (autoVoiceRecorder && autoVoiceRecorder.state !== 'inactive') autoVoiceRecorder.stop();
+  autoVoiceRecorder = null;
+  autoVoiceSpeaking = false;
+  autoVoiceStream?.getTracks().forEach(track => track.stop());
+  autoVoiceStream = null;
+  autoVoiceContext?.close();
+  autoVoiceContext = null;
+  autoVoiceAnalyser = null;
+}
 async function submitAutoVoice() {
   const blob = new Blob(autoVoiceChunks, { type: 'audio/webm' });
   if (blob.size < 1200) return;
@@ -990,7 +1011,7 @@ window.addEventListener('beforeunload', () => {
   autoVoiceStream?.getTracks().forEach(track => track.stop());
   autoVoiceContext?.close();
 });
-setTimeout(startAutoVoice, 1200);
+// Автопрослушивание запускается только явным переключателем в настройках.
 
 // ---------- свернуть ----------
 $('#minimizeButton').onclick = () => {
@@ -1021,6 +1042,7 @@ function persist() {
       motion: !document.body.classList.contains('no-motion'),
       transparent_overlay: document.body.classList.contains('transparent-overlay'),
       observing: state.observing, avatar: 'png-live', interface: 'v4',
+      autoVoice: state.autoVoice,
     });
   }
 }
@@ -1037,6 +1059,11 @@ $('#opacityInput').oninput = (e) => {
   document.documentElement.style.setProperty('--opacity', e.target.value / 100); persist();
 };
 $('#motionInput').onchange = (e) => { document.body.classList.toggle('no-motion', !e.target.checked); persist(); };
+$('#autoVoiceInput').onchange = async (e) => {
+  state.autoVoice = Boolean(e.target.checked);
+  if (state.autoVoice) await startAutoVoice(); else stopAutoVoice();
+  persist();
+};
 $('#notifyButton').onclick = () => { setAvatar('waiting'); notify('Юни сообщит, когда понадобится решение'); };
 $('#attachButton').onclick = () => notify('Прикрепление файлов появится после выбора безопасного хранилища');
 // 🤖 M-04 (2026-08-13): кнопка «Демо мыши» в оверлее -> POST /api/demo/mouse.
