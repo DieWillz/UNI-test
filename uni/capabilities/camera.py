@@ -54,10 +54,20 @@ class CameraCapability(Capability):
         with self._lock:
             if self._capture is not None and self._capture.isOpened():
                 return True, "Камера уже включена"
-            capture = cv2.VideoCapture(self.device_index, self._backend_id())
-            if not capture.isOpened():
-                capture.release()
-                return False, f"Не удалось открыть камеру с индексом {self.device_index}"
+            requested_index = self.device_index
+            candidates = [requested_index] + [i for i in range(5) if i != requested_index]
+            capture = None
+            selected_index = requested_index
+            for index in candidates:
+                candidate = cv2.VideoCapture(index, self._backend_id())
+                if candidate.isOpened():
+                    capture = candidate
+                    selected_index = index
+                    break
+                candidate.release()
+            if capture is None:
+                return False, f"Не удалось открыть камеру: проверены индексы {candidates}"
+            self.device_index = selected_index
             capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
@@ -69,7 +79,7 @@ class CameraCapability(Capability):
                 capture.release()
                 return False, "Камера открылась, но не отдала кадр"
             self._capture = capture
-            return True, "Камера включена после звукового уведомления"
+            return True, f"Камера включена (индекс {selected_index})"
 
     async def start(self, notice_ack: bool = False) -> ToolResult:
         # 🤖 Ground-truth: разрешительный гейт notice_ack снят — камера

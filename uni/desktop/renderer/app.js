@@ -47,6 +47,7 @@ dragHeader?.addEventListener('pointerup', () => { dragStart = null; });
 
 const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
+  mouseOnly: false,
   minimized: false, avatar: 'working', consentLevel: 'off', busy: false,
   pollTimer: null,
   startingLlm: false,
@@ -203,11 +204,9 @@ function renderTaskDone(event) {
   card.innerHTML = '';
   const titleEl = document.createElement('div');
   titleEl.className = 'ui-card-title';
-  titleEl.append(document.createTextNode(e.title || 'Готово'));
+  titleEl.append(document.createTextNode(e.title || 'Результат'));
   card.append(titleEl);
   renderComponentInto(card, ui);
-  setAction('done', 'Готово');
-  showReadyBubble('Юни готова');
   setStatus('Готово', 'done');
   // авто-сворачивание карточки в одну строку через ~1.2с (C-06 / Директива §5.3)
   if (e.task_id) {
@@ -304,7 +303,6 @@ function renderMissionDone(event) {
   const card = (e.mission_id && $(`[data-task-id="${CSS.escape(e.mission_id)}"]`)) || makeCard(e.mission_id);
   // оставляем карточку миссии, обновляем статус
   setAction('done', e.title || 'Миссия завершена', 'mission');
-  showReadyBubble('Юни ждёт решения');
   setStatus('Жду решения', 'waiting');
 }
 
@@ -521,9 +519,9 @@ function setMode(mode) {
 }
 
 // ---------- чат (P0) ----------
-function addBubble(text, who) {
+function addBubble(text, who, technical = false) {
   const el = document.createElement('div');
-  el.className = 'message' + (who === 'user' ? ' user' : '');
+  el.className = 'message' + (who === 'user' ? ' user' : '') + (technical ? ' technical' : '');
   el.textContent = text;            // только текст — сырой JSON в UI запрещён
   const thread = $('#chatThread');
   if (thread) {
@@ -562,6 +560,17 @@ async function send() {
   hideEmptyChat();
   setStatus('Обрабатываю', 'working');
   try {
+    if (state.mouseOnly) {
+      const r = await fetch(`${API}/api/computer/act`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal: text, max_steps: 12, mouse_only: true }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.ok === false) throw new Error(data.error || `HTTP ${r.status}`);
+      setStatus('Выполняю мышью', 'working');
+      pollComputerTask();
+      return;
+    }
     const r = await fetch(`${API}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -595,6 +604,27 @@ async function send() {
   }
 }
 
+async function pollComputerTask() {
+  let shown = 0;
+  for (let i = 0; i < 80; i++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const r = await fetch(`${API}/api/computer/status`, { cache: 'no-store' });
+      const d = await r.json();
+      const history = Array.isArray(d.history) ? d.history : [];
+      for (; shown < history.length; shown++) addBubble(history[shown], 'uni');
+      if (!d.active) {
+        const status = d.status || (d.stopped ? 'interrupted' : 'готово');
+        if (d.message && status !== 'success' && status !== 'готово') addBubble(d.message, 'uni');
+        setStatus(status === 'success' ? 'Готово' : status === 'interrupted' ? 'Остановлено' : 'Ошибка', status === 'success' ? 'done' : 'waiting');
+        return;
+      }
+      setStatus(`Выполняю мышью · шаг ${d.steps || shown + 1}`, 'working');
+    } catch (_) {}
+  }
+  setStatus('Ожидаю результат', 'working');
+}
+
 function autoGrowInput() {
   const input = $('#messageInput');
   if (!input) return;
@@ -611,9 +641,8 @@ function autoGrowInput() {
 $('#messageInput').addEventListener('input', autoGrowInput);
 function renderGenericMessage(text) {
   if (!text) return;
-  const card = makeCard();
-  const p = document.createElement('p'); p.textContent = text; card.append(p);
-  setAction('done', 'Готово'); showReadyBubble('Юни готова'); setStatus('Готово', 'done');
+  addBubble(text, 'uni');
+  setStatus('Готово', 'done');
 }
 
 // ---------- статус (P0): поллинг /api/uni/status ----------
@@ -629,7 +658,9 @@ async function pollStatus() {
     const s = await r.json();
     $('#connectionDot')?.classList.add('online');
     $('#connectionDot')?.classList.remove('offline');
-    const healthy = s.llama && s.llama.running && s.webui && s.webui.running;
+    const lmReady = s.lmstudio && s.lmstudio.reachable && s.lmstudio.model_loaded;
+    const llmReady = s.llama && s.llama.running;
+    const healthy = (llmReady || lmReady) && s.webui && s.webui.running;
     const key = !healthy ? 'err' : (state.stopped ? 'busy' : 'ok');
     const m = STATUS_MAP[key];
     if (!healthy) hideReadyBubble();
@@ -641,10 +672,10 @@ async function pollStatus() {
     if (sp) {
       sp.innerHTML = `<b>Состояние Юни</b>` +
         `<span><i class="${healthy ? 'ok' : ''}" style="background:${healthy ? 'var(--accent)' : 'var(--stop)'}"></i> ` +
-        `${s.llama && s.llama.running ? 'LLM на связи' : 'LLM недоступен'}</span>` +
+        `${llmReady || lmReady ? (lmReady ? 'LM Studio на связи' : 'LLM на связи') : 'LLM недоступен'}</span>` +
         `<span><i class="${s.webui && s.webui.running ? 'ok' : ''}" style="background:${s.webui && s.webui.running ? 'var(--accent)' : 'var(--stop)'}"></i> ` +
         `${s.webui && s.webui.running ? 'WebUI на связи' : 'WebUI недоступен'}</span>`;
-      if (!s.llama || !s.llama.running) {
+      if (!llmReady && !lmReady) {
         const btn = document.createElement('button');
         btn.className = 'status-start-llm';
         btn.textContent = state.startingLlm ? 'Запускаю LLM…' : '▶ Запустить LLM';
@@ -693,6 +724,16 @@ async function startLlmFromOverlay() {
   } finally {
     state.startingLlm = false;
   }
+}
+async function startWebuiFromOverlay() {
+  notify('Запускаю WebUI на 8787…');
+  try {
+    const r = await fetch(`${API}/api/admin/start-webui`, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json().catch(()=>({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || `HTTP ${r.status}`);
+    notify('WebUI запущен');
+    await pollStatus();
+  } catch (e) { notify(`WebUI не запущен: ${e.message}`); }
 }
 async function restoreAppearance() {
   try {
@@ -744,6 +785,63 @@ $('#visionButton').onclick = async () => {
   notify(state.observing ? 'Наблюдение включено' : 'Наблюдение выключено');
   persist();
 };
+
+// ---------- режим мыши 🖱️ (Hermes, 2026-08-14): /api/set_mouse_mode ----------
+// Включает визуально-управляемую мышь Юни (поиск иконок через внешний
+// Moondream-endpoint + подсветка перед кликом). Аддитивно к 👁, не дублирует.
+$('#uniMouseButton')?.addEventListener('click', async () => {
+  state.mouseMode = !state.mouseMode;
+  $('#uniMouseButton').classList.toggle('active', state.mouseMode);
+  try {
+    await fetch(`${API}/api/set_mouse_mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: state.mouseMode }),
+    });
+  } catch (e) {}
+  notify(state.mouseMode ? 'Режим мыши Юни включён' : 'Режим мыши Юни выключен');
+  persist();
+});
+
+// ---------- зрение 👁: периодический тик наблюдения (восстановлено) ----------
+// Пока state.observing === true, раз в ~18с спрашиваем backend, не увидел ли
+// он на рабочем столе что-то, требующее внимания (/api/vision/observe —
+// агент сам снимает экран, бюджет инициатив внутри uni/desktop/observe.py).
+let observeTimer = null;
+async function visionObserveTick() {
+  if (!state.observing) return;
+  try {
+    const r = await fetch(`${API}/api/vision/observe`, { method: 'POST' });
+    const d = await r.json().catch(() => ({}));
+    const initiative = d && d.initiative;
+    if (initiative && initiative.initiative && initiative.text) {
+      addBubble(initiative.text, 'uni');
+      notify(initiative.text);
+    }
+  } catch (e) { /* тихо: наблюдение не должно шуметь ошибками */ }
+}
+function startObserveLoop() {
+  clearInterval(observeTimer);
+  observeTimer = setInterval(visionObserveTick, 18000);
+}
+startObserveLoop();
+
+// SSE-события от backend (main.js прокидывает через desktop-event), включая
+// инициативы от /api/vision/observe и смену согласия из трея.
+window.uni?.onEvent?.((raw) => {
+  let data = null;
+  try { data = JSON.parse(raw); } catch (e) { return; }
+  if (!data || !data.type) return;
+  if (data.type === 'initiative' && data.text) {
+    addBubble(data.text, 'uni');
+    notify(data.text);
+  } else if (data.type === 'assistant_message' && data.text) {
+    addBubble(data.text, 'uni', data.source === 'dorch');
+  } else if (data.type === 'consent_changed' && data.consent) {
+    state.observing = !!data.consent.observation_enabled;
+    $('#visionButton')?.classList.toggle('active', state.observing);
+  }
+});
 $('#cameraButton').onclick = () => {
   const button = $('#cameraButton');
   const active = !button.classList.contains('active');
@@ -754,6 +852,28 @@ $('#cameraButton').onclick = () => {
   button.title = active ? 'Камера включена' : 'Камера выключена';
   notify(active ? 'Камера включена' : 'Камера выключена');
 };
+async function toggleMouseOnly() {
+  state.mouseOnly = !state.mouseOnly;
+  const button = $('#mouseModeButton');
+  button?.classList.toggle('active', state.mouseOnly);
+  button?.setAttribute('aria-pressed', String(state.mouseOnly));
+  if (button) button.title = state.mouseOnly ? 'Физический режим мыши включён' : 'Физический режим мыши выключен';
+  try {
+    const r = await fetch(`${API}/api/desktop/control-mode`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mode: state.mouseOnly ? 'mouse_only' : 'auto'})
+    });
+    if (!r.ok) throw new Error('backend отказал');
+    notify(state.mouseOnly ? 'Физический режим: только экран, мышь и клавиатура' : 'Обычный режим Юни');
+  } catch (e) {
+    state.mouseOnly = !state.mouseOnly;
+    button?.classList.toggle('active', state.mouseOnly);
+    button?.setAttribute('aria-pressed', String(state.mouseOnly));
+    notify('Не удалось изменить режим мыши');
+  }
+  persist();
+}
+$('#mouseModeButton').onclick = toggleMouseOnly;
 $('#overlayButton').onclick = () => {
   const active = !document.body.classList.contains('transparent-overlay');
   document.body.classList.toggle('transparent-overlay', active);
@@ -805,6 +925,72 @@ async function toggleListening() {
 }
 $('#micButton').onclick = toggleListening;
 $('#composerMic').onclick = toggleListening;
+
+// ---------- фоновое голосовое управление ----------
+// Постоянно держим микрофон открытым, но отправляем на STT только фразу:
+// речь начинается при превышении RMS-порога и заканчивается после 3.2 с тишины.
+let autoVoiceStream = null, autoVoiceContext = null, autoVoiceAnalyser = null;
+let autoVoiceRecorder = null, autoVoiceChunks = [], autoVoiceSpeaking = false;
+let autoVoiceLastSpeech = 0, autoVoiceStarted = 0;
+const AUTO_VOICE_SILENCE_MS = 3200;
+const AUTO_VOICE_THRESHOLD = 0.018;
+
+async function startAutoVoice() {
+  if (autoVoiceStream || state.listening) return;
+  try {
+    autoVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    autoVoiceContext = new AudioContext();
+    autoVoiceAnalyser = autoVoiceContext.createAnalyser();
+    autoVoiceAnalyser.fftSize = 1024;
+    autoVoiceContext.createMediaStreamSource(autoVoiceStream).connect(autoVoiceAnalyser);
+    const data = new Uint8Array(autoVoiceAnalyser.fftSize);
+    const tick = () => {
+      if (!autoVoiceStream || state.listening) return;
+      autoVoiceAnalyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (const value of data) { const n = (value - 128) / 128; sum += n * n; }
+      const rms = Math.sqrt(sum / data.length);
+      const nowMs = Date.now();
+      if (rms >= AUTO_VOICE_THRESHOLD) {
+        autoVoiceLastSpeech = nowMs;
+        if (!autoVoiceSpeaking) {
+          autoVoiceSpeaking = true;
+          autoVoiceStarted = nowMs;
+          autoVoiceChunks = [];
+          autoVoiceRecorder = new MediaRecorder(autoVoiceStream);
+          autoVoiceRecorder.ondataavailable = e => { if (e.data.size) autoVoiceChunks.push(e.data); };
+          autoVoiceRecorder.onstop = submitAutoVoice;
+          autoVoiceRecorder.start();
+          setStatus('Слушаю', 'listening');
+        }
+      } else if (autoVoiceSpeaking && nowMs - autoVoiceLastSpeech >= AUTO_VOICE_SILENCE_MS && nowMs - autoVoiceStarted > 350) {
+        autoVoiceSpeaking = false;
+        if (autoVoiceRecorder && autoVoiceRecorder.state !== 'inactive') autoVoiceRecorder.stop();
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    notify('Фоновое голосовое управление включено');
+  } catch (e) {
+    autoVoiceStream = null;
+    notify('Микрофон не разрешён: включите его в настройках Windows');
+  }
+}
+async function submitAutoVoice() {
+  const blob = new Blob(autoVoiceChunks, { type: 'audio/webm' });
+  if (blob.size < 1200) return;
+  try {
+    const r = await fetch(`${API}/api/stt`, { method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: await blob.arrayBuffer() });
+    const d = await r.json();
+    const text = String(d.text || '').trim();
+    if (text) { $('#messageInput').value = text; autoGrowInput(); send(); }
+  } catch (_) { notify('Не удалось расшифровать голосовую команду'); }
+}
+window.addEventListener('beforeunload', () => {
+  autoVoiceStream?.getTracks().forEach(track => track.stop());
+  autoVoiceContext?.close();
+});
+setTimeout(startAutoVoice, 1200);
 
 // ---------- свернуть ----------
 $('#minimizeButton').onclick = () => {
@@ -887,24 +1073,8 @@ function greetingByTime() {
   return 'Добрый вечер';
 }
 function hideEmptyChat() { $('#emptyChat')?.classList.add('hidden'); }
-function showReadyBubble(text) {
-  if ($('#headerStatus')?.textContent === 'Ошибка') return;
-  const strip = state.mode === 'mission' ? $('#missionActionStrip') : $('#quickActionStrip');
-  if (strip) strip.style.display = 'none';
-  let b = $('#readyBubble');
-  if (!b) {
-    b = document.createElement('div'); b.id = 'readyBubble'; b.className = 'ready-bubble';
-    const thread = $('#chatThread');
-    if (thread) thread.appendChild(b);
-    else (state.mode === 'mission' ? $('#missionMode') : $('#quickMode')).append(b);
-  }
-  b.textContent = text || 'Юни готова';
-  b.style.display = '';
-}
 function hideReadyBubble() {
   const b = $('#readyBubble'); if (b) b.style.display = 'none';
-  const strip = state.mode === 'mission' ? $('#missionActionStrip') : $('#quickActionStrip');
-  if (strip) strip.style.display = '';
 }
 function initEmptyChat() {
   const g = $('#greetingText'); if (g) g.textContent = greetingByTime();

@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from typing import Any
+from contextvars import ContextVar
 
 from uni.contracts import ToolResult
 
 
 class ToolExecutor:
+    _control_mode: ContextVar[str] = ContextVar("uni_control_mode", default="auto")
+    _MOUSE_ONLY_BLOCKED = frozenset({
+        "browser.navigate", "browser.search_web", "browser.search_images",
+        "browser.click_selector", "browser.type_selector", "browser.extract_text",
+        "browser.screenshot", "browser.save_screenshot", "browser.current_tab",
+    })
     _ROUTING = {
         "xtoys.open": ("xtoys", "open"),
         "xtoys.toggle": ("xtoys", "toggle"),
@@ -70,8 +77,25 @@ class ToolExecutor:
     def canonical_name(cls, tool_name: str) -> str:
         return cls._API_ALIASES.get(tool_name, tool_name)
 
+    @classmethod
+    def set_control_mode(cls, mode: str):
+        """Set mode for the current async task only; returns a reset token."""
+        if mode not in {"auto", "mouse_only"}:
+            raise ValueError("bad control mode")
+        return cls._control_mode.set(mode)
+
+    @classmethod
+    def reset_control_mode(cls, token) -> None:
+        cls._control_mode.reset(token)
+
     async def execute(self, tool_name: str, args: dict[str, Any] | None = None) -> ToolResult:
         canonical = self.canonical_name(tool_name)
+        if self._control_mode.get() == "mouse_only" and canonical in self._MOUSE_ONLY_BLOCKED:
+            return ToolResult(
+                success=False,
+                message=("tool_blocked_by_mouse_only_mode: разрешены только screen/vision "
+                         "и физические mouse/keyboard действия"),
+            )
         route = self._ROUTING.get(canonical)
         if route is None:
             return ToolResult(success=False, message=f"Неизвестный инструмент: {tool_name}")

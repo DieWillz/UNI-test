@@ -59,6 +59,9 @@ class VisualActionAgent:
         self.safe_margin = max(0, int(safe_margin))
         self.log = log or (lambda _event, _message: None)
         self.steps_used = 0
+        self._active = False
+        self._result_status = "idle"
+        self._result_error = None
         self._stop = False  # 🤖 флаг экстренной остановки (СТОП из UI/voice)
         # 🤖 читаемая история шагов цикла для UI (увидела→сделала→увидела после)
         self.history: list[str] = []
@@ -71,15 +74,20 @@ class VisualActionAgent:
         self._stop = False
         self.steps_used = 0
         self.history = []
+        self._active = False
+        self._result_status = "idle"
+        self._result_error = None
 
     def status(self) -> dict:
         """Текущее состояние цикла для опроса UI (без выполнения)."""
         return {
-            "active": self.steps_used > 0 and not self._stop,
+            "active": self._active and not self._stop,
             "steps": self.steps_used,
             "stopped": self._stop,
             "max_steps": self.max_steps,
             "history": list(self.history),
+            "status": self._result_status,
+            "message": self._result_error,
         }
 
     def get_history(self) -> list[str]:
@@ -119,11 +127,17 @@ class VisualActionAgent:
 
         max_steps = max_steps or self.max_steps
         steps: list[dict[str, Any]] = []
+        self._active = True
+        self._result_status = "running"
+        self._result_error = None
 
         for step in range(1, max_steps + 1):
             self.steps_used = step
             if self._stop:  # 🤖 экстренная остановка
                 self._stop = False
+                self._active = False
+                self._result_status = "interrupted"
+                self._result_error = "Задача остановлена пользователем"
                 return {"status": "interrupted", "steps": steps, "error": "Остановлено по команде СТОП"}
             # 1) ВИЖУ: ищем элемент на рабочем столе по описанию из цели
             located = await self._locate(goal)
@@ -135,6 +149,9 @@ class VisualActionAgent:
             if located == "low_conf":
                 # найден, но уверенность ниже порога — не кликаем (fail-closed)
                 self.history.append(f"шаг {step}: вижу — найдено, но уверенность низкая, не кликаю")
+                self._active = False
+                self._result_status = "blocked"
+                self._result_error = "Координата заблокирована защитой"
                 return {
                     "status": "clarify",
                     "steps": steps,
@@ -187,9 +204,15 @@ class VisualActionAgent:
                     save_trajectory(goal, steps, list(self.history), status="success")
                 except Exception:
                     pass
+                self._active = False
+                self._result_status = "success"
+                self._result_error = "Задача выполнена"
                 return {"status": "success", "steps": steps, "error": None}
             self.history.append(f"шаг {step}: проверила — пока не достигнуто, повторяю")
 
+        self._active = False
+        self._result_status = "failed"
+        self._result_error = f"Цель не достигнута за {max_steps} шагов"
         return {
             "status": "failed",
             "steps": steps,
@@ -245,6 +268,12 @@ class VisualActionAgent:
 
     async def _click(self, x: int, y: int) -> ToolResult:
         self.log("GUI_CLICK", f"{x},{y}")
+        # В физическом режиме курсор сначала реально подходит к цели.
+        mover = getattr(self._computer, "move", None)
+        if mover is not None:
+            moved = await mover(x, y)
+            if not moved.success:
+                return moved
         # Человеко-подобный клик, fallback на обычный при недоступности движка.
         if getattr(self._computer, "use_human_motion", False):
             return await self._computer.click_human(x, y)

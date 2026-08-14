@@ -65,6 +65,15 @@ _XT_THREAD: Any = None
 # 🤖 DC-03: очередь событий для оверлея Desktop Companion
 _desktop_event_queue: "queue.Queue" = queue.Queue()
 
+def _dorch_limit(value: float) -> int:
+    """Apply the administrator's persistent hard ceiling to every device command."""
+    try:
+        cfg = load_config()
+        ceiling = int(cfg.capabilities.xtoys.max_intensity)
+    except Exception:
+        ceiling = 50
+    return max(0, min(ceiling, int(float(value))))
+
 
 def _consent_path():
     return (_ROOT / "uni" / "memory" / "consent_log.jsonl")
@@ -110,6 +119,9 @@ _INTIFACE: IntifaceBridge | None = None
 
 # ===== Dorch neutral motion profiles =====
 _XTOYS_PATTERN: XToysPatternEngine | None = None
+_XTOYS_PLAYLIST: list[dict[str, Any]] = []
+_XTOYS_PLAYLIST_ACTIVE = False
+_XTOYS_PLAYLIST_INDEX = -1
 
 # ===== ToyControlCoordinator: единый шлюз управления устройством =====
 _TOY_COORDINATOR: ToyControlCoordinator | None = None
@@ -249,6 +261,7 @@ _CHAT_FEED = None  # uni.context.feed_injector.ContextFeedInjector (лениво
 # которая возникала при asyncio.run() внутри каждого обработчика.
 _AGENT_LOOP = None
 _AGENT_THREAD = None
+_CONTROL_MODE = "auto"
 
 # Reuse heavyweight local TTS models between requests.  Access is serialized because
 # both Silero and Piper model objects are not guaranteed to be thread-safe.
@@ -905,11 +918,20 @@ class _Handler(BaseHTTPRequestHandler):
                     pass
             # webui: порт 8787
             webui_running = _tcp_alive("127.0.0.1", 8787)
+            moondream_running = _tcp_alive("127.0.0.1", 7860)
             # desktop (electron): PID из pids.json жив
             desktop_pid = (pids.get("electron") or {}).get("pid")
             desktop_running = alive(desktop_pid)
-            # lmstudio: порт 1234 (опц.)
+            # LM Studio: порт 1234 и реально загруженная модель.
             lmstudio_reachable = _tcp_alive("127.0.0.1", 1234)
+            lmstudio_models = []
+            if lmstudio_reachable:
+                try:
+                    import urllib.request
+                    with urllib.request.urlopen("http://127.0.0.1:1234/v1/models", timeout=2) as r:
+                        lmstudio_models = [str(x.get("id")) for x in _json_mod.loads(r.read().decode("utf-8")).get("data", []) if x.get("id")]
+                except Exception:
+                    lmstudio_models = []
             # 🤖 INT-03 (2026-08-13): честный аудио-статус (STT/TTS) через
             # detect_audio_environment(). Любая ошибка = STT отключён (fail-closed,
             # НЕ краш). Результат идёт в админку (ADM-04) и клиентский статус.
@@ -936,8 +958,9 @@ class _Handler(BaseHTTPRequestHandler):
                           # started_at в pids.json — в миллисекундах; time.time() — в секундах
                           "uptime_s": (int((time.time() * 1000 - (pids.get("started_at") or 0)) / 1000) if (llama_running and pids.get("started_at")) else 0)},
                 "webui": {"running": webui_running, "pid": (pids.get("webui") or {}).get("pid"), "port": 8787},
+                "moondream": {"running": moondream_running, "port": 7860},
                 "desktop": {"running": desktop_running, "pid": desktop_pid},
-                "lmstudio": {"reachable": lmstudio_reachable},
+                "lmstudio": {"reachable": lmstudio_reachable, "model_loaded": bool(lmstudio_models), "models": lmstudio_models},
                 "audio": audio,
             }
 
@@ -945,7 +968,11 @@ class _Handler(BaseHTTPRequestHandler):
             logs_dir = _ROOT / "runtime" / "logs"
             mapping = {
                 "llama": logs_dir / "llama-server.log",
+                "llama_err": logs_dir / "llama.err",
                 "webui": logs_dir / "webui.log",
+                "webui_err": logs_dir / "webui.err",
+                "uni_bat": logs_dir / "uni_bat.log",
+                "electron": logs_dir / "electron.log",
                 "desktop": _HERE / "desktop.log",
             }
             f = mapping.get(source)
@@ -963,8 +990,11 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/uni/status":
             self._json(200, _uni_status())
             return
+        if parsed.path == "/api/desktop/control-mode":
+            self._json(200, {"ok": True, "mode": _CONTROL_MODE})
+            return
         if parsed.path == "/api/uni/logs":
-            src = parsed.query.get("source", "llama")
+            src = (parse_qs(parsed.query).get("source") or ["llama"])[0]
             try:
                 since = int(parsed.query.get("since", "0") or 0)
             except Exception:
@@ -1219,16 +1249,25 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"file": "UNI_JOURNAL.jsonl", "entries": rows[-100:]})
             return
         if parsed.path == "/api/participants_dirs":
-            # T-08: список папок uni-* как участников
-            parts = []
-            try:
-                for d in sorted(_ROOT.iterdir()):
-                    if d.is_dir() and d.name.startswith("uni-"):
-                        parts.append({"name": d.name[len("uni-"):], "dir": d.name,
-                                      "has_logs": (d / "logs").is_dir()})
-            except OSError:
-                pass
-            self._json(200, {"participants": parts})
+            # T-08: список участников. Синхронизировано с /api/heartbeats:
+            # источник истины — load_participants() (где hermes реальный
+            # участник), а не только папки uni-* на диске.
+            # DEPRECATED by Hermes (2026-08-14, old code kept for reference):
+            #     parts = []
+            #     try:
+            #         for d in sorted(_ROOT.iterdir()):
+            #             if d.is_dir() and d.name.startswith("uni-"):
+            #                 parts.append({"name": d.name[len("uni-"):], "dir": d.name,
+            #                               "has_logs": (d / "logs").is_dir()})
+            #     except OSError:
+            #         pass
+            #     self._json(200, {"participants": parts})
+            # Старый вариант возвращал только папки uni-* -> не согласован
+            # с /api/heartbeats и не содержал hermes при отсутствии папки
+            # uni-hermes в _ROOT. Теперь оба эндпоинта используют один
+            # источник (_gather_participants).
+            participants = _gather_participants()
+            self._json(200, {"participants": participants})
             return
 
         # 🤖 DC-03 / DC-04: Desktop Companion — аддитивные эндпоинты (не ломают канон)
@@ -1243,6 +1282,22 @@ class _Handler(BaseHTTPRequestHandler):
             _desktop_event_queue.put({"type": "hello", "ts": time.time()})
             try:
                 while True:
+                    # 🤖 FIX (Hermes, 2026-08-14): выход при отключении клиента.
+                    # Старый цикл (DEPRECATED by Hermes) крутился вечно после
+                    # conn.close() клиента: get(timeout=30) просто ждал, ping
+                    # ловил BrokenPipe и делал `continue`, поток висел 30с+,
+                    # держа self.wfile/self.connection. При GC в pytest это
+                    # вызывало `Windows fatal exception: 0x80000003` (hard crash
+                    # всего процесса). Теперь при закрытом wfile/соединении —
+                    # чистый выход.
+                    if getattr(self.wfile, "closed", False):
+                        break
+                    try:
+                        conn_fd = self.connection.fileno()
+                    except (OSError, ValueError):
+                        break
+                    if conn_fd < 0:
+                        break
                     try:
                         event = _desktop_event_queue.get(timeout=30.0)
                     except Exception:
@@ -1250,14 +1305,14 @@ class _Handler(BaseHTTPRequestHandler):
                             self.wfile.write(b": ping\n\n")
                             self.wfile.flush()
                         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
-                            pass  # клиент ушёл — нормально
+                            break  # клиент ушёл — выходим, а не продолжаем висеть
                         continue
                     line = json.dumps(event, ensure_ascii=False)
                     try:
                         self.wfile.write(f"data: {line}\n\n".encode("utf-8"))
                         self.wfile.flush()
                     except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
-                        pass  # клиент ушёл — нормально
+                        break  # клиент ушёл — выходим
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
@@ -1462,7 +1517,16 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        global _INTIFACE, _XTOYS_PATTERN, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID
+        global _INTIFACE, _XTOYS_PATTERN, _XTOYS_PLAYLIST, _XTOYS_PLAYLIST_ACTIVE, _XTOYS_PLAYLIST_INDEX, _MOTION, _REMOTE_TIMER, _REMOTE_ROOM_EVENTS, _REMOTE_ROOM_NEXT_ID, _CONTROL_MODE
+        if self.path == "/api/desktop/control-mode":
+            body = self._read_json_body()
+            mode = str(body.get("mode", "auto")).strip().lower()
+            if mode not in {"auto", "mouse_only"}:
+                self._json(400, {"ok": False, "error": "bad_mode"})
+                return
+            _CONTROL_MODE = mode
+            self._json(200, {"ok": True, "mode": _CONTROL_MODE})
+            return
         # Automation control is persisted locally and exposed as a real stateful
         # API for the admin dashboard. Actions are deliberately bounded: they
         # update the coordinator state and do not claim tests/sync succeeded.
@@ -1571,6 +1635,36 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": str(exc)})
             return
+        if self.path == "/api/admin/start-webui":
+            try:
+                import subprocess as _sp, sys as _sys
+                if _tcp_alive("127.0.0.1", 8787):
+                    self._json(200, {"ok": True, "already_running": True, "port": 8787})
+                    return
+                env = os.environ.copy()
+                env["PYTHONPATH"] = str(_ROOT)
+                env["UNI_WEBUI_PORT"] = "8787"
+                p = _sp.Popen([_sys.executable, str(_HERE / "server.py")], cwd=str(_ROOT), env=env,
+                               creationflags=0x08000000)
+                self._json(200, {"ok": True, "started": True, "pid": p.pid, "port": 8787})
+            except Exception as exc:
+                self._json(500, {"ok": False, "error": str(exc)})
+            return
+        if self.path in ("/api/admin/stop-llm", "/api/admin/stop-webui"):
+            key = "llama" if self.path.endswith("stop-llm") else "webui"
+            port = 1235 if key == "llama" else 8787
+            try:
+                pids = json.loads((_ROOT / "runtime" / "pids.json").read_text(encoding="utf-8"))
+            except Exception:
+                pids = {}
+            pid = (pids.get(key) or {}).get("pid")
+            try:
+                if pid:
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid), "/T"], capture_output=True, timeout=10)
+                self._json(200, {"ok": True, "stopped": key, "pid": pid, "port": port})
+            except Exception as exc:
+                self._json(500, {"ok": False, "error": str(exc)})
+            return
         # 🤖 Единый лаунчер: остановить ВЕСЬ стек Юни (POST, для кнопки «Остановить всё»)
         if self.path in ("/api/admin/stop", "/api/stop"):
             try:
@@ -1614,6 +1708,43 @@ class _Handler(BaseHTTPRequestHandler):
             level = str(payload.get("level", "off"))
             rec = _write_consent(enabled, level)
             self._json(200, rec)
+            return
+        # 🤖 Hermes (2026-08-14): режим мыши Юни — аддитивные эндпоинты
+        # (рядом с DC-03/04). Не ломают канон: отдельные маршруты.
+        if self.path == "/api/set_mouse_mode":
+            try:
+                payload = _read_body(self)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            agent = self._get_chat_agent()
+            comp = getattr(agent, "computer", None) if agent else None
+            if comp is None or not hasattr(comp, "set_mouse_mode"):
+                self._json(200, {"status": "failed", "message": "computer capability недоступен"})
+                return
+            comp.set_mouse_mode(bool(payload.get("enabled", False)))
+            self._json(200, {"status": "success",
+                             "mode": "mouse" if comp.mouse_mode else "default",
+                             "message": f"Режим мыши {'включён' if comp.mouse_mode else 'выключен'}"})
+            return
+        if self.path in ("/api/click_at", "/api/execute_command"):
+            try:
+                payload = _read_body(self)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            agent = self._get_chat_agent()
+            comp = getattr(agent, "computer", None) if agent else None
+            if comp is None:
+                self._json(200, {"status": "failed", "message": "computer capability недоступен"})
+                return
+            if self.path == "/api/click_at":
+                x = int(payload.get("x", 0)); y = int(payload.get("y", 0))
+                res = comp.execute("click_human", x=x, y=y)
+            else:
+                res = comp.execute(str(payload.get("action", "")), **payload.get("params", {}))
+            self._json(200, {"status": "success" if getattr(res, "success", False) else "failed",
+                             "message": getattr(res, "message", "")})
             return
         if self.path == "/api/stop-cycle":
             # 🤖 Единый лаунчер / интерфейс: лёгкая остановка цикла Юни
@@ -1856,6 +1987,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/vision/capture":
             self._handle_vision_capture(self._read_json_body())
             return
+        if self.path == "/api/vision/observe":
+            self._handle_vision_observe()
+            return
         if self.path in ("/api/context/feed", "/api/context/feed/"):
             if self.command == "POST":
                 self._handle_context_feed_post(self._read_json_body())
@@ -2022,6 +2156,19 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        if self.path == "/api/xtoys/settings":
+            try:
+                body = self._read_json_body()
+                cfg = load_config()
+                if "max_intensity" in body:
+                    cfg.capabilities.xtoys.max_intensity = max(0, min(100, int(body["max_intensity"])))
+                    import yaml
+                    with (_ROOT / "config.yaml").open("w", encoding="utf-8") as f:
+                        yaml.safe_dump(cfg.model_dump(), f, allow_unicode=True, sort_keys=False)
+                self._json(200, {"ok": True, "max_intensity": cfg.capabilities.xtoys.max_intensity})
+            except Exception as exc:
+                self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         if self.path == "/api/xtoys/session/stop":
             try:
                 agent = self._get_chat_agent()
@@ -2035,7 +2182,7 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/xtoys/session/intensity":
             try:
                 body = self._read_json_body()
-                value = int(body.get("value", 0))
+                value = _dorch_limit(body.get("value", 0))
                 agent = self._get_chat_agent()
                 session = self._xt_session(agent)
                 if session.active:
@@ -2339,17 +2486,24 @@ class _Handler(BaseHTTPRequestHandler):
                 body = self._read_json_body()
                 goal = str(body.get("goal", "")).strip()
                 max_steps = int(body.get("max_steps", 8))
+                mouse_only = bool(body.get("mouse_only", False)) or _CONTROL_MODE == "mouse_only"
                 if not goal:
                     self._json(400, {"error": "пустая цель"})
                     return
                 agent = self._get_chat_agent()
 
                 async def _run():
-                    return await agent.act_on_screen(goal, max_steps=max_steps)
+                    if mouse_only:
+                        goal = ("MOUSE_ONLY: Используй только скриншоты, физическую мышь и физическую клавиатуру. "
+                                "Запрещены browser tools, DOM, Playwright, API-навигация и прямое открытие URL. " + goal)
+                    return await agent.act_on_screen(
+                        goal, max_steps=min(max_steps, 12),
+                        control_mode="mouse_only" if mouse_only else "auto",
+                    )
 
                 # fire-and-forget: цикл может идти долго; UI опрашивает статус
                 task = self._xt_fire(_run())
-                self._json(200, {"ok": True, "accepted": True, "goal": goal, "message": "команда принята, Юни выполняет под зрением"})
+                self._json(200, {"ok": True, "accepted": True, "goal": goal, "mouse_only": mouse_only, "message": "команда принята, Юни выполняет под зрением"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2389,7 +2543,7 @@ class _Handler(BaseHTTPRequestHandler):
                 body = self._read_json_body()
                 name = str(body.get("name", "")).strip().lower()
                 duration = float(body.get("duration", 20.0))
-                intensity = int(body.get("intensity", 70))
+                intensity = _dorch_limit(body.get("intensity", 70))
                 if name not in PATTERN_NAMES:
                     self._json(400, {"error": f"unknown pattern: {name}", "available": PATTERN_NAMES})
                     return
@@ -2414,8 +2568,36 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        if self.path == "/api/xtoys/playlist/start":
+            try:
+                body = self._read_json_body()
+                items = body.get("items") or []
+                if not isinstance(items, list) or not items or len(items) > 50:
+                    raise ValueError("playlist must contain 1..50 items")
+                clean = []
+                for item in items:
+                    name = str(item.get("name", "")).strip().lower()
+                    if name not in PATTERN_NAMES:
+                        raise ValueError(f"unknown pattern: {name}")
+                    duration = max(0.2, min(3600.0, float(item.get("duration", 20))))
+                    intensity = _dorch_limit(item.get("intensity", 70))
+                    clean.append({"name": name, "duration": duration, "intensity": intensity})
+                if _INTIFACE is None or not _INTIFACE.connected:
+                    self._json(503, {"error": "Сначала подключите Intiface"})
+                    return
+                if _XTOYS_PATTERN is not None:
+                    _XTOYS_PATTERN.stop()
+                _XTOYS_PLAYLIST = clean
+                _XTOYS_PLAYLIST_INDEX = 0
+                _XTOYS_PLAYLIST_ACTIVE = True
+                self._xt_fire(self._run_playlist(clean))
+                self._json(200, {"ok": True, "items": clean, "message": "плейлист запущен"})
+            except Exception as exc:
+                self._json(400, {"error": str(exc)})
+            return
         if self.path == "/api/xtoys/pattern/stop":
             try:
+                _XTOYS_PLAYLIST_ACTIVE = False
                 if _XTOYS_PATTERN is not None:
                     _XTOYS_PATTERN.stop()
                     _XTOYS_PATTERN = None
@@ -2428,9 +2610,11 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/xtoys/pattern/status":
             try:
                 if _XTOYS_PATTERN is None:
-                    self._json(200, {"running": False, "name": "", "last_value": 0, "step": "", "error": ""})
+                    self._json(200, {"running": False, "name": "", "last_value": 0, "step": "", "error": "", "playlist": {"active": _XTOYS_PLAYLIST_ACTIVE, "index": _XTOYS_PLAYLIST_INDEX, "total": len(_XTOYS_PLAYLIST)}})
                 else:
-                    self._json(200, _XTOYS_PATTERN.status())
+                    status = _XTOYS_PATTERN.status()
+                    status["playlist"] = {"active": _XTOYS_PLAYLIST_ACTIVE, "index": _XTOYS_PLAYLIST_INDEX, "total": len(_XTOYS_PLAYLIST)}
+                    self._json(200, status)
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2491,12 +2675,26 @@ class _Handler(BaseHTTPRequestHandler):
             max_int = getattr(max_int, "max_intensity", 50) if max_int else 50
             role = getattr(getattr(cfg, "autonomous", None), "role_prompt", "") or ""
             role_prompt = role
+        def _session_log(event: str, message: object) -> None:
+            # Spoken autonomous lines must also enter the visible desktop chat.
+            # Device/phase diagnostics stay in logs; only user-facing monologue
+            # text is forwarded to the overlay.
+            if event == "MONOLOGUE" and str(message).strip():
+                _desktop_event_queue.put({
+                    "type": "assistant_message",
+                    "text": str(message),
+                    "source": "dorch",
+                    "ts": time.time(),
+                })
+
         _XT_SESSION = AutonomousSession(
             run_tool=lambda name, args: self._run_xtoys_device_tool(name, args, AUTONOMOUS),
             speak=(lambda t: speech.speak(t)) if speech is not None else (lambda t: False),
             chat=agent.brain.chat,
             role_prompt=role_prompt or "Ты — властная госпожа в автономной сессии с секс-машинкой.",
             max_intensity=max_int,
+            require_connect=True,
+            log=_session_log,
         )
         return _XT_SESSION
 
@@ -2517,6 +2715,28 @@ class _Handler(BaseHTTPRequestHandler):
             await engine.run(name, duration, intensity)
         finally:
             await self._toy_coordinator().release(PATTERN)
+
+    async def _run_playlist(self, items: list[dict[str, Any]]) -> None:
+        global _XTOYS_PATTERN, _XTOYS_PLAYLIST_ACTIVE, _XTOYS_PLAYLIST_INDEX
+        try:
+            coordinator = self._toy_coordinator()
+            if not await coordinator.acquire(PATTERN):
+                return
+            for idx, item in enumerate(items):
+                if not _XTOYS_PLAYLIST_ACTIVE:
+                    break
+                _XTOYS_PLAYLIST_INDEX = idx
+                engine = XToysPatternEngine(run_tool=lambda name, args: self._run_xtoys_device_tool(name, args, PATTERN))
+                _XTOYS_PATTERN = engine
+                await engine.run(item["name"], item["duration"], item["intensity"])
+        finally:
+            _XTOYS_PLAYLIST_ACTIVE = False
+            _XTOYS_PLAYLIST_INDEX = -1
+            _XTOYS_PATTERN = None
+            try:
+                await self._toy_coordinator().release(PATTERN)
+            except Exception:
+                pass
 
     async def _run_xtoys_device_tool(self, name: str, args: dict[str, Any], source: str = MANUAL) -> ToolResult:
         """Route all panel/session/pattern device control through Intiface."""
@@ -2647,6 +2867,51 @@ class _Handler(BaseHTTPRequestHandler):
         agent = self._get_chat_agent()
         cfg = load_config()
         init_error = getattr(agent, "_init_error", None)
+        if init_error:
+            self._json(503, {"error": "agent init failed", "detail": init_error})
+            return
+        lowered = text.casefold()
+        session = self._xt_session(agent)
+        if any(key in lowered for key in ("\u043d\u0430\u0447\u043d\u0438 \u0441\u0435\u0441\u0441\u0438\u044e", "\u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u0434\u043e\u0440\u0447", "\u0432\u043a\u043b\u044e\u0447\u0438 \u043c\u0430\u0448\u0438\u043d\u043a\u0443")):
+            try:
+                coordinator = self._toy_coordinator()
+                self._xt_run(coordinator.stop(), timeout=5)
+                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
+                    self._json(409, {"text": "Устройство уже занято другим режимом.", "audio_url": None})
+                    return
+                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
+                self._json(200, {"text": "Запускаю Dorch-сессию и проверяю подключение устройства.", "audio_url": None})
+            except Exception as exc:
+                self._json(500, {"error": f"Dorch start: {type(exc).__name__}: {exc}"})
+            return
+        if any(key in lowered for key in ("\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438 \u0441\u0435\u0441\u0441\u0438\u044e", "\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438 \u0434\u043e\u0440\u0447", "\u0441\u0442\u043e\u043f \u043c\u0430\u0448\u0438\u043d\u043a\u0443")):
+            try:
+                result = self._xt_run(session.stop(), timeout=20)
+                self._xt_run(self._toy_coordinator().release(AUTONOMOUS), timeout=5)
+                self._json(200, {"text": result, "audio_url": None})
+            except Exception as exc:
+                self._json(500, {"error": f"Dorch stop: {type(exc).__name__}: {exc}"})
+            return
+        if any(key in lowered for key in ("начни сессию", "запусти дорч", "включи машинку")):
+            try:
+                coordinator = self._toy_coordinator()
+                self._xt_run(coordinator.stop(), timeout=5)
+                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
+                    self._json(409, {"text": "Устройство уже занято другим режимом.", "audio_url": None})
+                    return
+                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
+                self._json(200, {"text": "Запускаю Dorch-сессию и проверяю подключение устройства.", "audio_url": None})
+            except Exception as exc:
+                self._json(500, {"error": f"Dorch start: {type(exc).__name__}: {exc}"})
+            return
+        if any(key in lowered for key in ("останови сессию", "останови дорч", "стоп машинку")):
+            try:
+                result = self._xt_run(session.stop(), timeout=20)
+                self._xt_run(self._toy_coordinator().release(AUTONOMOUS), timeout=5)
+                self._json(200, {"text": result, "audio_url": None})
+            except Exception as exc:
+                self._json(500, {"error": f"Dorch stop: {type(exc).__name__}: {exc}"})
+            return
         if init_error:
             self._json(503, {"error": "agent init failed", "detail": init_error,
                              "hint": "проверь config.yaml (модель/браузер) на машине запуска"})
@@ -2811,6 +3076,44 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(409, {"error": getattr(res, "message", "capture failed")})
             return
         self._json(200, {"image_b64": (res.data or {}).get("image_b64"), "source": "camera"})
+
+    def _handle_vision_observe(self) -> None:
+        """Один тик «зрения» для оверлея (D-12, восстановлено): агент сам
+        снимает рабочий стол (uni.capabilities.vision.analyze_desktop —
+        независимый захват через ImageGrab, картинка от Electron не нужна),
+        получает caption, прогоняет через uni.desktop.observe.suggest
+        (бюджет + тихие часы) и, если есть инициатива, кладёт событие в
+        очередь SSE /api/desktop/events, чтобы оверлей мог её показать.
+        Согласие проверяется явно — тик без него не выполняет захват.
+        """
+        consent = _read_consent()
+        if not consent.get("observation_enabled"):
+            self._json(200, {"ok": False, "skipped": "consent_off"})
+            return
+        agent = self._get_chat_agent()
+        vision = agent.capabilities.get("vision") if agent is not None else None
+        if vision is None:
+            self._json(503, {"ok": False, "error": "vision capability недоступен"})
+            return
+        try:
+            result = _run_async(vision.analyze_desktop())
+        except Exception as exc:
+            self._json(500, {"ok": False, "error": f"{type(exc).__name__}: {exc}"})
+            return
+        if not getattr(result, "success", False):
+            self._json(200, {"ok": False, "error": getattr(result, "message", "vision недоступен")})
+            return
+        caption = str((result.data or {}).get("analysis", ""))
+        try:
+            from uni.desktop.observe import suggest
+            verdict = suggest(caption)
+        except Exception as exc:
+            self._json(500, {"ok": False, "error": f"observe module error: {exc}"})
+            return
+        if verdict.get("initiative"):
+            _desktop_event_queue.put({"type": "initiative", "text": verdict.get("text"),
+                                       "event": verdict.get("event"), "ts": time.time()})
+        self._json(200, {"ok": True, "caption": caption, "initiative": verdict})
 
     def _handle_safety_post(self, body: dict) -> None:
         agent = self._get_chat_agent()

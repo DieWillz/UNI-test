@@ -65,7 +65,14 @@ class ComputerCapability(Capability):
             except Exception:
                 self.use_human_motion = False  # откат на pyautogui при сбое
                 self._human_mouse = None
+        # 🤖 Hermes (2026-08-14): режим мыши Юни — поля (аддитивно, не меняет
+        # поведение старых action-веток). Методы set_mouse_mode/_browser_automation
+        # добавлены как методы класса ниже (после __init__).
+        self.mouse_mode = False
+        self._browser_automation_cache = None
+
         project_root = Path(__file__).resolve().parents[2]
+
         appdata = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
         self.telegram_uni_path = Path(telegram_uni_path or project_root / "Telegram" / "Telegram.exe")
         self.telegram_user_path = Path(
@@ -74,6 +81,7 @@ class ComputerCapability(Capability):
         pyautogui.FAILSAFE = failsafe
         self._badge = None
         self.verified_physical = bool(verified_physical)
+
         if action_badge_enabled:
             try:
                 from uni.action_badge import UniActionBadge
@@ -81,6 +89,21 @@ class ComputerCapability(Capability):
                 self._badge = UniActionBadge(enabled=True, label=action_badge_label)
             except Exception:
                 self._badge = None
+
+    # 🤖 Hermes (2026-08-14): режим мыши Юни — методы класса (аддитивно).
+    # Старые action-ветки execute (pyautogui/UIA) не тронуты; эти методы
+    # используются только ветками open_browser/open_new_tab/type_url и
+    # set_mouse_mode внутри execute().
+    def set_mouse_mode(self, enabled: bool) -> None:
+        """Включает/выключает визуально-управляемую мышь Юни."""
+        self.mouse_mode = bool(enabled)
+
+    def _browser_automation(self):
+        """Ленивый доступ к BrowserAutomation (не тянет зависимости при import)."""
+        if self._browser_automation_cache is None:
+            from uni.mouse.browser_automation import BrowserAutomation
+            self._browser_automation_cache = BrowserAutomation()
+        return self._browser_automation_cache
 
     def _flash_badge(self, x: int, y: int, action: str = "click") -> None:
         if self._badge is not None:
@@ -97,6 +120,7 @@ class ComputerCapability(Capability):
     def _check_command_allowed(self, app_name: str) -> None:
         # 🤖 Безопасность (P0.11): чёрный список
         low = (app_name or "").lower()
+
         for banned in self.BLACKLISTED_COMMANDS:
             if banned in low:
                 raise ValueError(f"Запрещённая команда/приложение: {app_name!r} (содержит {banned!r})")
@@ -220,8 +244,16 @@ class ComputerCapability(Capability):
             except Exception as e:
                 return ToolResult(success=False, message=f"Ошибка: {e}")
         finally:
+            # 🤖 FIX (Hermes, 2026-08-14): убран безусловный return из finally.
+            # Старый код (DEPRECATED by Hermes):
+            #     finally:
+            #         release_lock(lock_name)
+            #         return ToolResult(success=False, message=f"Ошибка: {e}")
+            # Здесь `e` не определена в области finally (exception-переменная
+            # живёт только внутри своего except) -> NameError и гашение
+            # успешных return из try. Теперь finally только освобождает lock;
+            # результат определяется return-ами из try/except.
             release_lock(lock_name)
-            return ToolResult(success=False, message=f"Ошибка: {e}")
 
     async def click(self, x: int, y: int, button: str = "left") -> ToolResult:
         self._require_physical()
@@ -237,6 +269,15 @@ class ComputerCapability(Capability):
             return ToolResult(success=True, message=f"Клик ({x},{y})")
         except Exception as e:
             return ToolResult(success=False, message=f"Ошибка: {e}")
+
+    async def move(self, x: int, y: int) -> ToolResult:
+        """Переместить системный курсор без клика."""
+        self._require_physical()
+        try:
+            await asyncio.to_thread(pyautogui.moveTo, x, y, duration=self.mouse_move_duration)
+            return ToolResult(success=True, message=f"Курсор перемещён ({x},{y})")
+        except Exception as e:
+            return ToolResult(success=False, message=f"Ошибка перемещения: {e}")
 
     # 🤖 Человеко-подобные действия (win32api, реалистичные траектории).
     # Старый action="click" (pyautogui) сохранён как быстрый fallback.
@@ -1086,6 +1127,8 @@ class ComputerCapability(Capability):
             return await self.launch_app(kwargs.get("app", ""))
         elif action == "click":
             return await self.click(kwargs.get("x", 0), kwargs.get("y", 0), kwargs.get("button", "left"))
+        elif action == "move":
+            return await self.move(kwargs.get("x", 0), kwargs.get("y", 0))
         elif action == "click_human":
             return await self.click_human(kwargs.get("x", 0), kwargs.get("y", 0), kwargs.get("button", "left"))
         elif action == "double_click_human":
@@ -1144,4 +1187,28 @@ class ComputerCapability(Capability):
             return await self.list_visible_windows()
         elif action == "press":
             return await self.press_key(kwargs.get("key", ""))
+        # 🤖 Hermes (2026-08-14): режим мыши Юни — визуально-управляемая
+        # автоматизация браузера через внешний Moondream-endpoint.
+        # Старый execute (pyautogui/UIA-ветки) НЕ удалён — эти действия
+        # добавлены аддитивно и срабатывают только при mouse_mode=True
+        # либо по явному action-имени.
+        elif action == "set_mouse_mode":
+            self.set_mouse_mode(bool(kwargs.get("enabled", False)))
+            return ToolResult(success=True, message=f"Режим мыши {'включён' if self.mouse_mode else 'выключен'}")
+        elif action in ("open_browser", "open_new_tab", "type_url"):
+            if not self.mouse_mode:
+                return ToolResult(success=False, message="Режим мыши выключен (set_mouse_mode=true)")
+            try:
+                ba = self._browser_automation()
+                if action == "open_browser":
+                    ok = await ba.open_browser(str(kwargs.get("browser", "Яндекс")))
+                    return ToolResult(success=bool(ok), message="Браузер открыт" if ok else "Не удалось открыть браузер", mode="mouse")
+                if action == "open_new_tab":
+                    ok = await ba.open_new_tab()
+                    return ToolResult(success=ok, message="Новая вкладка открыта" if ok else "Не удалось открыть вкладку", mode="mouse")
+                if action == "type_url":
+                    ok = await ba.type_url(str(kwargs.get("url", "")))
+                    return ToolResult(success=ok, message=f"URL введён" if ok else "Не удалось ввести URL", mode="mouse")
+            except Exception as exc:
+                return ToolResult(success=False, message=f"Ошибка мыши: {exc}", mode="mouse")
         return ToolResult(success=False, message=f"Неизвестное действие: {action}")

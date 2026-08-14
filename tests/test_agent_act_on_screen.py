@@ -61,9 +61,26 @@ class _FakeSessionLogger:
         pass
 
 
+class _FakeToolExecutor:
+    """Минимальный double для Agent.tool_executor (нужен act_on_screen)."""
+    def __init__(self):
+        self.mode = "auto"
+        self._token = 0
+
+    def set_control_mode(self, control_mode: str):
+        self.mode = control_mode
+        self._token += 1
+        return self._token
+
+    def reset_control_mode(self, token):
+        self.mode = "auto"
+        return True
+
+
 def _make_agent(locate=None, verify_yes=True):
     agent = Agent.__new__(Agent)  # обход тяжёлого __init__
     agent.session_logger = _FakeSessionLogger()
+
 
     class _Speech:
         spoken = []
@@ -79,6 +96,7 @@ def _make_agent(locate=None, verify_yes=True):
     registry._computer = computer
     registry._vision = vision
     agent.capabilities = registry
+    agent.tool_executor = _FakeToolExecutor()
     return agent, computer, vision
 
 

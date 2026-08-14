@@ -413,9 +413,11 @@ def _handle_admin_action(action: str, params: dict) -> dict:
 
     if action == "demo_mouse":
         try:
-            from uni.capabilities.mouse import HumanMouseController
-            c = HumanMouseController()
-            return {"ok": True, "path": c.demo_path() if hasattr(c, "demo_path") else "demo executed"}
+            # The canonical implementation lives in routers_desktop and uses
+            # capabilities.human_mouse.  There is no separate capabilities.mouse
+            # module; importing that old path made the admin action fail silently.
+            from .routers_desktop import mouse_demo
+            return mouse_demo()
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
@@ -440,5 +442,4 @@ def _handle_admin_action(action: str, params: dict) -> dict:
         return {"note": "build_dist.bat не найден"}
 
     raise ValueError(f"unknown action: {action}")
-
 

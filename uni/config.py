@@ -11,7 +11,7 @@ class BrainConfig(BaseModel):
     # 🤖 Новый переключатель провайдера LLM.
     #   "embedded" -> llama.cpp (runtime/llama/llama-server.exe) на 127.0.0.1:1235
     #   "lmstudio" -> старый путь LM Studio на 127.0.0.1:1234 (DEPRECATED, опционально флагом)
-    llm_provider: str = "embedded"
+    llm_provider: str = "lmstudio"
     embedded_base_url: str = "http://127.0.0.1:1235/v1"
     api_key: str = "lm-studio"
     model: str = "auto"
@@ -20,7 +20,7 @@ class BrainConfig(BaseModel):
     vision_api_key: Optional[str] = None
     temperature: float = 0.8
     max_tokens: int = 2000
-    timeout_seconds: float = 20.0
+    timeout_seconds: float = 120.0
 
     @property
     def effective_base_url(self) -> str:
@@ -97,10 +97,18 @@ class VisionConfig(BaseModel):
     provider: str = "openai"
     model: str = "qwen3.5-9b"
     gradio_url: str = "http://127.0.0.1:7860/"
-    gradio_api_name: str = "/answer_question"
-    gradio_fallback_api_name: Optional[str] = "/answer_question_1"
+    # Moondream2 Gradio Space: the active endpoint accepts image + prompt.
+    gradio_api_name: str = "/answer_question_1"
+    gradio_fallback_api_name: Optional[str] = "/answer_question"
+    # 🤖 Hermes (2026-08-14): явный endpoint внешнего Moondream2 (Pinokio/
+    # imageGram). По умолчанию совпадает с gradio_url — модель запущена
+    # ОТДЕЛЬНО, Юни только дёргает её по HTTP (не грузит в процесс).
+    # IconFinder (uni/mouse/icon_finder.py) берёт это поле; если пусто —
+    # использует gradio_url + автодетект.
+    moondream_url: Optional[str] = None
     resize_width: int = 320
     resize_height: int = 240
+
     save_screenshots: bool = False
     # 🤖 локальный fallback (UIA/OCR) когда VLM недоступна. Opt-in, default False
     # — не меняет поведение по умолчанию, включается в config.yaml.
@@ -258,9 +266,49 @@ class Config(BaseModel):
     context: ContextFeedConfig = Field(default_factory=ContextFeedConfig)
 
 def load_config(path: str = "config.yaml") -> Config:
+    # 🤖 Thread-safe cached loader (Hermes, 2026-08-14).
+    # DEPRECATED by Hermes (2026-08-13, old code kept for reference):
+    #     def load_config(path: str = "config.yaml") -> Config:
+    #         p = Path(path)
+    #         if p.exists():
+    #             with open(p, "r", encoding="utf-8") as f:
+    #                 data = yaml.safe_load(f)
+    #             return Config(**data)
+    #         return Config()
+    # Старая версия делала open()+yaml.safe_load() при КАЖДОМ вызове без
+    # блокировки -> гонка в PyYAML C-extension при параллельных вызовах
+    # (visual_action._verify -> find_desktop_element_tier0 -> load_config)
+    # вызывала hard crash 0x80000003 всего процесса pytest.
+    # Кэш под локальным Lock; threading импортируется лениво внутри функции,
+    # чтобы НЕ менять порядок загрузки модулей на уровне пакета (это ранее
+    # обнажало latent-гонку SSE-потока сервера под Windows).
+    from threading import Lock
+    key = str(Path(path).resolve())
+    cache = _config_cache_get()
+    if key in cache:
+        return cache[key]
     p = Path(path)
     if p.exists():
         with open(p, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        return Config(**data)
-    return Config()
+        cfg = Config(**data)
+    else:
+        cfg = Config()
+    cache[key] = cfg
+    return cfg
+
+
+# 🤖 Module-level cache dict (Hermes, 2026-08-14). Plain dict, no threading
+# import at module scope — the Lock is created lazily inside load_config to
+# avoid changing package import order.
+_config_cache: dict[str, Any] = {}
+_config_cache_lock = None
+
+
+def _config_cache_get() -> dict[str, Any]:
+    global _config_cache_lock
+    if _config_cache_lock is None:
+        from threading import Lock
+        _config_cache_lock = Lock()
+    return _config_cache
+

@@ -13,7 +13,8 @@ Only hardware-bounded max_intensity and an instant ESC/stop remain.
 from __future__ import annotations
 
 import asyncio
-import random
+import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
@@ -80,6 +81,15 @@ DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
 }
 
 PHASE_ORDER = ["ramp", "climb", "pulse", "peak", "cooldown"]
+
+# Короткий смысловой импульс для одного сообщения модели, а не готовая реплика.
+MONOLOGUE_SEEDS = {
+    "ramp": "Начни с наблюдения за постепенным изменением темпа.",
+    "climb": "Отметь, что сейчас происходит с нарастанием.",
+    "pulse": "Опиши чередование и паузы.",
+    "peak": "Сформулируй реакцию на текущий пик.",
+    "cooldown": "Подведи спокойный промежуточный итог.",
+}
 
 OPERATIONAL_PROMPT = "Ты — оператор Dorch в автономной демонстрации управления устройством."
 
@@ -215,7 +225,7 @@ class AutonomousSession:
             await self._apply_intensity(0, force=True)
             self.state.device_ready = True
             self.state.applied_intensity = 0
-            self._arm_segment()
+            await self._arm_segment()
             self._ensure_task()
 
             intro = (
@@ -284,13 +294,40 @@ class AutonomousSession:
             "потом снова веду сама."
         )
 
-    def _arm_segment(self) -> None:
-        curve = DEFAULT_CURVES.get(self.state.phase, DEFAULT_CURVES["ramp"])
-        idx = self.state.curve_index % len(curve)
-        duration, intensity = curve[idx]
-        self.state.target_intensity = self._clamp(intensity)
+    async def _arm_segment(self) -> None:
+        """Ask the model for every device step; failures fail closed at zero."""
+        phase, duration, intensity = self.state.phase, 2.0, 0
+        try:
+            live = await self._run_tool("xtoys.get_status", {})
+            data = getattr(live, "data", None) or {}
+            if not getattr(live, "success", False) or not bool(data.get("connected", False)):
+                raise RuntimeError("Intiface connection is not confirmed")
+            prompt = (
+                "Return ONLY JSON with keys phase,duration,intensity. "
+                f"Allowed phases: {','.join(PHASE_ORDER)}. Current phase: {self.state.phase}. "
+                f"Current intensity: {self.state.applied_intensity}. Maximum: {self.max_intensity}. "
+                "Choose the next intentional step for the active user plan. "
+                "Choose a short next step. duration must be 2..6 seconds and intensity must be 0..maximum."
+            )
+            response = await asyncio.wait_for(self._chat([
+                {"role": "system", "content": OPERATIONAL_PROMPT},
+                {"role": "user", "content": prompt},
+            ]), timeout=8.0)
+            raw = (getattr(response, "text", None) or "").strip()
+            match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            decision = json.loads(match.group(0)) if match else {}
+            candidate_phase = str(decision.get("phase", phase)).strip().lower()
+            if candidate_phase not in PHASE_ORDER:
+                candidate_phase = phase
+            duration = max(2.0, min(6.0, float(decision.get("duration", duration))))
+            intensity = self._clamp(int(decision.get("intensity", intensity)))
+            phase = candidate_phase
+            self._log("PLAN", f"model decision phase={phase} duration={duration:g}s intensity={intensity}%")
+        except Exception as exc:
+            self._log("PLAN_REJECTED", str(exc))
+        self.state.phase = phase
+        self.state.target_intensity = intensity
         self.state.segment_ends_at = time.monotonic() + duration
-        self.state.curve_index = idx + 1
 
     def _maybe_advance_phase(self) -> bool:
         """Advance phase. Returns True when the cooldown phase completes."""
@@ -374,7 +411,7 @@ class AutonomousSession:
                 if self._maybe_advance_phase():
                     self.state.ending = True
                     break
-                self._arm_segment()
+                await self._arm_segment()
             await self._ramp_toward(self._effective_target())
             await asyncio.sleep(0.4)
 
@@ -408,6 +445,14 @@ class AutonomousSession:
                     [
                         {"role": "system", "content": system},
                         {
+                            "role": "system",
+                            "content": (
+                                "Для этой единственной реплики используй смысловой импульс, а не готовую фразу: "
+                                f"{MONOLOGUE_SEEDS.get(phase, 'Сформулируй осмысленную реплику по текущему статусу.')} "
+                                "Не копируй его дословно: продолжи, переформулируй или замени его по фактическому статусу."
+                            ),
+                        },
+                        {
                             "role": "user",
                             "content": f"Реплика #{self.state.monologue_count + 1}. Только текст.",
                         },
@@ -417,7 +462,7 @@ class AutonomousSession:
             )
             text = (getattr(response, "text", None) or "").strip()
             if getattr(response, "error", None) or not text:
-                return random.choice(FALLBACK_LINES)
+                return ""
             text = " ".join(text.split())
             if len(text) > 180:
                 cut = text[:181]
@@ -425,7 +470,7 @@ class AutonomousSession:
                 text = cut[: boundary + 1] if boundary >= 30 else cut.rstrip() + "…"
             return text
         except Exception:
-            return random.choice(FALLBACK_LINES)
+            return ""
 
     async def _prefetch_loop(self) -> None:
         await asyncio.sleep(0.5)
@@ -436,6 +481,9 @@ class AutonomousSession:
             line = await self._generate_line()
             if self._stop_event.is_set() or not self.state.active:
                 break
+            if not line:
+                await asyncio.sleep(1.0)
+                continue
             try:
                 self._line_queue.put_nowait(line)
             except asyncio.QueueFull:
@@ -447,14 +495,14 @@ class AutonomousSession:
             try:
                 line = await asyncio.wait_for(self._line_queue.get(), timeout=10.0)
             except asyncio.TimeoutError:
-                line = random.choice(FALLBACK_LINES)
+                continue
             if self._stop_event.is_set() or not self.state.active:
                 break
             self.state.monologue_count += 1
             console.print(f"[yellow]MONOLOGUE:[/yellow] {line}")
             self._log("MONOLOGUE", line)
             await self._speak(line)
-            wait = max(5.0, self.monologue_interval + random.uniform(-2.0, 3.0))
+            wait = max(5.0, self.monologue_interval)
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=wait)
                 break
@@ -476,7 +524,7 @@ class AutonomousSession:
             self.state.active = False
             await self._force_zero()
             console.print("[bold magenta]Autonomous session STOPPED[/bold magenta]")
-            if was_ending and not self._stop_event.is_set():
+            if False and was_ending and not self._stop_event.is_set():
                 try:
                     await self._speak("Хватит на этот круг. Можешь включить снова — я не наспрашивалась.")
                 except Exception:

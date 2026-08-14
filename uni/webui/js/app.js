@@ -14,14 +14,23 @@ function showToast(m){const t=$('toast');t.textContent=m;t.classList.add('show')
 function setTheme(v){document.documentElement.setAttribute('data-theme',v);localStorage.setItem('uni_theme',v);$('themeSel').value=v;$('themeBtn').textContent=v==='dark'?'☀ Тема':'🌙 Тема'}
 function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')}
 function toggleChatPanel(){$('chatPanel').classList.toggle('collapsed')}
-function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='dashboard')loadStatus();if(v==='xtoys'){initXtoysFullLayout();toyControlPoll();toyDevicePoll();xtoysSessionPoll();intifacePoll();xtoysPatternPoll();motionPoll();remotePoll()}}
+function showView(v,el){document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));const w=$('view-'+v);if(w)w.classList.add('active');if(el)el.classList.add('active');if(v==='dashboard')loadStatus();if(v==='xtoys'){initXtoysFullLayout();initDorchSafetySetting();initDorchPatternOptions();toyControlPoll();toyDevicePoll();xtoysSessionPoll();intifacePoll();xtoysPatternPoll();motionPoll();remotePoll()}}
+function initDorchPatternOptions(){const select=$('playlistPattern');if(!select||select.dataset.extended)return;select.dataset.extended='1';fetch(HRM+'/api/xtoys/pattern/list').then(r=>r.json()).then(d=>{(d.patterns||[]).forEach(name=>{if([...select.options].some(o=>o.value===name))return;const o=document.createElement('option');o.value=name;o.textContent=name;select.appendChild(o)})}).catch(()=>{});}
+function initDorchSafetySetting(){const host=document.querySelector('#view-xtoys .xt-head');if(!host||$('dorchMaxIntensity'))return;const box=document.createElement('div');box.className='xt-note';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px';box.innerHTML='<label>Максимальная скорость Юни <input id="dorchMaxIntensity" class="tin" type="number" min="0" max="100" value="50" style="width:58px">%</label><button class="tbtn" onclick="saveDorchSafetySetting()">Сохранить ограничение</button><span id="dorchSafetyStatus">—</span>';host.parentElement.insertBefore(box,host.nextSibling);fetch(HRM+'/api/xtoys/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}).then(r=>r.json()).then(d=>{if(d.max_intensity!=null)$('dorchMaxIntensity').value=d.max_intensity}).catch(()=>{});}
+function saveDorchSafetySetting(){const value=Math.max(0,Math.min(100,parseInt($('dorchMaxIntensity').value||'50',10)||0));fetch(HRM+'/api/xtoys/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_intensity:value})}).then(r=>r.json()).then(d=>{if(!d.ok)throw new Error(d.error||'ошибка');$('dorchMaxIntensity').value=d.max_intensity;$('dorchSafetyStatus').textContent='сохранено';showToast('Ограничение скорости: '+d.max_intensity+'%')}).catch(e=>{$('dorchSafetyStatus').textContent='ошибка';showToast('⚠ '+e.message)})}
 function showDataTab(tab, el){
   document.querySelectorAll('.view-wrap').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   const target=$('view-'+tab); if(target) target.classList.add('active');
   document.querySelectorAll('.data-tabs .tbtn').forEach((b,i)=>b.classList.toggle('primary',['qwen','bridge','logs'][i]===tab));
   if(el) el.classList.add('active');
-  if(tab==='logs') loadLogs();
+  if(tab==='logs') { ensureLogsStatusPanel(); loadStatus(); loadLogs(); }
+}
+function ensureLogsStatusPanel(){
+  const view=$('view-logs'); if(!view || $('statusCardsLogs')) return;
+  const card=document.createElement('div'); card.className='card';
+  card.innerHTML='<div class="ch">Статус компонентов <button class="tbtn" onclick="loadStatus()">Обновить</button></div><div class="cb"><div id="statusCardsLogs" class="stats-grid"></div><div class="bar"><button class="tbtn primary" onclick="startLlama()">▶ Запуск LLM</button><button class="tbtn" onclick="stopLlama()">■ Остановить LLM</button><button class="tbtn primary" onclick="startWebui()">▶ Запуск WebUI</button><button class="tbtn" onclick="stopWebui()">■ Остановить WebUI</button><span id="statusMsg"></span></div></div>';
+  view.insertBefore(card, view.firstElementChild);
 }
 const automationState=JSON.parse(localStorage.getItem('uni_automation')||'{}');
 async function toggleAutomation(el){
@@ -69,9 +78,16 @@ $('stAgents').textContent=on+' / '+BASE_PARTS.length;
 $('qwParts').innerHTML=BASE_PARTS.slice(0,6).map(p=>{const lp=liveParts[p.n.toLowerCase()];return `<div class="qw-row"><span>${p.n}</span><span class="${lp?(lp.online?'qw-ok':'qw-warn'):'qw-bad'}">${lp?(lp.online?'готов':'stale'):'нет heartbeat'}</span></div>`}).join('');
 }
 async function loadLogs(){
+  return loadRuntimeLogs('uni_bat');
+/*
 try{const r=await api(FS+'/log?lines=60');const d=await r.json();
 if(d.ok){$('logBox').innerHTML=d.lines.map(l=>{const p=l.split(' | ');const tag=/WRITE/.test(l)?(/DENY|ERROR/.test(l)?'err':'ok'):/READ|LIST/.test(l)?'ok':'info';return `<div class="log-line"><span class="log-time">${esc(p[0]||'')}</span><span class="log-tag ${tag}">[${esc(p[1]||'')}]</span><span class="log-msg">${esc(p.slice(2).join(' | '))}</span></div>`}).join('')||'лог пуст'}
-}catch(e){$('logBox').textContent='❌ fileserver.log недоступен (сервер 8000 офлайн)'}
+}catch(e){$('logBox').textContent='❌ fileserver.log недоступен (сервер 8000 офлайн)'}*/
+}
+async function loadRuntimeLogs(source='uni_bat',button=null){
+  document.querySelectorAll('#view-logs .log-filters button').forEach(b=>b.classList.remove('on'));
+  if(button) button.classList.add('on');
+  try{const r=await api(HRM+'/api/uni/logs?source='+encodeURIComponent(source)+'&since=0',3000);const d=await r.json();const lines=Array.isArray(d.lines)?d.lines:[];$('logBox').innerHTML=lines.map(x=>`<div class="log-line"><span class="log-time">${esc(x.i)}</span><span class="log-msg">${esc(x.t)}</span></div>`).join('')||'лог пуст';$('logBox').scrollTop=$('logBox').scrollHeight}catch(e){$('logBox').textContent='❌ источник логов недоступен: '+source}
 }
 function filterLogs(tag,btn){document.querySelectorAll('.log-filters button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.querySelectorAll('#logBox .log-line').forEach(l=>{l.style.display=(tag==='all'||l.textContent.includes(tag))?'flex':'none'})}
 async function loadBoard(){
@@ -97,7 +113,9 @@ feeds.forEach(f=>addMsg(f,'sys','⏳ обработка…'));
 let reply=null,err=null;
 if(LMS_MODEL){
 try{
-const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),20000);
+// Local LM Studio models can spend more than 20 seconds in first-token/prompt
+// processing. Do not abort a valid generation while LM Studio is still working.
+const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),120000);
 const sysPrompt=currentRolePrompt||('Ты — ЮНИ, локальный ассистент проекта UNI. Роль: '+($('uniRole')?$('uniRole').value:'assistant')+'. Отвечай на русском, кратко, честно.');
 const r=await fetch(LMS+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:LMS_MODEL,messages:[{role:'system',content:sysPrompt},{role:'user',content:text}],stream:false}),signal:ctrl.signal});
 clearTimeout(to);
@@ -170,6 +188,10 @@ function startVoiceLoop(){if(_voiceTimer)return;const sec=Math.max(4,parseInt($(
 function stopVoiceLoop(){if(_voiceTimer){clearInterval(_voiceTimer);_voiceTimer=null;showToast('⏸ Непрерывный голос выключен');}}
 
 function uniSendSide(){const i=$('sideInput');if(!i)return;const v=i.value.trim();if(!v)return;i.value='';uniSend(v,[$('sideFeed')])}
+// Voice auto mode belongs to the autonomous Dorch session, not the chat loop.
+function startVoiceLoop(){if(_voiceTimer)return;voiceLoopTick();_voiceTimer=setInterval(voiceLoopTick,3000);showToast('Dorch voice mode enabled');}
+function stopVoiceLoop(){if(_voiceTimer){clearInterval(_voiceTimer);_voiceTimer=null;}fetch(HRM+'/api/xtoys/session/stop',{method:'POST'}).catch(()=>{});showToast('Dorch voice mode disabled');}
+async function voiceLoopTick(){try{const r=await fetch(HRM+'/api/xtoys/session/status');const d=await r.json();if(!d.active)await fetch(HRM+'/api/xtoys/session/start',{method:'POST'});}catch(e){showToast('Dorch: '+e.message);}}
 function toggleMic(){
 if(!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)){showToast('❌ Браузер не поддерживает голосовой ввод');return}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -189,6 +211,9 @@ recog.onerror=e=>{micOn=false;$('micBtn').classList.remove('active');showToast('
 recog.onend=()=>{micOn=false;$('micBtn').classList.remove('active')};
 try{recog.start()}catch(e){micOn=false;$('micBtn').classList.remove('active');showToast('🎤 не удалось запустить')}
 }
+let alwaysListenStream=null,alwaysListenCtx=null,alwaysListenAnalyser=null,alwaysListenRecorder=null,alwaysListenChunks=[],alwaysListenSpeaking=false,alwaysListenLastSpeech=0,alwaysListenStarted=0;
+async function toggleAlwaysListen(){if(alwaysListenStream){alwaysListenStream.getTracks().forEach(t=>t.stop());alwaysListenStream=null;alwaysListenCtx?.close();alwaysListenCtx=null;$('alwaysListenStatus').textContent='выкл';$('alwaysListenStatus').className='pill p-warn';return}try{alwaysListenStream=await navigator.mediaDevices.getUserMedia({audio:true});alwaysListenCtx=new AudioContext();alwaysListenAnalyser=alwaysListenCtx.createAnalyser();alwaysListenAnalyser.fftSize=1024;alwaysListenCtx.createMediaStreamSource(alwaysListenStream).connect(alwaysListenAnalyser);$('alwaysListenStatus').textContent='слушаю';$('alwaysListenStatus').className='pill p-ok';const buf=new Uint8Array(1024);const tick=()=>{if(!alwaysListenStream)return;alwaysListenAnalyser.getByteTimeDomainData(buf);let sum=0;for(const v of buf){const n=(v-128)/128;sum+=n*n}const rms=Math.sqrt(sum/buf.length),nowMs=Date.now();if(rms>=.018){alwaysListenLastSpeech=nowMs;if(!alwaysListenSpeaking){alwaysListenSpeaking=true;alwaysListenStarted=nowMs;alwaysListenChunks=[];alwaysListenRecorder=new MediaRecorder(alwaysListenStream);alwaysListenRecorder.ondataavailable=e=>{if(e.data.size)alwaysListenChunks.push(e.data)};alwaysListenRecorder.onstop=submitAlwaysListen;alwaysListenRecorder.start()}}else if(alwaysListenSpeaking&&nowMs-alwaysListenLastSpeech>=3200&&nowMs-alwaysListenStarted>350){alwaysListenSpeaking=false;if(alwaysListenRecorder?.state!=='inactive')alwaysListenRecorder.stop()}requestAnimationFrame(tick)};requestAnimationFrame(tick);showToast('Фоновое прослушивание админки включено')}catch(e){showToast('Микрофон недоступен: '+e.message);alwaysListenStream=null}}
+async function submitAlwaysListen(){const blob=new Blob(alwaysListenChunks,{type:'audio/webm'});if(blob.size<1200)return;try{const r=await fetch(HRM+'/api/stt',{method:'POST',headers:{'Content-Type':'audio/webm'},body:await blob.arrayBuffer()}),d=await r.json();const text=String(d.text||'').trim();if(text){$('sideInput').value=text;uniSendSide()}}catch(e){showToast('STT: '+e.message)}}
 async function startRound(){
 showToast('▶ Запуск раунда через Hermes 8787…');setStep(0);
 try{
@@ -307,6 +332,14 @@ fetch(HRM+'/api/xtoys/pattern/start',{method:'POST',headers:{'Content-Type':'app
 function xtoysPatternStop(){
 fetch(HRM+'/api/xtoys/pattern/stop',{method:'POST'}).then(()=>{const s=$('xtPatternStatus');if(s)s.textContent='выключен';}).catch(()=>{});
 }
+let dorchPlaylist=[];
+function dorchPlaylistAdd(){
+const n=$('playlistPattern')?.value||'ramp';
+dorchPlaylist.push({name:n,duration:parseFloat($('playlistDuration')?.value||20)||20,intensity:parseInt($('playlistIntensity')?.value||70,10)||70});
+dorchPlaylistRender();
+}
+function dorchPlaylistRender(){const el=$('dorchPlaylist');if(!el)return;el.innerHTML=dorchPlaylist.map((x,i)=>`<div class="xt-note" style="display:flex;gap:6px;align-items:center"><b>${i+1}.</b><span style="flex:1">${x.name} · ${x.duration}s · мощность ${x.intensity}%</span><button class="tbtn" onclick="dorchPlaylist.splice(${i},1);dorchPlaylistRender()">×</button></div>`).join('')||'<span class="xt-note">Плейлист пуст</span>';}
+function dorchPlaylistStart(){fetch(HRM+'/api/xtoys/playlist/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:dorchPlaylist})}).then(r=>r.ok?r.json():r.json().then(d=>Promise.reject(new Error(d.error||'ошибка')))).then(()=>showToast('▶ Плейлист Dorch запущен')).catch(e=>showToast('⚠ Плейлист: '+e.message));}
 let _patPoll=null;
 function xtoysPatternPoll(){
 if(_patPoll)clearInterval(_patPoll);
@@ -341,6 +374,7 @@ function initXtoysFullLayout(){const view=$('view-xtoys');if(!view||view.dataset
   <div class="xt-note">Сессия: <span id="xtSessionStatus">выключена</span></div><div class="xt-section">🎬 Паттерны</div>
   <div class="x-grid"><button class="x-btn" onclick="xtoysPattern('ramp')">Ramp</button><button class="x-btn" onclick="xtoysPattern('climb')">Climb</button><button class="x-btn" onclick="xtoysPattern('pulse')">Pulse</button><button class="x-btn" onclick="xtoysPattern('wave')">Wave</button><button class="x-btn" onclick="xtoysPattern('hold')">Hold</button><button class="x-btn" onclick="xtoysPattern('cooldown')">Cooldown</button></div>
   <div class="xt-fields"><label>Длительность, с<input id="patDur" class="tin" type="number" min="5" max="300" value="20"></label><label>Максимум, %<input id="patInt" class="tin" type="number" min="0" max="100" value="70"></label></div>
+  <div class="xt-section">Плейлист паттернов</div><div class="xt-fields"><label>Паттерн<select id="playlistPattern" class="tin"><option>ramp</option><option>climb</option><option>pulse</option><option>wave</option><option>hold</option><option>cooldown</option></select></label><label>Секунды<input id="playlistDuration" class="tin" type="number" min="0.2" max="3600" value="20"></label><label>Мощность %<input id="playlistIntensity" class="tin" type="number" min="0" max="100" value="70"></label></div><div id="dorchPlaylist" style="display:flex;flex-direction:column;gap:4px;margin:6px 0"></div><div class="xt-actions"><button class="tbtn" onclick="dorchPlaylistAdd()">＋ Добавить шаг</button><button class="tbtn primary" onclick="dorchPlaylistStart()">▶ Запустить плейлист</button></div>
   <div class="xt-actions"><button class="tbtn danger" onclick="xtoysPatternStop()">■ Стоп паттерна</button><span class="xt-note" id="xtPatternStatus">выключен</span></div>
  </div></section>
  <section class="card xt-card"><div class="ch">🎞 Motion → машинка</div><div class="cb">
@@ -502,12 +536,16 @@ async function loadStatus(){
   try{
     const r = await fetch('/api/uni/status'); const d = await r.json();
     const items = [
-      ['LLM (llama)', d.llama && d.llama.running, d.llama && d.llama.model ? 'model: ' + d.llama.model.split('\\').pop() : 'port ' + (d.llama && d.llama.port)],
-      ['WebUI', d.webui && d.webui.running, d.webui && d.webui.port ? 'port ' + d.webui.port : 'off'],
-      ['Desktop (оверлей)', d.desktop && d.desktop.running, d.desktop && d.desktop.pid ? 'pid ' + d.desktop.pid : 'off'],
-      ['LM Studio', d.lmstudio && d.lmstudio.reachable, d.lmstudio && d.lmstudio.reachable ? 'reachable' : 'off']
+      ['LLM (llama)', d.llama && d.llama.running, d.llama && d.llama.model ? 'model: ' + d.llama.model.split('\\').pop() : 'порт ' + (d.llama && d.llama.port), 'startLlama', 'stopLlama'],
+      ['WebUI', d.webui && d.webui.running, 'порт 8787', 'startWebui', 'stopWebui'],
+      ['Desktop (оверлей)', d.desktop && d.desktop.running, d.desktop && d.desktop.pid ? 'pid ' + d.desktop.pid : 'не запущен', null, null],
+      ['Moondream2', d.moondream && d.moondream.running, 'порт 7860', null, null],
+      ['LM Studio', d.lmstudio && d.lmstudio.reachable, 'порт 1234', null, null]
     ];
-    el.innerHTML = items.map(([n, ok, sub]) => '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || 'нет данных') + '</p></div></div>').join('');
+    el.innerHTML = items.map(([n, ok, sub, start, stop]) => '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || 'нет данных') + '</p>' + (start ? '<div class="component-actions"><button class="tbtn primary" onclick="'+(ok ? stop : start)+'()">'+(ok ? '■ Остановить' : '▶ Запустить')+'</button></div>' : '') + '</div></div>').join('');
+    const top = {dotLlama: !!d.llama?.running, dotWebui: !!d.webui?.running, dotMoon: !!d.moondream?.running, dotDesktop: !!d.desktop?.running};
+    Object.entries(top).forEach(([id, ok]) => { const x=document.getElementById(id); if(x) x.className='dot '+(ok?'on':'err'); });
+    const logCards=document.getElementById('statusCardsLogs'); if(logCards) logCards.innerHTML=el.innerHTML;
   }catch(e){
     el.innerHTML = '<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/uni/status недоступен</p></div></div>';
   }
@@ -517,6 +555,15 @@ async function restartLlama(){
   try{ const r = await fetch('/api/admin/restart-llm', {method:'POST'}); const d = await r.json().catch(()=>({})); if(m) m.textContent = d.ok ? 'LLM перезапущен' : 'ошибка: ' + (d.error || r.status); }
   catch(e){ if(m) m.textContent = 'ошибка: ' + e.message; }
   setTimeout(loadStatus, 2500);
+}
+async function startLlama(){ return restartLlama(); }
+async function stopLlama(){ return componentAction('/api/admin/stop-llm','LLM остановлен'); }
+async function startWebui(){ return componentAction('/api/admin/start-webui','WebUI запускается'); }
+async function stopWebui(){ return componentAction('/api/admin/stop-webui','WebUI остановка запрошена'); }
+async function componentAction(path, okText){
+  const m = document.getElementById('statusMsg'); if(m) m.textContent = 'выполняю…';
+  try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||('HTTP '+r.status));if(m)m.textContent=okText;}
+  catch(e){if(m)m.textContent='ошибка: '+e.message} setTimeout(loadStatus,1800);
 }
 async function stopAll(){
   const m = document.getElementById('statusMsg'); if(m) m.textContent = 'остановка…';

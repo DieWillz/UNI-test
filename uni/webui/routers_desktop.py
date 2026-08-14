@@ -39,6 +39,7 @@ def mouse_demo() -> dict:
         import math
         import win32api
         ctrl = HumanMouseController(HumanMouseSettings(show_badge=True, move_duration=0.5))
+        ctrl._aborted = False  # 🤖 Hermes: сброс гейта перед стартом
         w, h = win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
         m = 140  # safe-зона: отступ >=140px от краёв
         pts = [
@@ -48,6 +49,8 @@ def mouse_demo() -> dict:
         ]
         async def _run() -> None:
             for (x, y) in pts:
+                if ctrl._aborted or ctrl._user_took_over():  # 🤖 Hermes: уступка
+                    return
                 await ctrl.click(x, y)            # лайм-кольцо + «Юни»
                 await asyncio.sleep(0.4)
             # рисунок: круг (демонстрация траектории)
@@ -56,6 +59,8 @@ def mouse_demo() -> dict:
                    for a in [i * math.pi / 18 for i in range(37)]]
             await ctrl.move_to(*arc[0])
             for (x, y) in arc[1:]:
+                if ctrl._aborted or ctrl._user_took_over():  # 🤖 Hermes: уступка
+                    return
                 await ctrl.move_to(x, y)
                 await asyncio.sleep(0.01)
         asyncio.run(_run())

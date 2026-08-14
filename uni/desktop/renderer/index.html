@@ -20,8 +20,13 @@
         <!-- 🤖 C-02 (2026-08-13): порядок микрофон → глаз → STOP(нейтр.) → остальные → ⚙ → − -->
         <button id="micButton" class="icon-button" title="Голосовой ввод" aria-label="Голосовой ввод"><img src="../assets/icons/mic-svgrepo-com.svg" alt=""></button>
         <button id="visionButton" class="icon-button vision-icon active" title="Наблюдение экрана" aria-label="Наблюдение экрана"><img src="../assets/icons/eye-2-svgrepo-com.svg" alt=""></button>
+        <!-- 🤖 Hermes (2026-08-14): кнопка режима мыши Юни (аддитивно к 👁).
+             Отдельный id uniMouseButton, чтобы не конфликтовать с существующей
+             mouseModeButton (toggleMouseOnly / goal mouse_only). -->
+        <button id="uniMouseButton" class="icon-button mouse-icon" title="Режим мыши Юни (визуальный)" aria-label="Режим мыши Юни (визуальный)"><img src="../assets/icons/mouse-svgrepo-com.svg" alt="🖱️"></button>
         <button id="stopButton" class="icon-button stop-icon" title="Остановить задачу" aria-label="Остановить задачу"><img src="../assets/icons/stop-circle-svgrepo-com.svg" alt=""></button>
         <button id="cameraButton" class="icon-button camera-icon active" title="Камера включена" aria-label="Камера"><img src="../assets/icons/computer-camera-svgrepo-com.svg" alt=""></button>
+        <button id="mouseModeButton" class="icon-button mouse-icon" title="Физический режим мыши" aria-label="Физический режим мыши" aria-pressed="false"><img src="../assets/icons/mouse-svgrepo-com.svg" alt=""></button>
         <button id="overlayButton" class="icon-button overlay-icon" title="Прозрачный режим" aria-label="Прозрачный режим"><img src="../assets/icons/ghost-svgrepo-com.svg" alt=""></button>
         <button id="settingsButton" class="icon-button settings-icon" title="Настройки" aria-label="Настройки"><img src="../assets/icons/settings-3-svgrepo-com.svg" alt=""></button>
         <button id="minimizeButton" class="icon-button minimize-button" title="Развернуть окно" aria-label="Развернуть окно"><img src="../assets/icons/fullscreen-2-svgrepo-com.svg" alt=""></button>
@@ -58,7 +63,7 @@
         </article>
         <!-- 🤖 Универсальные динамические карточки (ui_events) рендерятся сюда -->
         <div id="dynamicCards" class="dynamic-cards"></div>
-        <div id="quickActionStrip" class="action-strip done"><i></i><span id="quickAction">Юни готова</span></div>
+        <div id="quickActionStrip" class="action-strip done" style="display:none"><i></i><span id="quickAction"></span></div>
         <article id="quickResult" class="result-card hidden"></article>
       </section>
 

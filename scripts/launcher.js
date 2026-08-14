@@ -68,6 +68,7 @@ const PORT_LLAMA = 1235;
 const PORT_WEBUI = 8787;
 const PORT_LAUNCHER_HTTP = 8790;
 const PORT_TTS = 7778;
+const PORT_VLM = 1236;  // 🤖 V-04 (2026-08-13): локальный VLM (moondream2), если модель есть
 const ARGS = process.argv.slice(2);
 const RESTART = ARGS.includes('--restart');
 const TTS_AUTOSTART = process.env.UNI_TTS_AUTOSTART === '1' ||
@@ -206,6 +207,25 @@ async function main() {
     return p;
   }
 
+  // 🤖 V-04 (2026-08-13): локальный VLM (moondream2) на :1236. Fail-closed:
+  // если бинарь/модель отсутствуют — ПРОПУСК (не падаем, не блокируем стек).
+  function launchVLM() {
+    const bin = path.join(ROOT, 'runtime', 'llama', 'llama-server.exe');
+    if (!fs.existsSync(bin)) { log('ПРОПУСК vlm: нет', bin); return null; }
+    const model = path.join(ROOT, 'downloads', 'moondream2.Q4_K_M.gguf');
+    const mmproj = path.join(ROOT, 'downloads', 'moondream2.mmproj.gguf');
+    if (!fs.existsSync(model)) { log('ПРОПУСК vlm: нет модели', model); return null; }
+    const args = ['--model', model];
+    if (fs.existsSync(mmproj)) args.push('--mmproj', mmproj);
+    args.push('--host', '127.0.0.1', '--port', String(PORT_VLM), '--n-gpu-layers', '99');
+    const p = spawn(bin, args, {
+      cwd: ROOT, windowsHide: true,
+      stdio: ['ignore', fs.openSync(path.join(LOGS_DIR, 'vlm.log'), 'a'), fs.openSync(path.join(LOGS_DIR, 'vlm.log'), 'a')],
+    });
+    log('vlm pid', p.pid);
+    return p;
+  }
+
   function launchElectron() {
     const electronJs = path.join(ROOT, 'uni', 'desktop', 'node_modules', 'electron', 'cli.js');
     const cwd = path.join(ROOT, 'uni', 'desktop');
@@ -262,12 +282,14 @@ async function main() {
   children.llama = launchLlama();
   children.webui = launchWebui();
   children.tts = launchTts();
+  children.vlm = launchVLM();
   children.electron = launchElectronWithRetry();
 
   writePids({
     llama: { pid: children.llama ? children.llama.pid : null, port: PORT_LLAMA },
     webui: { pid: children.webui ? children.webui.pid : null, port: PORT_WEBUI },
     tts: { pid: children.tts ? children.tts.pid : null, port: TTS_AUTOSTART ? PORT_TTS : null },
+    vlm: { pid: children.vlm ? children.vlm.pid : null, port: children.vlm ? PORT_VLM : null },
     electron: { pid: children.electron ? children.electron.pid : null },
     launcher_http: { port: PORT_LAUNCHER_HTTP },
     started_at: Date.now(),

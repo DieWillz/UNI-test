@@ -25,6 +25,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
+from uni.autonomous_session import DEFAULT_CURVES
+
 logger = logging.getLogger("uni.xtoys_patterns")
 
 # run_tool("xtoys.set_intensity", {"value": 60}) -> ToolResult-like (has .success/.data)
@@ -123,7 +125,9 @@ class XToysPatternEngine:
         self._stop = False
         self.state = PatternState(name=name, running=True, started_at=time.time())
         try:
-            if name in ("ramp", "climb", "pulse", "wave", "hold", "cooldown"):
+            if name in DEFAULT_CURVES and name not in {"ramp", "climb", "pulse", "cooldown"}:
+                await self._p_curve(DEFAULT_CURVES[name], duration, intensity)
+            elif name in ("ramp", "climb", "pulse", "wave", "hold", "cooldown"):
                 await getattr(self, f"_p_{name}")(duration, intensity)
             else:
                 # unknown -> just hold at intensity then release
@@ -206,6 +210,19 @@ class XToysPatternEngine:
         self.state.step = "cooldown"
         await self._set(0)
 
+    async def _p_curve(self, curve: list[tuple[float, int]], duration: float, intensity: int) -> None:
+        """Run a curve registered in autonomous_session, scaled to UI duration/cap."""
+        total = sum(max(0.1, float(seconds)) for seconds, _ in curve) or 1.0
+        scale = max(0.1, float(duration)) / total
+        factor = max(0, min(100, intensity)) / 100.0
+        self.state.step = "custom-curve"
+        for seconds, value in curve:
+            if self._stop:
+                return
+            await self._set(_clamp(round(float(value) * factor)))
+            await asyncio.sleep(max(0.1, float(seconds) * scale))
+        await self._set(0)
+
 
 # Names exposed to the UI / API.
-PATTERN_NAMES = ["ramp", "climb", "pulse", "wave", "hold", "cooldown"]
+PATTERN_NAMES = sorted(set(DEFAULT_CURVES) | {"wave", "hold"})

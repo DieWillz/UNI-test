@@ -36,6 +36,7 @@ html, body {
 .msg { margin-bottom: 8px; padding: 7px 10px; border-radius: 10px; max-width: 92%; }
 .msg.user { background: #2a3a2a; align-self: flex-end; margin-left: auto; }
 .msg.uni  { background: #1f2a36; }
+.msg.technical { font-size: 50%; line-height: 1.35; color: rgba(210,220,225,.52); opacity: .78; background: transparent; padding-top: 3px; padding-bottom: 3px; }
 #composer { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(255,255,255,.1); }
 #input { flex: 1; resize: none; height: 38px; border-radius: 8px; border: 0;
   background: rgba(0,0,0,.35); color: #e8edf2; padding: 8px; font: inherit; }

@@ -17,6 +17,7 @@
 <div class="status-pill"><span class="dot" id="dotHermes"></span> Hermes 8787</div>
 <div class="status-pill"><span class="dot" id="dotFs"></span> Files 8000</div>
 <div class="status-pill" id="pillLms"><span class="dot" id="dotLms"></span> <span id="lmsLabel">LM 1234</span></div>
+<div class="status-pills-uni" id="componentStatusTop"><span class="status-pill"><span class="dot" id="dotLlama"></span> LLM</span><span class="status-pill"><span class="dot" id="dotWebui"></span> WebUI</span><span class="status-pill"><span class="dot" id="dotMoon"></span> Vision</span><span class="status-pill"><span class="dot" id="dotDesktop"></span> UNI</span></div>
 <div class="spacer"></div>
 <button class="tbtn" onclick="toggleTheme()" id="themeBtn">🌙 Тема</button>
 <button class="tbtn" onclick="toggleChatPanel()">💬 Чат</button>
@@ -58,7 +59,7 @@
 <div class="stat-card"><div class="stat-icon">🔄</div><div class="stat-info"><h4>Консенсус</h4><h2 id="stConsensus">OFF</h2><p>ручной режим</p></div></div>
 <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-info"><h4>Задержка</h4><h2 id="stLatency">—</h2><p id="stLatencySub">проверка серверов</p></div></div>
 </div>
-<div class="card"><div class="ch">📡 Статус компонентов <button class="tbtn" style="padding:2px 7px;font-size:10px" onclick="loadStatus()">🔄</button></div><div class="cb"><div class="stats-grid" id="statusCards" style="margin-bottom:10px">загрузка…</div><div class="bar" style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn primary" onclick="restartLlama()">🔄 Перезапустить LLM</button><button class="tbtn danger" onclick="stopAll()">⏹ Остановить всё</button><span id="statusMsg" style="color:var(--text3);font-size:11px"></span></div></div></div>
+<div class="card" style="display:none"><div id="statusCards"></div></div>
 <div style="display:grid;grid-template-columns:330px 1fr;gap:10px">
 <div class="card"><div class="ch">Участники ИИ <button class="tbtn" style="padding:2px 7px;font-size:10px" onclick="runRollCall()">🔄</button></div><div class="cb ptable"><div class="prow header"><div>Агент</div><div>Статус</div><div>Режим</div><div>Источник</div></div><div id="partList"><div class="prow"><div class="ag-name">загрузка…</div></div></div></div></div>
 <div class="card"><div class="ch">Автоматизация и процессы</div><div class="cb" style="display:flex;flex-direction:column;gap:10px">
@@ -130,7 +131,7 @@
 <label style="font-size:11px;color:var(--text3)">Содержимое</label><textarea id="fbContent" class="tin" style="width:100%">Привет от файлового моста</textarea>
 <button class="tbtn primary" onclick="fbExec()">Выполнить</button>
 </div><div class="fb-result" id="fbResult">Результат появится здесь…</div></div></div></div>
-<div class="view-wrap" id="view-logs"><div style="display:flex;flex-direction:column;gap:8px;height:100%"><div class="log-filters"><button class="on" onclick="filterLogs('all',this)">Все</button><button onclick="filterLogs('HEARTBEAT',this)">Heartbeat</button><button onclick="filterLogs('READ',this)">Read</button><button onclick="filterLogs('WRITE',this)">Write</button><button onclick="filterLogs('ERROR',this)">Errors</button><button class="tbtn" style="margin-left:auto" onclick="loadLogs()">🔄</button></div><div class="log-box" id="logBox">загрузка реальных логов fileserver.log…</div></div></div>
+<div class="view-wrap" id="view-logs"><div style="display:flex;flex-direction:column;gap:8px;height:100%"><div class="log-filters"><button class="on" onclick="loadRuntimeLogs('uni_bat',this)">UNI.bat</button><button onclick="loadRuntimeLogs('webui',this)">WebUI</button><button onclick="loadRuntimeLogs('webui_err',this)">WebUI errors</button><button onclick="loadRuntimeLogs('llama',this)">LLM</button><button onclick="loadRuntimeLogs('llama_err',this)">LLM errors</button><button onclick="loadRuntimeLogs('electron',this)">Electron</button><button class="tbtn" style="margin-left:auto" onclick="loadRuntimeLogs()">🔄</button></div><div class="log-box" id="logBox">загрузка логов UNI…</div></div></div>
 <div class="view-wrap" id="view-tasks"><div class="card"><div class="ch">📋 Задачи и процессы</div><div class="cb" id="tasksBody" style="font-size:12px;color:var(--text2)">Читается из UNI_BOARD.md…</div></div></div>
 <div class="view-wrap" id="view-consensus"><div class="card"><div class="ch">🤝 Журнал консенсуса</div><div class="cb" style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:10px"><div>Консенсус OFF (ручной режим). История раундов появится после запуска через Hermes 8787.</div><div style="border-top:1px solid var(--border);padding-top:10px"><div style="font-weight:700;margin-bottom:6px">⚡ Триггеры</div><div style="font-size:12px;color:var(--text2);line-height:1.6">heartbeat протух → ACT_сайт; диалог «Уведомление от сайта» → EMERG; новое письмо в outbox → доставка в чат.</div></div></div></div></div>
 <div class="view-wrap" id="view-docs"><div class="card"><div class="ch">📄 Документы проекта</div><div class="cb" id="docsBody" style="font-size:12px;color:var(--text2)">Список файлов корня…</div></div></div>
@@ -187,6 +188,7 @@
 <label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px"><input type="checkbox" id="speakChk" checked> Озвучивать ответ</label>
 <button class="tbtn" id="voiceAutoBtn" onclick="toggleVoiceAuto()">🎙 Голосовой авторежим</button><span class="pill p-warn" id="voiceAutoStatus">выкл</span>
 <label style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px">период<input id="voiceLoopSec" class="tin" style="width:42px;padding:1px 4px" value="25">с</label>
+<button class="tbtn" id="alwaysListenBtn" onclick="toggleAlwaysListen()">Постоянно слушать</button><span class="pill p-warn" id="alwaysListenStatus">выкл</span>
 </div>
 <div class="rchat-feed" id="sideFeed"></div>
 <div class="rchat-input"><div class="rchat-wrap"><button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Говорить голосом — ЮНИ поймёт">🎤</button><input id="sideInput" placeholder="Сообщение ЮНИ…" onkeydown="if(event.key==='Enter')uniSendSide()"><button class="send-btn" onclick="uniSendSide()">➤</button></div></div>

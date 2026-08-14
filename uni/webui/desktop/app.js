@@ -5,9 +5,9 @@
 const SERVER = (window.UNI_SERVER) || "http://127.0.0.1:8787";
 const $ = (id) => document.getElementById(id);
 
-function addMsg(role, text) {
+function addMsg(role, text, technical = false) {
   const m = document.createElement("div");
-  m.className = "msg " + (role === "user" ? "user" : "uni");
+  m.className = "msg " + (role === "user" ? "user" : "uni") + (technical ? " technical" : "");
   m.textContent = text;
   $("messages").appendChild(m);
   $("messages").scrollTop = $("messages").scrollHeight;
@@ -119,6 +119,9 @@ if (window.electron && window.electron.onEvent) {
       const ev = JSON.parse(data);
       if (ev.type === "consent_changed") updateObs(ev.consent.level);
       if (ev.type === "initiative") showBubble(ev.text || "Юни хочет что-то сказать");
+      if (ev.type === "assistant_message" && ev.text) {
+        addMsg("uni", ev.text, ev.source === "dorch");
+      }
     } catch (e) {}
   });
   window.electron.onPTT((on) => {

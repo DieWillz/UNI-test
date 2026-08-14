@@ -201,19 +201,19 @@ class SpeechCapability(Capability):
                 return [s.strip() for s in sentences if s.strip()]
             except Exception as exc:  # фоллбэк при любой ошибке чанкера
                 if self._log is not None:
-                    self._log("TTS_CHUNKER_FALLBACK", f"SentenceChunker упал, re.split: {exc}")
+                    self._log_event("TTS_CHUNKER_FALLBACK", f"SentenceChunker упал, re.split: {exc}")
         return self._split_sentences(text)
 
-        def _synthesize_audio_safe(self, text: str) -> tuple[np.ndarray, int]:
-            """Clean text, then synthesize sentence-by-sentence.
+    def _synthesize_audio_safe(self, text: str) -> tuple[np.ndarray, int]:
+        """Clean text, then synthesize sentence-by-sentence.
 
-            A failing sentence is logged and skipped instead of aborting the whole
-            utterance (partial success). Returns concatenated (audio, sample_rate).
-            """
-            cleaned = self._clean_for_tts(text)
-            sentences = self._split_for_tts(cleaned)
-            if not sentences:
-                sentences = [cleaned]
+        A failing sentence is logged and skipped instead of aborting the whole
+        utterance (partial success). Returns concatenated (audio, sample_rate).
+        """
+        cleaned = self._clean_for_tts(text)
+        sentences = self._split_for_tts(cleaned)
+        if not sentences:
+            sentences = [cleaned]
         chunks: list[np.ndarray] = []
         rate = self.silero_sample_rate if self.tts_provider == "silero" else 48000
         for sentence in sentences:
@@ -222,7 +222,7 @@ class SpeechCapability(Capability):
                 chunks.append(audio)
             except Exception as exc:  # partial success on bad fragment
                 if self._log is not None:
-                    self._log("TTS_SKIP", f"Пропущен фрагмент TTS: {exc} | текст: {sentence[:80]}")
+                    self._log_event("TTS_SKIP", f"Пропущен фрагмент TTS: {exc} | текст: {sentence[:80]}")
                 else:
                     print(f"TTS skip: {exc}")
         if not chunks:
@@ -232,6 +232,13 @@ class SpeechCapability(Capability):
     @property
     def _log(self):
         return getattr(self, "_session_logger", None)
+
+    def _log_event(self, event: str, message: object) -> None:
+        logger = self._log
+        if callable(logger):
+            logger(event, message)
+        elif logger is not None and hasattr(logger, "log"):
+            logger.log(event, message)
 
     async def _init_stt(self) -> None:
         if self._whisper is None:
@@ -464,7 +471,7 @@ class SpeechCapability(Capability):
             return True
         except Exception as exc:
             if self._log is not None:
-                self._log("TTS_ERROR", str(exc))
+                self._log_event("TTS_ERROR", str(exc))
             else:
                 print(f"TTS error: {exc}")
             return False
@@ -484,7 +491,7 @@ class SpeechCapability(Capability):
             return out_path
         except Exception as exc:
             if self._log is not None:
-                self._log("TTS_ERROR", str(exc))
+                self._log_event("TTS_ERROR", str(exc))
             else:
                 print(f"TTS error: {exc}")
             return None

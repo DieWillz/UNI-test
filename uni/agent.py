@@ -177,7 +177,7 @@ class Agent:
     # 🤖 Голосовая/текстовая маршрутизация: «открой X» / «кликни X» / «нажми X»
     # -> замкнутый цикл зрение->действие->проверка. Безопасно: использует уже
     # созданные capability computer/vision, не трогает config.yaml/устройства.
-    async def act_on_screen(self, goal: str, max_steps: int = 8) -> dict:
+    async def act_on_screen(self, goal: str, max_steps: int = 8, control_mode: str = "auto") -> dict:
         """Выполнить цель на рабочем столе под зрением (вижу->решаю->кликаю->проверяю).
 
         Args:
@@ -190,16 +190,20 @@ class Agent:
         vision = self.capabilities.get("vision")
         if computer is None or vision is None:
             return {"status": "failed", "steps": [], "error": "computer/vision capability недоступны"}
-        agent = VisualActionAgent(
-            computer,
-            vision,
-            max_steps=max_steps,
-            log=lambda event, msg: self.session_logger.log(event, str(msg))
-            if self.session_logger.enabled else None,
-        )
-        # 🤖 сохраняем ссылку, чтобы /api/computer/stop мог прервать цикл
-        Agent._last_visual_agent = agent
-        result = await agent.act_on_screen(goal, max_steps=max_steps)
+        token = self.tool_executor.set_control_mode(control_mode)
+        try:
+            agent = VisualActionAgent(
+                computer,
+                vision,
+                max_steps=max_steps,
+                log=lambda event, msg: self.session_logger.log(event, str(msg))
+                if self.session_logger.enabled else None,
+            )
+            # сохраняем ссылку, чтобы /api/computer/stop мог прервать цикл
+            Agent._last_visual_agent = agent
+            result = await agent.act_on_screen(goal, max_steps=max_steps)
+        finally:
+            self.tool_executor.reset_control_mode(token)
         # Озвучить итог, если речь включена
         try:
             summary = {
