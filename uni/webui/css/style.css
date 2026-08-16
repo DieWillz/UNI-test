@@ -168,3 +168,47 @@ select,.tin{background:var(--bg3);border:1px solid var(--border);color:var(--tex
 .rule-row .rbtn{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;flex-shrink:0}
 .rule-row .rbtn:hover{background:var(--panel-hover);color:var(--text)}
 .rule-row .rbtn.del{color:var(--danger);border-color:rgba(239,68,68,0.3)}
+
+/* ===== АДМИН v4 (интегрированный модуль, Hermes 2026-08-16) ===== */
+.v4-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.v4-card.v4-sub{margin:0}
+.v4-ch{display:flex;align-items:center;gap:8px;padding:9px 12px;font-weight:700;font-size:13px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.v4-cb{padding:12px}
+.v4-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.v4-tile{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.v4-tile h4{font-size:13px;margin-bottom:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.v4-meta{font-size:11px;color:var(--text2);margin-top:4px;word-break:break-word}
+.v4-muted{color:var(--text3);font-size:11px}
+.v4-kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.v4-kv:last-child{border-bottom:none}
+.v4-kv>span:first-child{color:var(--text2)}
+.v4-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.v4-tbl th,.v4-tbl td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.v4-tbl th{color:var(--text3);font-weight:600;font-size:11px}
+.v4-tbl tbody tr:hover{background:var(--bg3)}
+.v4-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid transparent;white-space:nowrap}
+.v4-badge.b-ok{background:rgba(16,185,129,0.15);color:var(--ok);border-color:rgba(16,185,129,0.3)}
+.v4-badge.b-warn{background:rgba(245,158,11,0.15);color:var(--warn);border-color:rgba(245,158,11,0.3)}
+.v4-badge.b-err{background:rgba(239,68,68,0.15);color:var(--danger);border-color:rgba(239,68,68,0.3)}
+.v4-badge.b-info{background:rgba(59,130,246,0.15);color:var(--info);border-color:rgba(59,130,246,0.3)}
+.v4-badge.b-stub{background:rgba(139,92,246,0.15);color:#a78bfa;border-color:rgba(139,92,246,0.3)}
+.v4-badge.b-unknown{background:var(--bg3);color:var(--text3);border-color:var(--border)}
+.v4-spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:v4spin .7s linear infinite}
+@keyframes v4spin{to{transform:rotate(360deg)}}
+.v4-tool{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px}
+.v4-tool h4{font-size:12px;margin-bottom:4px}
+.v4-tool p{font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.4}
+.v4-tool-foot{display:flex;align-items:center;gap:8px}
+.v4-btn{background:var(--accent);color:var(--on-accent);border:none;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer}
+.v4-btn:hover{opacity:.9}
+.v4-btn.danger{background:var(--danger);color:#fff}
+.v4-btn.ok{background:var(--ok);color:#fff}
+.v4-btn.amber{background:var(--warn);color:#1f2937}
+.v4-btn:not(.danger):not(.ok):not(.amber){background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.v4-logbox{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;font:11px/1.5 var(--mono);max-height:420px;overflow:auto}
+.v4-log-info{color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)}
+.v4-log-warn{color:var(--warn);padding:2px 0;border-bottom:1px solid var(--border)}
+.v4-log-error{color:var(--danger);padding:2px 0;border-bottom:1px solid var(--border);font-weight:600}
+.v4-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel);color:var(--text);border:1px solid var(--border-strong);border-radius:10px;padding:10px 16px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.v4-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+

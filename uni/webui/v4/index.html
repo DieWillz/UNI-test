@@ -19,6 +19,7 @@
       <nav class="nav">
         <button class="nav-item active" data-view="overview">📊 Обзор</button>
         <button class="nav-item" data-view="agents">🤖 Агенты</button>
+        <button class="nav-item" data-view="logs">📋 Логи</button>
         <button class="nav-item" data-view="tasks">🗂 Задачи и фазы</button>
         <button class="nav-item" data-view="journal">📜 Журнал</button>
         <button class="nav-item" data-view="reports">📁 Отчёты</button>
@@ -30,6 +31,7 @@
       </nav>
       <div class="side-foot">
         <span id="self-state" class="badge b-unknown">соединение…</span>
+        <button class="mini-btn" id="compact-btn" title="Компактный режим">📐</button>
         <button class="mini-btn" id="theme-btn" title="Тема">🌙</button>
       </div>
     </aside>
@@ -70,6 +72,39 @@
         <div class="card">
           <div class="card-h"><span>Список агентов</span><span class="badge b-unknown" data-b>…</span></div>
           <div class="card-b" id="ag-list">загрузка…</div>
+        </div>
+      </section>
+
+      <!-- 🤖 Qwen (2026-08-16): ЛОГИ — объединено из v3 -->
+      <section class="view" id="view-logs">
+        <header class="view-head">
+          <h1>Логи системы</h1>
+          <div class="head-actions">
+            <select id="lg-source" title="Источник лога">
+              <option value="llama">llama (LLM-сервер)</option>
+              <option value="webui">webui (панель)</option>
+              <option value="desktop">desktop (оверлей)</option>
+              <option value="electron">electron (Electron)</option>
+              <option value="llama_err">llama.err (ошибки)</option>
+              <option value="webui_err">webui.err (ошибки)</option>
+              <option value="uni_bat">uni_bat (launcher)</option>
+            </select>
+            <select id="lg-level" title="Фильтр по уровню">
+              <option value="">все уровни</option>
+              <option value="ERROR">ERROR</option>
+              <option value="WARN">WARN</option>
+              <option value="INFO">INFO</option>
+            </select>
+            <button class="btn" id="lg-refresh">Обновить</button>
+          </div>
+        </header>
+        <div class="card">
+          <div class="card-h"><span id="lg-title">Содержимое лога</span><span class="badge b-unknown" data-b>…</span></div>
+          <div class="card-b">
+            <div class="log-view" id="lg-lines">
+              <div class="hint">Выберите источник лога и нажмите «Обновить».</div>
+            </div>
+          </div>
         </div>
       </section>
 

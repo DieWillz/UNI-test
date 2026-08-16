@@ -49,6 +49,18 @@
 <button class="nav-item" onclick="showView('schedules',this)"><span class="ni">📅</span> Расписания</button>
 <button class="nav-item" onclick="showView('rules',this)"><span class="ni">⚖</span> Правила</button>
 <button class="nav-item" onclick="showView('computer',this)"><span class="ni">🖥</span> Компьютер</button>
+<div class="nav-label">🛠 Админ v4 (новый)</div>
+<button class="nav-item" onclick="showView('v4_overview',this);v4Load('overview')"><span class="ni">📊</span> Обзор v4</button>
+<button class="nav-item" onclick="showView('v4_agents',this);v4Load('agents')"><span class="ni">👥</span> Агенты v4</button>
+<button class="nav-item" onclick="showView('v4_logs',this);v4Load('logs')"><span class="ni">📜</span> Логи v4</button>
+<button class="nav-item" onclick="showView('v4_tasks',this);v4Load('tasks')"><span class="ni">📋</span> Задачи v4</button>
+<button class="nav-item" onclick="showView('v4_journal',this);v4Load('journal')"><span class="ni">📓</span> Журнал v4</button>
+<button class="nav-item" onclick="showView('v4_reports',this);v4Load('reports')"><span class="ni">📄</span> Отчёты v4</button>
+<button class="nav-item" onclick="showView('v4_tools',this);v4Load('tools')"><span class="ni">🧰</span> Инструменты v4</button>
+<button class="nav-item" onclick="showView('v4_vision',this);v4Load('vision')"><span class="ni">👁</span> Мышь+Зрение v4</button>
+<button class="nav-item" onclick="showView('v4_autonomous',this);v4Load('autonomous')"><span class="ni">⚡</span> Автономность v4</button>
+<button class="nav-item" onclick="showView('v4_xtoys',this);v4Load('xtoys')"><span class="ni">🔌</span> XToys v4</button>
+<button class="nav-item" onclick="showView('v4_settings',this);v4Load('settings')"><span class="ni">⚙</span> Настройки v4</button>
 <div class="user-prof"><div class="ava">Я</div><div><div style="font-size:12px;font-weight:700">Администратор</div><div style="font-size:10px;color:var(--text3)">UNI Coordinator</div></div></div>
 </div>
 <div id="content">
@@ -181,6 +193,37 @@
     </div>
   </div>
 </div>
+<!-- ===== АДМИН v4 (новый, интегрированный модуль js/admin_v4.js) ===== -->
+<div class="view-wrap" id="view-v4_overview"><div class="v4-card"><div class="v4-ch">📊 Обзор v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-ov-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb"><div id="v4-ov-cards" class="v4-grid"></div>
+  <div class="v4-grid">
+    <div class="v4-card v4-sub" id="v4-ov-hw-card"><div class="v4-ch">🖥 Железо <span class="v4-badge b-unknown" data-b>—</span></div><div class="v4-cb" id="v4-ov-hw"></div></div>
+    <div class="v4-card v4-sub" id="v4-ov-git-card"><div class="v4-ch">🌿 Git <span class="v4-badge b-unknown" data-b>—</span></div><div class="v4-cb" id="v4-ov-git"></div></div>
+    <div class="v4-card v4-sub" id="v4-ov-stats-card"><div class="v4-ch">📈 Статистика <span class="v4-badge b-unknown" data-b>—</span></div><div class="v4-cb" id="v4-ov-stats"></div></div>
+  </div>
+  <div style="margin-top:10px"><button class="tbtn danger" id="v4-ov-stop">⏹ Экстренный STOP (STOP.txt)</button></div>
+</div></div></div>
+
+<div class="view-wrap" id="view-v4_agents"><div class="v4-card"><div class="v4-ch">👥 Агенты v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-ag-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" id="v4-ag-list"></div></div></div>
+
+<div class="view-wrap" id="view-v4_logs"><div class="v4-card"><div class="v4-ch">📜 Логи v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-lg-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;gap:8px"><select id="v4-lg-source" class="tin"><option>llama</option><option>webui</option><option>desktop</option><option>electron</option><option>hermes</option></select><select id="v4-lg-level" class="tin"><option value="">все</option><option value="ERROR">ERROR</option><option value="WARN">WARN</option><option value="INFO">INFO</option></select></div><div id="v4-lg-lines" class="v4-logbox"></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_tasks"><div class="v4-card"><div class="v4-ch">📋 Задачи и фазы v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-tk-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:flex;flex-direction:column;gap:12px"><div id="v4-tk-backlog"></div><div id="v4-tk-phases"></div><div><div style="font-weight:700;margin-bottom:4px">🔒 Блокировки</div><pre id="v4-tk-locks" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;white-space:pre-wrap"></pre></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_journal"><div class="v4-card"><div class="v4-ch">📓 Журнал событий v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-jr-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:flex;flex-direction:column;gap:8px"><select id="v4-jr-limit" class="tin" style="width:auto"><option>50</option><option>150</option><option>400</option></select><div id="v4-jr-list" style="max-height:420px;overflow:auto"></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_reports"><div class="v4-card"><div class="v4-ch">📄 Отчёты v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-rp-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:grid;grid-template-columns:300px 1fr;gap:10px"><div id="v4-rp-list" style="max-height:480px;overflow:auto"></div><div><div style="font-weight:700;margin-bottom:6px" id="v4-rp-title">— выберите отчёт —</div><pre id="v4-rp-content" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;max-height:460px;overflow:auto"></pre></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_tools"><div class="v4-card"><div class="v4-ch">🧰 Инструменты v4</div><div class="v4-cb" style="display:flex;flex-direction:column;gap:10px"><div id="v4-tl-actions" class="v4-grid"></div><div><div style="font-weight:700;margin-bottom:4px">Результат</div><pre id="v4-tl-result" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_vision"><div class="v4-card"><div class="v4-ch">👁 Мышь и зрение v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-vs-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:flex;flex-direction:column;gap:10px"><div id="v4-vs-consent"></div><div id="v4-vs-cards" class="v4-grid"></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_autonomous"><div class="v4-card"><div class="v4-ch">⚡ Автономность v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-au-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb" style="display:flex;flex-direction:column;gap:10px"><div id="v4-au-status"></div><div style="display:flex;gap:8px"><button class="tbtn primary" id="v4-au-start">▶ Запустить</button><button class="tbtn danger" id="v4-au-stop">■ Остановить</button></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_xtoys"><div class="v4-card"><div class="v4-ch">🔌 XToys / Intiface v4 <span class="v4-badge b-unknown" data-b>загрузка</span><button class="tbtn" id="v4-xt-refresh" style="padding:2px 7px;font-size:10px">🔄</button></div><div class="v4-cb"><div id="v4-xt-cards" class="v4-grid"></div></div></div></div>
+
+<div class="view-wrap" id="view-v4_settings"><div class="v4-card"><div class="v4-ch">⚙ Настройки v4</div><div class="v4-cb"><pre id="v4-st-config" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap"></pre></div></div></div>
+<!-- ===== конец Админ v4 ===== -->
+
 <div id="chatPanel">
 <div class="rchat-header"><div><div class="rchat-title">💬 Чат с ЮНИ</div><div class="rchat-status"><span class="dot" id="rchatDot"></span> <span id="rchatStatus">проверка транспорта…</span> <span id="chatModel" style="opacity:.6"></span></div></div><button class="tbtn" onclick="toggleChatPanel()" style="padding:3px 7px">✕</button></div>
 <div class="rchat-tools" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -197,5 +240,7 @@
 </div>
 <div class="toast" id="toast"></div>
 <script src="app.js"></script>
+<script src="admin_v4.js"></script>
+
 </body>
 </html>

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,8 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent          # uni/webui
 _ROOT = _HERE.parent.parent                       # C:\LLM\UNI
 _RUNTIME = _ROOT / "runtime"
-_BRIDGE = _ROOT / "bridge"
-_OUTBOX = _ROOT / "outbox"
+_BRIDGE = _ROOT / "agents" / "bridge"            # исправлено: bridge/ лежит в agents/
+_OUTBOX = _ROOT / "agents" / "outbox"            # исправлено: outbox/ лежит в agents/
 
 # Таймауты сетевых проверок (сек)
 _TCP_TIMEOUT = 1.5
@@ -122,12 +123,18 @@ def admin_hw() -> dict:
 def admin_git() -> dict:
     g: dict[str, Any] = {"branch": "—", "commit": "—", "message": "—", "time": "—"}
     try:
+        # 🤖 Qwen (2026-08-16): явная кодировка UTF-8 для git-вывода.
+        # На Windows git может отдавать UTF-8 (особенно с русскими commit messages),
+        # но subprocess.run с text=True использует locale.getpreferredencoding()
+        # (обычно cp1251 на русской Windows). Это даёт кракозябры.
         branch = subprocess.run(["git", "-C", str(_ROOT), "rev-parse", "--abbrev-ref", "HEAD"],
-                                capture_output=True, text=True, timeout=5)
+                                capture_output=True, text=True, timeout=5,
+                                encoding="utf-8", errors="replace")
         if branch.returncode == 0:
             g["branch"] = branch.stdout.strip()
         last = subprocess.run(["git", "-C", str(_ROOT), "log", "-1", "--format=%H|%s|%cr"],
-                              capture_output=True, text=True, timeout=5)
+                              capture_output=True, text=True, timeout=5,
+                              encoding="utf-8", errors="replace")
         if last.returncode == 0 and last.stdout.strip():
             h, msg, when = last.stdout.strip().split("|", 2)
             g["commit"], g["message"], g["time"] = h[:10], msg, when
@@ -208,11 +215,11 @@ def _parse_heartbeat(path: Path, name: str) -> dict:
 
 def admin_agents() -> dict:
     agents = []
-    # bridge/heartbeat_*.txt
+    # agents/bridge/heartbeat_*.txt
     for p in sorted(_BRIDGE.glob("heartbeat_*.txt")):
         agents.append(_parse_heartbeat(p, p.name))
-    # uni-*/logs/heartbeat*.txt
-    for p in sorted(_ROOT.glob("uni-*/logs/heartbeat*.txt")):
+    # agents/uni-*/logs/heartbeat*.txt (ИИ-песочницы)
+    for p in sorted((_ROOT / "agents").glob("uni-*/logs/heartbeat*.txt")):
         agents.append(_parse_heartbeat(p, p.name))
     return {"agents": agents, "count": len(agents)}
 
@@ -270,7 +277,7 @@ def admin_stats() -> dict:
 # ────────────────────────────────────────────────────────────
 # /api/admin/reports — список + содержимое отчётов
 # ────────────────────────────────────────────────────────────
-def admin_reports_list() -> list[dict]:
+def admin_reports_list() -> dict:
     reps = []
     for p in sorted(_OUTBOX.glob("*.md")):
         reps.append({"name": p.name, "kind": "outbox"})
@@ -283,8 +290,8 @@ def admin_reports_list() -> list[dict]:
         for p in sorted(_HERMES_OUTBOX.glob("*.md")):
             reps.append({"name": p.name, "kind": "hermes-outbox"})
     if not reps:
-        return [{"name": "нет данных", "kind": "—"}]
-    return reps
+        return {"reports": [{"name": "нет данных", "kind": "—"}]}
+    return {"reports": reps}
 
 
 def admin_report_content(name: str) -> dict:
@@ -391,9 +398,11 @@ def _handle_admin_action(action: str, params: dict) -> dict:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
     if action == "run_arch_check":
-        # лёгкая проверка: py_compile всех uni/*.py
+        # 🤖 Hermes (2026-08-16): исправлен TypeError — compileall.compile_dir
+        # в Python 3.12 НЕ принимает max_depth (это параметр compile_path).
+        # Убран аргумент; compile_dir рекурсивно проверяет все uni/*.py.
         import compileall
-        ok = compileall.compile_dir(str(_HERE.parent), quiet=1, max_depth=6)
+        ok = compileall.compile_dir(str(_HERE.parent), quiet=1)
         return {"compile_ok": bool(ok)}
 
     if action == "create_stop_txt":
@@ -430,7 +439,9 @@ def _handle_admin_action(action: str, params: dict) -> dict:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
     if action == "vision_capture":
-        out = _ROOT / "outbox" / f"admin_capture_{int(time.time())}.png"
+        # 🤖 Qwen (2026-08-16): скриншоты пишутся в agents/outbox/ (существует),
+        # а не в несуществующую папку. Путь уже исправлен выше (_OUTBOX).
+        out = _OUTBOX / f"admin_capture_{int(time.time())}.png"
         try:
             import pyautogui
             pyautogui.screenshot(str(out))

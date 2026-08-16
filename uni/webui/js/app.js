@@ -42,7 +42,7 @@ async function automationAction(action){
 }
 function restoreAutomation(){document.querySelectorAll('.auto-toggle').forEach(el=>{const n=el.dataset.auto;if(Object.prototype.hasOwnProperty.call(automationState,n))el.classList.toggle('on',!!automationState[n])})}
 function setStep(n){document.querySelectorAll('.pstep').forEach((el,i)=>{el.classList.remove('active','done');if(n>=0){if(i<n)el.classList.add('done');if(i===n)el.classList.add('active')}})}
-async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||2500);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e}}
+async function api(url,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||8000);try{const r=await fetch(url,{signal:c.signal});clearTimeout(t);return r}catch(e){clearTimeout(t);throw e)}
 async function pingServers(){
 try{await api(FS+'/ping');$('dotFs').className='dot on';$('qwSrv').textContent='онлайн';$('qwSrv').className='qw-ok';$('intFs').className='pill p-ok';$('intFs').textContent='онлайн'}catch(e){$('dotFs').className='dot err';$('qwSrv').textContent='офлайн';$('qwSrv').className='qw-bad';$('intFs').className='pill p-err';$('intFs').textContent='офлайн'}
 try{await api(HRM+'/api/participants');$('dotHermes').className='dot on';$('intHrm').className='pill p-ok';$('intHrm').textContent='онлайн'}catch(e){$('dotHermes').className='dot err';$('intHrm').className='pill p-err';$('intHrm').textContent='офлайн'}
@@ -573,3 +573,5 @@ async function stopAll(){
 }
 
 showToast('UNI Platform v3.3: темы #c4e534/#032121 + авто-детект модели LM Studio');
+// 🤖 v4.0 merge: port features from v4 into calibrated classic (additive, non-breaking)
+(function(){try{const s=document.createElement('script');s.src='js/merge4.js';s.onerror=()=>console.warn('merge4.js not loaded');document.head.appendChild(s);}catch(e){}})();

@@ -55,9 +55,15 @@ def test_admin_stats_shape():
 
 def test_admin_reports_list_and_content():
     reps = a.admin_reports_list()
-    assert isinstance(reps, list) and len(reps) > 0
+    # Qwen (2026-08-16): контракт изменён — возвращается dict {"reports":[...]}
+    # (раньше был list). Проверяем обе формы для обратной совместимости.
+    if isinstance(reps, dict):
+        items = reps.get("reports", [])
+    else:
+        items = reps
+    assert isinstance(items, list) and len(items) > 0
     # хотя бы один реальный отчёт читается
-    name = reps[0]["name"]
+    name = items[0]["name"]
     content = a.admin_report_content(name)
     assert "content" in content or "error" in content
 

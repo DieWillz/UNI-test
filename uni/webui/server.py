@@ -1127,7 +1127,14 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"camera preview missing", "text/plain")
             return
-        if parsed.path in ("/v3", "/v3/"):
+        # 🤖 Qwen (2026-08-16): редирект /v3 → /v3/ и /v4 → /v4/.
+        # Без слэша относительные пути в index.html (href="style.css")
+        # резолвятся в /style.css (404). Со слэшем — в /v4/style.css (200).
+        # Это стандартное поведение nginx/Apache; здесь эмулируем 301 редиректом.
+        if parsed.path == "/v3":
+            self._redirect("/v3/", code=301)
+            return
+        if parsed.path == "/v3/":
             # R-01: админка v3 (отдельный SPA в uni/webui/v3/)
             page = _HERE / "v3" / "index.html"
             if page.is_file():
@@ -1135,7 +1142,10 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"admin v3 missing", "text/plain")
             return
-        if parsed.path in ("/v4", "/v4/"):
+        if parsed.path == "/v4":
+            self._redirect("/v4/", code=301)
+            return
+        if parsed.path == "/v4/":
             # 🤖 Hermes (2026-08-14): админка v4 — новый SPA в uni/webui/v4/.
             # Добавлено аддитивно, не трогает v3. Полноценный интерфейс с
             # честными бейджами статуса (нерабочие места видны сразу).
@@ -1171,6 +1181,7 @@ class _Handler(BaseHTTPRequestHandler):
         _STATIC_ALIASES = {
             "/style.css": "css/style.css",
             "/app.js": "js/app.js",
+            "/admin_v4.js": "js/admin_v4.js",
             "/chat.js": "chat.js",
             "/chat.css": "css/chat.css",
             "/index.html": "index.html",
@@ -1192,6 +1203,16 @@ class _Handler(BaseHTTPRequestHandler):
                 if candidate.is_relative_to(_HERE.resolve()) and candidate.is_file():
                     self._send_file_with_cache(candidate, _STATIC_TYPES[suffix])
                     return
+                # 🤖 Qwen (2026-08-16): fallback для v3/v4 статики — если файл
+                # не найден в корне webui, ищем в v3/ или v4/. Это покрывает
+                # случай, когда index.html ссылается на относительный путь
+                # (href="style.css") и браузер запрашивает /v4/style.css,
+                # но наш роутинг сначала ищет в /style.css.
+                for ver in ("v4", "v3"):
+                    v_candidate = (_HERE / ver / rel).resolve()
+                    if v_candidate.is_relative_to(_HERE.resolve()) and v_candidate.is_file():
+                        self._send_file_with_cache(v_candidate, _STATIC_TYPES[suffix])
+                        return
 
         if parsed.path == "/api/participants":
             cfg = load_config()
