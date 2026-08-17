@@ -30,8 +30,8 @@ def _ensure_dir() -> None:
 
 
 def save_trajectory(goal: str, steps: list[dict[str, Any]], history: list[str],
-                    status: str = "success", meta: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Добавить успешную траекторию в trajectories.jsonl (append).
+                    status: str = "verified", meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Добавить проверенную траекторию в trajectories.jsonl (append).
 
     Возвращает записанную запись (dict).
     """
@@ -73,7 +73,7 @@ def load_trajectories() -> list[dict[str, Any]]:
 
 
 def suggest_skill_from_trajectory(record: dict[str, Any]) -> dict[str, Any] | None:
-    """Из одной успешной траектории сформировать черновик skill (аддитивно).
+    """Из одной проверенной траектории сформировать черновик skill (аддитивно).
 
     Образец DPS: «цель -> последовательность шагов». Возвращает dict
     с именем skill, триггером (цель) и шагами (из history). Если данных

@@ -42,8 +42,9 @@ _ALIASES = {
 
 # Типы событий (dispatcher-ключи фронта).
 CANON_EVENT_TYPES = (
-    "task.started", "task.update", "task.done", "task.error",
-    "mission.started", "mission.update", "mission.done",
+    "task.started", "task.update", "task.verified", "task.not_verified",
+    "task.failed", "task.blocked", "task.interrupted", "task.error",
+    "mission.started", "mission.update", "mission.verified", "mission.not_verified",
     "approval.required",
 )
 
@@ -223,6 +224,23 @@ def validate_ui_events(events: Any) -> list[dict]:
             vc = validate_component(ev["ui"]) if isinstance(ev["ui"], dict) else None
             if vc is not None:
                 clean["ui"] = vc
+        verification = ev.get("verification")
+        if isinstance(verification, dict):
+            clean_evidence = []
+            for item in (verification.get("evidence") or [])[:16]:
+                if isinstance(item, dict):
+                    clean_evidence.append({
+                        "id": _clean_text(item.get("id"), 80),
+                        "source": _clean_text(item.get("source"), 160),
+                        "summary": _clean_text(item.get("summary"), 1000),
+                        "timestamp": _clean_text(item.get("timestamp"), 80),
+                    })
+            clean["verification"] = {
+                "status": _clean_text(verification.get("status"), 40),
+                "method": _clean_text(verification.get("method"), 160),
+                "reason": _clean_text(verification.get("reason"), 1000),
+                "evidence": clean_evidence,
+            }
         out.append(clean)
     return out
 

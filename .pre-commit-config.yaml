@@ -1,0 +1,50 @@
+# See https://pre-commit.com for more information
+# Установка: pip install pre-commit && pre-commit install
+# Ручной запуск на всех файлах: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-added-large-files
+        args: ['--maxkb=2000']
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: local
+    hooks:
+      - id: uni-architecture-audit
+        name: UNI architecture audit (ADR-0005)
+        entry: python -m uni.check_architecture --strict
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: uni-no-secrets-in-code
+        name: no hardcoded secrets
+        entry: bash -c '! grep -REn "(sk-[A-Za-z0-9_-]{20,}|gsk_[A-Za-z0-9_-]{20,}|hf_[A-Za-z0-9]{20,})" uni/ scripts/ 2>/dev/null'
+        language: system
+        pass_filenames: false
+        always_run: true

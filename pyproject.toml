@@ -1,0 +1,169 @@
+# UNI — единый источник истины зависимостей (Директива §6 Q-09, 2026-08-17).
+#
+# Корневой pyproject.toml заменяет собой три расходившихся файла
+# (requirements.txt, uni/requirements.txt, uni/pyproject.toml). Версии
+# по-прежнему фиксируются в constraints.txt; этот файл описывает extras и
+# является entrypoint для uv/pip/poetry.
+#
+# Установка:
+#   uv sync --extra cpu                 # CPU-only (базовый профиль для упаковки)
+#   uv sync --extra cuda                # CUDA-ускорение (nvidia GPU)
+#   uv sync --extra rocm                # ROCm (AMD)
+#   uv sync --all-extras --extra dev    # полная разработка + тесты
+#
+# Генерация lock-файла (для детерминированных инсталлов):
+#   uv lock
+# или без uv:
+#   pip-compile pyproject.toml --extra cpu -o requirements.lock.txt
+#
+# Старые корневой requirements.txt и uni/requirements.txt сохраняются как
+# DEPRECATED-shim (ссылаются на constraints.txt и этот pyproject.toml).
+
+[project]
+name = "uni"
+version = "0.2.0"
+description = "UNI — локальный Windows AI-оператор (рой ролей, текст+голос, browser/computer/vision/camera/memory/xtoys)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "UNI contributors" }]
+keywords = ["ai", "agent", "local-first", "windows", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Базовые runtime-зависимости. Диапазоны из constraints.txt (единый источник).
+dependencies = [
+    "pydantic>=2.6",
+    "pydantic-settings>=2.1",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "openai>=1.30",
+    "playwright>=1.40",
+    "pyautogui>=0.9",
+    "comtypes>=1.2",
+    "opencv-python>=4.10,<5",
+    "pillow>=10.0",
+    "numpy>=1.26",
+    "mss>=9.0",
+    "sounddevice>=0.5",
+    "soundfile>=0.12",
+]
+
+[project.optional-dependencies]
+# Базовый профиль для упаковки — работает без GPU и без torch.
+cpu = [
+    "faster-whisper>=1.1",          # STT на CPU
+    "piper-tts>=1.6",               # TTS без torch
+]
+
+# NVIDIA GPU: torch с CUDA + Silero для TTS.
+cuda = [
+    "faster-whisper>=1.1",
+    "piper-tts>=1.6",
+    "torch>=2.6",
+]
+
+# AMD GPU: torch с ROCm.
+rocm = [
+    "faster-whisper>=1.1",
+    "piper-tts>=1.6",
+    "torch>=2.6",
+]
+
+# VLM через Gradio (Moondream2 Space) — используется только если локальный
+# moondream.cpp недоступен.
+gradio-vlm = ["gradio_client>=1.3"]
+
+# XToys / интим-профиль.
+xtoys = ["buttplug-py>=0.2.0"]
+
+# Разработка и тесты.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-timeout>=2.3",
+    "ruff>=0.5.0",
+    "black>=24.0",
+    "isort>=5.13",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "pip-tools>=7.4",
+    "pipdeptree>=2.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/DieWillz/UNI-test"
+Repository = "https://github.com/DieWillz/UNI-test"
+Issues = "https://github.com/DieWillz/UNI-test/issues"
+
+[project.scripts]
+uni = "uni.__main__:main"
+uni-webui = "uni.webui:run_webui"
+
+[project.entry-points."uni.capabilities"]
+# Plugin system (Директива §16): сторонние capabilities регистрируются через
+# entry-points и подхватываются uni/plugins.py.
+# Пример:
+#   my_custom_cap = "my_pkg.capability:MyCustomCapability"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["uni*"]
+exclude = ["uni/webui/js/*", "uni/webui/css/*", "uni/webui/desktop/*"]
+
+[tool.setuptools.package-data]
+"uni" = ["assets/voices/*", "roles/*.md", "roles/*.yaml"]
+
+# ---------------------------------------------------------------------------
+# Инструменты разработки
+# ---------------------------------------------------------------------------
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+extend-exclude = '''
+/(
+    uni/webui/js
+  | uni/webui/css
+  | uni/webui/desktop
+  | downloads
+  | runtime
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_glob = ["uni/webui/js/*", "uni/webui/css/*", "uni/webui/desktop/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["uni/webui/js", "uni/webui/css", "uni/webui/desktop", "downloads"]
+select = ["E", "F", "B", "I", "UP", "SIM"]
+ignore = ["E501"]  # длинные строки допускаются в русских промптах
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider --tb=short"
+timeout = 90
+filterwarnings = [
+    "ignore::SyntaxWarning",  # Silero TTS stray '^' escape
+]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+exclude = ["uni/webui/js", "uni/webui/css", "uni/webui/desktop", "downloads"]

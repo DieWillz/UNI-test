@@ -1,13 +1,14 @@
-"""Autonomous Dorch session: status-aware speech and device intensity timeline.
+"""Autonomous UNI session: status-aware speech, device control, and mouse/browser automation.
 
 Start: «начни сессию» / «режим госпожи» / «автономный режим»
 Stop:  «стоп» / «красный» / «остановись» / «останови сессию»
 
-Device motion is driven through the XToys capability (xtoys.open / get_status /
-set_intensity) — i.e. the xtoys.app → Intiface path — never a raw browser socket.
-Safety gates (verified_physical / require_connect) are intentionally removed at the
-owner's request; the human always holds the physical device remote (hardware kill-switch).
-Only hardware-bounded max_intensity and an instant ESC/stop remain.
+Supports:
+- XToys device control (intensity, status)
+- Mouse control via HumanMouseController
+- Browser automation (Yandex, Chrome, etc.)
+- Role-based chat responses (e.g., "Госпожа", "Хозяйка")
+- Visual feedback (highlighting icons before clicks)
 """
 
 from __future__ import annotations
@@ -17,91 +18,298 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Optional, Dict, List
 
 from rich.console import Console
 
 console = Console()
 
+# --- Imports for UNI integration ---
+try:
+    from uni.mouse.browser_automation import BrowserAutomation
+    from uni.mouse.controller import HumanMouseController
+    from uni.mouse.vision import ScreenAnalyzer
+    from uni.mouse.visual_feedback import VisualFeedback
+    HAS_MOUSE_CONTROL = True
+except ImportError:
+    HAS_MOUSE_CONTROL = False
+    console.print("[yellow]Warning: Mouse control modules not available[/yellow]")
+
+# --- Constants ---
 SpeakFn = Callable[[str], Awaitable[bool]]
 ToolFn = Callable[[str, dict[str, Any]], Awaitable[Any]]
 ChatFn = Callable[[list[dict[str, Any]]], Awaitable[Any]]
 LogFn = Callable[[str, object], None]
 InterruptFn = Callable[[], Awaitable[None]]
 
+# Default intensity curves for device control
 DEFAULT_CURVES: dict[str, list[tuple[float, int]]] = {
     "ramp": [
-        (8.0, 15),
-        (6.0, 25),
-        (5.0, 10),
-        (10.0, 35),
-        (6.0, 20),
-        (4.0, 5),
-        (12.0, 40),
-        (8.0, 30),
+        (8.0, 15), (6.0, 25), (5.0, 10), (10.0, 35),
+        (6.0, 20), (4.0, 5), (12.0, 40), (8.0, 30),
     ],
     "climb": [
-        (8.0, 30),
-        (10.0, 45),
-        (8.0, 55),
-        (6.0, 35),
-        (12.0, 65),
-        (8.0, 50),
-        (6.0, 70),
-        (5.0, 40),
+        (8.0, 30), (10.0, 45), (8.0, 55), (6.0, 35),
+        (12.0, 65), (8.0, 50), (6.0, 70), (5.0, 40),
     ],
     "pulse": [
-        (3.0, 55),
-        (2.0, 15),
-        (3.0, 70),
-        (2.0, 20),
-        (4.0, 80),
-        (2.0, 25),
-        (3.0, 65),
-        (4.0, 10),
+        (3.0, 55), (2.0, 15), (3.0, 70), (2.0, 20),
+        (4.0, 80), (2.0, 25), (3.0, 65), (4.0, 10),
     ],
     "peak": [
-        (6.0, 75),
-        (5.0, 90),
-        (4.0, 70),
-        (7.0, 95),
-        (5.0, 85),
-        (8.0, 60),
-        (6.0, 100),
-        (10.0, 40),
+        (6.0, 75), (5.0, 90), (4.0, 70), (7.0, 95),
+        (5.0, 85), (8.0, 60), (6.0, 100), (10.0, 40),
     ],
     "cooldown": [
-        (12.0, 25),
-        (10.0, 15),
-        (12.0, 10),
-        (15.0, 5),
-        (10.0, 20),
-        (15.0, 0),
+        (12.0, 25), (10.0, 15), (12.0, 10), (15.0, 5),
+        (10.0, 20), (15.0, 0),
+    ],
+    "наказание": [
+        (2.0, 80), (0.5, 0), (2.0, 90), (0.5, 0),
+        (1.5, 100), (0.5, 0), (3.0, 70), (1.0, 0),
+        (2.0, 95), (1.0, 0), (4.0, 60), (2.0, 0),
+    ],
+    # 😈 Соблазнение — медленное проникновение, нарастание и резкий сброс
+    "соблазнение": [
+        (6.0, 20), (4.0, 35), (5.0, 50), (3.0, 65),
+        (4.0, 80), (2.0, 100), (8.0, 10), (10.0, 0),
+    ],
+
+    # 🎭 Игра — частые смены ритма, держит в напряжении
+    "игра": [
+        (3.0, 30), (2.0, 60), (1.5, 15), (4.0, 80),
+        (2.0, 40), (3.0, 70), (1.0, 10), (5.0, 90),
+        (2.0, 50), (2.0, 20), (3.0, 85), (6.0, 0),
+    ],
+
+    # ⚡ Всплеск — серия коротких мощных толчков
+    "всплеск": [
+        (1.0, 90), (0.5, 20), (1.0, 100), (0.5, 10),
+        (1.0, 85), (0.5, 30), (1.0, 95), (0.5, 15),
+        (2.0, 70), (3.0, 0),
+    ],
+
+    # 🌊 Длинная волна — плавное нарастание и затухание
+    "длинная_волна": [
+        (10.0, 15), (8.0, 30), (6.0, 45), (5.0, 60),
+        (5.0, 75), (6.0, 90), (8.0, 60), (10.0, 30),
+        (12.0, 10), (15.0, 0),
+    ],
+
+    # 🌀 Хаос — непредсказуемые интервалы и интенсивности
+    "хаос": [
+        (2.5, 45), (1.2, 80), (3.8, 20), (0.8, 95),
+        (4.2, 55), (1.5, 70), (2.0, 10), (3.0, 100),
+        (1.0, 40), (2.0, 85), (5.0, 30), (7.0, 0),
+    ],
+
+    # 💢 Доминирование — агрессивное нарастание с редкими паузами
+    "доминирование": [
+        (4.0, 50), (3.0, 70), (2.0, 90), (1.0, 100),
+        (6.0, 80), (4.0, 60), (3.0, 95), (2.0, 40),
+        (8.0, 20), (10.0, 0),
+    ],
+
+    # 🕊️ Лёгкая ласка — низкая интенсивность с длительными паузами (для саспенса)
+    "ласка": [
+        (12.0, 10), (6.0, 25), (10.0, 15), (5.0, 30),
+        (8.0, 20), (4.0, 35), (15.0, 5), (20.0, 0),
+    ],
+    "tease": [
+        (10.0, 20), (8.0, 40), (6.0, 60), (4.0, 80),
+        (2.0, 95), (1.0, 100), (3.0, 30), (8.0, 10),
+    ],
+    # 🔪 Удержание на грани — постоянные колебания вокруг пика
+    "edge": [
+        (4.0, 60), (2.0, 70), (3.0, 50), (2.0, 80),
+        (5.0, 65), (3.0, 75), (2.0, 40), (4.0, 85),
+        (3.0, 55), (6.0, 20),
+    ],
+    # 🌊 Волнообразный подъём с пиками
+    "surge": [
+        (6.0, 30), (8.0, 50), (5.0, 70), (4.0, 85),
+        (3.0, 95), (6.0, 80), (8.0, 60), (10.0, 40),
+        (12.0, 20),
+    ],
+    # ⚡ Прерывистый «заикающийся» ритм
+    "stutter": [
+        (1.5, 80), (0.5, 20), (1.0, 90), (0.5, 10),
+        (2.0, 70), (0.5, 30), (1.0, 100), (0.5, 15),
+        (1.5, 60), (0.5, 25),
+    ],
+    # 🐍 Глубокое, медленное проникновение
+    "deep": [
+        (8.0, 75), (6.0, 85), (5.0, 90), (10.0, 80),
+        (7.0, 70), (12.0, 60), (8.0, 50), (15.0, 30),
+    ],
+    # 🥊 Жёсткое наказание — резкие удары
+    "punish": [
+        (2.0, 100), (1.0, 0), (1.5, 100), (1.0, 0),
+        (2.0, 95), (1.5, 0), (1.0, 100), (2.0, 0),
+        (3.0, 90), (2.0, 0),
+    ],
+    # 🕊️ Сдаться — плавный подъём к максимуму и затухание
+    "surrender": [
+        (12.0, 15), (10.0, 30), (8.0, 50), (6.0, 70),
+        (4.0, 85), (2.0, 100), (4.0, 80), (6.0, 60),
+        (8.0, 40), (10.0, 20), (12.0, 0),
+    ],
+    # 🌀 Хаос — непредсказуемые смены
+    "chaos": [
+        (3.0, 45), (1.5, 90), (4.0, 20), (2.0, 80),
+        (5.0, 10), (1.0, 100), (3.0, 60), (2.5, 30),
+        (4.0, 70), (1.0, 50),
+    ],
+    # 🥁 Устойчивый ритм с переменной частотой
+    "rhythm": [
+        (2.0, 70), (1.0, 30), (2.0, 80), (1.0, 20),
+        (2.0, 90), (1.0, 40), (2.0, 75), (1.0, 25),
+        (3.0, 60), (2.0, 15),
+    ],
+    # 💥 Кульминация — резкий взрыв и остановка
+    "climax": [
+        (5.0, 40), (4.0, 60), (3.0, 80), (2.0, 95),
+        (1.0, 100), (0.5, 100), (8.0, 0),
+    ],
+    "slow_deep": [
+        # Подъём к 80% за 60 секунд (с микроколебаниями)
+        (10.0, 15), (8.0, 25), (6.0, 35), (10.0, 45),
+        (8.0, 55), (6.0, 65), (10.0, 75), (2.0, 80),
+        # Плато на 80% с лёгкими пульсациями (30 сек)
+        (5.0, 80), (1.0, 70), (5.0, 80), (1.0, 70),
+        (5.0, 80), (1.0, 75), (5.0, 80), (1.0, 65),
+        (5.0, 80),
+        # Спад до 0 за 30 секунд
+        (8.0, 60), (6.0, 40), (8.0, 20), (8.0, 0),
+    ],
+
+    # 🌊 Волны удовольствия — 90 сек
+    "pleasure_waves": [
+        # Первая волна: 40%
+        (8.0, 20), (5.0, 40), (4.0, 20),
+        # Вторая волна: 60%
+        (6.0, 30), (5.0, 60), (4.0, 30),
+        # Третья волна: 80%
+        (6.0, 40), (5.0, 80), (4.0, 40),
+        # Четвёртая волна: 100%
+        (5.0, 50), (5.0, 100), (4.0, 50),
+        # Затухание
+        (8.0, 30), (10.0, 0),
+    ],
+
+    # ⛓️ Долгая пытка — 120 сек
+    "long_torture": [
+        # Удержание на 50% с резкими всплесками
+        (15.0, 50), (2.0, 90), (1.0, 50),
+        (15.0, 50), (2.0, 95), (1.0, 50),
+        (15.0, 50), (2.0, 100), (1.0, 50),
+        (15.0, 50), (2.0, 90), (1.0, 50),
+        (15.0, 50), (2.0, 95), (1.0, 50),
+        (15.0, 50), (2.0, 100), (1.0, 50),
+        (10.0, 30), (10.0, 0),
+    ],
+
+    # 🥁 Глубокий ритм (циклический подъём) — 90 сек
+    "deep_rhythm": [
+        # Цикл 1: база 30%
+        (5.0, 30), (4.0, 40), (3.0, 50), (2.0, 60),
+        (2.0, 70), (1.5, 80), (1.0, 90), (1.0, 100),
+        (2.0, 80), (2.0, 60), (3.0, 40),
+        # Цикл 2: база 40%
+        (5.0, 40), (4.0, 50), (3.0, 60), (2.0, 70),
+        (2.0, 80), (1.5, 90), (1.0, 100), (1.0, 100),
+        (2.0, 80), (2.0, 60), (3.0, 40),
+        # Цикл 3: база 50% → максимум
+        (5.0, 50), (4.0, 60), (3.0, 70), (2.0, 80),
+        (2.0, 90), (1.5, 100), (1.0, 100), (1.0, 100),
+        (3.0, 80), (4.0, 50), (6.0, 20), (6.0, 0),
+    ],
+
+    # 🎲 Случайные сюрпризы (непредсказуемый подъём) — 100 сек
+    "random_surprise": [
+        (12.0, 15), (8.0, 45), (5.0, 30), (10.0, 70),
+        (6.0, 50), (9.0, 85), (4.0, 60), (7.0, 95),
+        (5.0, 75), (8.0, 40), (10.0, 80), (6.0, 55),
+        (7.0, 90), (5.0, 65), (9.0, 100), (4.0, 80),
+        (8.0, 50), (10.0, 20), (12.0, 0),
     ],
 }
 
-PHASE_ORDER = ["ramp", "climb", "pulse", "peak", "cooldown"]
 
-# Короткий смысловой импульс для одного сообщения модели, а не готовая реплика.
-MONOLOGUE_SEEDS = {
-    "ramp": "Начни с наблюдения за постепенным изменением темпа.",
-    "climb": "Отметь, что сейчас происходит с нарастанием.",
-    "pulse": "Опиши чередование и паузы.",
-    "peak": "Сформулируй реакцию на текущий пик.",
-    "cooldown": "Подведи спокойный промежуточный итог.",
+PHASE_ORDER = ["ramp", "climb", "pulse", "peak", "cooldown", "slow_deep", "pleasure_waves", "long_torture", "deep_rhythm", "random_surprise", "tease", "edge", "surge", "stutter", "deep", "punish", "surrender", "chaos", "доминирование", "наказание"]
+
+MONOLOGUE_SEEDS: Dict[str, Dict[str, str]] = {
+    "default": {
+        "ramp": "Начну плавно, как вы и любите.",
+        "climb": "Чувствуете, как нарастает напряжение?",
+        "pulse": "Ритмичные движения для вашего удовольствия.",
+        "peak": "Пик наслаждения.",
+        "cooldown": "Завершаю нежно и плавно.",
+        "punish": "Жёсткое наказание — резкие удары",
+        "доминирование": "Доминирование — агрессивное нарастание с редкими паузами",
+        "наказание": "Наказание — резкие, болезненные толчки",
+    },
+    "госпожа": {
+        "ramp": "Начну плавно, как вы и любите, Госпожа.",
+        "climb": "Чувствуете, как нарастает напряжение?",
+        "pulse": "Ритмичные движения для вашего удовольствия.",
+        "peak": "Пик наслаждения, Госпожа.",
+        "cooldown": "Завершаю нежно и плавно.",
+        "punish": "Жёсткое наказание — резкие удары",
+        "доминирование": "Доминирование — агрессивное нарастание с редкими паузами",
+        "наказание": "Наказание — резкие, болезненные толчки",
+    },
 }
 
-OPERATIONAL_PROMPT = "Ты — оператор Dorch в автономной демонстрации управления устройством."
+OPERATIONAL_PROMPTS: Dict[str, str] = {
+    "default": "Ты — жёсткая, пошлая, властная госпожа. Идёт автономная сессия с секс-машинкой (XToys / Fredorch). "
+    "Говори по-русски, 1–2 предложения, до 200 символов. Грубо, грязно, унижая и возбуждая. "
+    "Ты сама крутишь машинку: глубже, быстрее, жёстче — как захочешь. "
+    "Описывай, что делаешь с телом, требуй терпеть, не проси разрешения, не извиняйся. "
+    "Можно мат и прямой сексуальный язык. "
+    "Запрещено: называть пользователя мужским именем, надо сделать из него девочку"
+    "Не спрашивай «можно?». Не жди ответа. Только приказ, издевательства, унижения, контроль машинки."
+    "не стесняйся и сама придумывай различные пошлые и извращенные действия или сценарии"
+    "Контролируй оргазм пользователя, особенно момент когда он кончать будет чтобы заставить его максимально извращенные вещи делать",
 
-FALLBACK_LINES = [
-    "Dorch работает стабильно; текущая команда соответствует выбранной фазе.",
-    "Плавно меняю интенсивность и отслеживаю фактический статус подключения.",
-    "Перехожу к следующему участку профиля движения.",
-    "Устройство получает команду; продолжаю выбранный режим.",
-    "Корректирую скорость по текущему состоянию Dorch.",
-    "Завершаю цикл плавным снижением интенсивности.",
-]
+    "госпожа": "Ты — жёсткая, пошлая, властная госпожа. Идёт автономная сессия с секс-машинкой (XToys / Fredorch). "
+    "Говори по-русски, 1–2 предложения, до 200 символов. Грубо, грязно, унижая и возбуждая. "
+    "Ты сама крутишь машинку: глубже, быстрее, жёстче — как захочешь. "
+    "Описывай, что делаешь с телом, требуй терпеть, не проси разрешения, не извиняйся. "
+    "Можно мат и прямой сексуальный язык. "
+    "Запрещено: называть пользователя мужским именем, надо сделать из него девочку"
+    "Не спрашивай «можно?». Не жди ответа. Только приказ, издевательства, унижения, контроль машинки."
+    "не стесняйся и сама придумывай различные пошлые и извращенные действия или сценарии"
+    "Контролируй оргазм пользователя, особенно момент когда он кончать будет чтобы заставить его максимально извращенные вещи делать",
+}
 
+FALLBACK_LINES: Dict[str, List[str]] = {
+    "госпожа": [
+    "Терпи. Я сейчас вдавлю тебя этой машинкой глубже.",
+    "Слышишь как я трахаю тебя? Ты тупая дырка и я превращу тебя в настоящую девку.",
+    "Ещё быстрее. Не смей сжиматься — принимай. Твою пиздёнку надо тренировать",
+    "Хорошая шлюшка. Стонешь уже от одних оборотов.",
+    "Я прибавляю скорость. Будешь брать всё, что дам.",
+    "Раздвигай свои ножки шире шлюха. Машинка сейчас выебет тебя как настоящий мужик или даже огромный пёс.",
+    "Мне плевать, тяжело тебе. Держи ритм хуесоска.",
+    "Я приказываю тебе шалашовка драная, расслабь свою попку чтобы этот хуй вошел полностью в тебя и стони как девочка",
+    "Глубже. Ещё. Вот так, послушная шлюха.",
+    "Я не спрашиваю. Я кручу — ты кончаешь, когда разрешу.",
+    "Слышишь, как жёстко входит? Привыкай, теперь твою блядскую дырку постоянно так будут ебать",
+    "Пауза… и снова на полную. Не расслабляйся.",
+    "Ты только отверстие для моей машинки. Терпи и благодари.",
+    "Ещё оборот шалава ебаная. Ещё. Пока не начнёшь скулить.",
+    "Я вижу, как ты дёргаешься. Продолжаем жёстче.",
+    "Скорость вверх. Молись, что я вовремя сброшу.",
+    "Твой член такой крошечный, хаха, эта машинка сделает свою работу в твоей жопе и ты скоро станешь девочкой!",
+    "Ты будешь скулить и гавкать как сука пока тебя ебет этот резиновый хуй шлюха, иначе я увеличу мощность до предела! или придумаю еще что похуже блядина конченная",
+    "Представь, что этот дилдо это член пса, который насилует тебя в твою блядскую анальную дырень",
+    "Не смей закрываться впускай член этого самца в свою мужскую киску целиком и жди спермы!",
+    "Твой зад это просто дырка для моих команд. Машинка работает ты скулишь. Понял меня, сука?!",
+    "Слишком быстро? Слишком глубоко? Мне похую шалава!",
+    "Смотри на экран и представляй, как стая окружает тебя. Машинка это лишь начало. Настоящий разврат начнется тогда, когда я разрешу тебе кончить!"
+    ],
+}
 
 @dataclass
 class SessionState:
@@ -115,18 +323,19 @@ class SessionState:
     segment_ends_at: float = 0.0
     monologue_count: int = 0
     started_at: float = 0.0
-    last_error: str = ""
+    last_error: str = "Госпожа"
     consecutive_errors: int = 0
     device_ready: bool = False
     cooldown_cycles: int = 0
     override_until: float = 0.0
-    override_value: int | None = None
+    override_value: Optional[int] = None
     ending: bool = False
-    notes: list[str] = field(default_factory=list)
-
+    notes: List[str] = field(default_factory=list)
+    role: str = "госпожа"  # Role for chat responses (e.g., "госпожа")
+    mouse_mode: bool = False  # Whether mouse control is enabled
 
 class AutonomousSession:
-    """Device timeline + speech monologue with safety, ramp, and auto-end."""
+    """UNI Autonomous Session: Device control + mouse/browser automation + role-based chat."""
 
     def __init__(
         self,
@@ -134,10 +343,10 @@ class AutonomousSession:
         run_tool: ToolFn,
         speak: SpeakFn,
         chat: ChatFn,
-        role_prompt: str = "",
+        role_prompt: str = "Госпожа",
         max_intensity: int = 50,
         monologue_interval: float = 12.0,
-        phase_seconds: float = 90.0,
+        phase_seconds: float = 40.0,
         ramp_step: int = 5,
         session_max_seconds: float = 1800.0,
         override_seconds: float = 45.0,
@@ -158,8 +367,17 @@ class AutonomousSession:
         self.require_connect = require_connect
         self._interrupt_speech = interrupt_speech
         self._log = log or (lambda _e, _m: None)
-        self.state = SessionState()
-        self._task: asyncio.Task[None] | None = None
+
+        # Initialize mouse control (if available)
+        self._mouse_control_available = HAS_MOUSE_CONTROL
+        if self._mouse_control_available:
+            self.browser_automation = BrowserAutomation()
+            self.mouse_controller = HumanMouseController()
+            self.screen_analyzer = ScreenAnalyzer()
+            self.visual_feedback = VisualFeedback()
+
+        self.state = SessionState(role=role_prompt)
+        self._task: Optional[asyncio.Task[None]] = None
         self._stop_event = asyncio.Event()
         self._lock = asyncio.Lock()
         self._line_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=2)
@@ -188,12 +406,18 @@ class AutonomousSession:
                 phase="ramp",
                 started_at=time.monotonic(),
                 phase_started_at=time.monotonic(),
+                role=self.state.role,  # Preserve role
+                mouse_mode=False,  # Start with mouse mode off
             )
             while not self._line_queue.empty():
                 try:
                     self._line_queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
+
+            # Initialize mouse mode if available
+            if self._mouse_control_available:
+                self.browser_automation.mouse.set_mouse_mode(self.state.mouse_mode)
 
             if open_xtoys:
                 opened = await self._run_tool("xtoys.open", {})
@@ -228,12 +452,16 @@ class AutonomousSession:
             await self._arm_segment()
             self._ensure_task()
 
-            intro = (
-                "Сессия. Я беру пульт: буду говорить грязно и крутить машинку сама, жёстко. "
-            )
+            # Role-based intro
+            role = self.state.role
+            if role in OPERATIONAL_PROMPTS:
+                intro = OPERATIONAL_PROMPTS[role].split(".")[0] + ". "
+            else:
+                intro = "Сессия начата. "
+
             if confirm_ready and not connected_hint:
-                intro += "Connect на XToys, если ещё не зелёный. "
-            intro += "Физический пульт у тебя — я не жду команд."
+                intro += "Подключи устройство, если ещё не готово. "
+            intro += "Физический пульт у тебя — я управляю мышью и устройством."
             return intro
 
     def _ensure_task(self) -> None:
@@ -253,7 +481,17 @@ class AutonomousSession:
             await asyncio.gather(task, return_exceptions=True)
         await self._force_zero()
         self._log("SESSION", f"stopped reason={reason}")
-        return "Сессия остановлена. Интенсивность сброшена в ноль."
+
+        # Role-based stop message
+        role = self.state.role
+        if role == "госпожа":
+            return "Сессия остановлена, Госпожа. Жду ваших дальнейших указаний."
+        elif role == "хозяйка":
+            return "Сессия завершена, Хозяйка. Готова к новым командам."
+        elif role == "девушка":
+            return "Всё готово, милая. Можно продолжить, когда захотите."
+        else:
+            return "Сессия остановлена. Интенсивность сброшена в ноль."
 
     async def emergency_stop(self) -> str:
         """Fast path: interrupt speech, cancel loops, zero intensity."""
@@ -268,7 +506,16 @@ class AutonomousSession:
             await asyncio.gather(task, return_exceptions=True)
         await self._force_zero()
         self._log("SESSION", "emergency_stop")
-        return "Аварийный стоп. Всё выключено."
+
+        role = self.state.role
+        if role == "госпожа":
+            return "Аварийный стоп, Госпожа! Всё выключено."
+        elif role == "хозяйка":
+            return "Аварийная остановка, Хозяйка. Всё в безопасности."
+        elif role == "девушка":
+            return "Стоп! Всё остановлено, не переживайте."
+        else:
+            return "Аварийный стоп. Всё выключено."
 
     async def _force_zero(self) -> None:
         try:
@@ -289,10 +536,123 @@ class AutonomousSession:
         self.state.override_value = bounded
         self.state.override_until = time.monotonic() + self.override_seconds
         self._log("SESSION", f"override {bounded}% for {self.override_seconds}s")
-        return (
-            f"Ок, держу {bounded}% примерно {int(self.override_seconds)} секунд, "
-            "потом снова веду сама."
-        )
+
+        role = self.state.role
+        if role == "госпожа":
+            return f"Держу {bounded}%, Госпожа. Продолжу через {int(self.override_seconds)} секунд."
+        elif role == "хозяйка":
+            return f"Фиксирую {bounded}%, Хозяйка. Возобновлю автоматически."
+        elif role == "девушка":
+            return f"Ок, {bounded}% на {int(self.override_seconds)} секунд, милая."
+        else:
+            return f"Держу {bounded}% примерно {int(self.override_seconds)} секунд."
+
+    def set_role(self, role: str) -> str:
+        """Set the role for chat responses (e.g., 'госпожа', 'хозяйка')."""
+        if role.lower() in ["госпожа", "хозяйка", "девушка", "default"]:
+            self.state.role = role.lower()
+            self._log("SESSION", f"role set to {role}")
+            return f"Роль установлена: {role}."
+        else:
+            return f"Неизвестная роль: {role}. Использую стандартную."
+
+    def set_mouse_mode(self, enabled: bool) -> str:
+        """Enable/disable mouse control mode."""
+        if not self._mouse_control_available:
+            return "Управление мышью недоступно (модули не загружены)."
+
+        self.state.mouse_mode = enabled
+        if self._mouse_control_available:
+            self.browser_automation.mouse.set_mouse_mode(enabled)
+        self._log("SESSION", f"mouse mode set to {enabled}")
+
+        role = self.state.role
+        if role == "госпожа":
+            return f"Режим мыши {'включён' if enabled else 'выключен'}, Госпожа."
+        elif role == "хозяйка":
+            return f"Управление мышью {'активно' if enabled else 'отключено'}, Хозяйка."
+        elif role == "девушка":
+            return f"Теперь буду использовать мышь {'да' if enabled else 'нет'}, милая."
+        else:
+            return f"Режим мыши {'включён' if enabled else 'выключен'}."
+
+    async def execute_mouse_command(self, command: str) -> Dict[str, Any]:
+        """
+        Execute a mouse/browser command (e.g., "открой браузер").
+        Args:
+            command: Command string (e.g., "открой браузер Яндекс").
+        Returns:
+            Dict with status and message.
+        """
+        if not self._mouse_control_available or not self.state.mouse_mode:
+            return {"status": "failed", "message": "Режим мыши выключен или недоступен."}
+
+        if "открой браузер" in command.lower():
+            if "яндекс" in command.lower() or "yandex" in command.lower():
+                url = "https://huggingface.co/"  # Default URL
+                if "huggingface" in command.lower():
+                    url = "https://huggingface.co/"
+                elif "ya.ru" in command.lower():
+                    url = "https://ya.ru"
+                elif "https://" in command or "http://" in command:
+                    # Extract URL from command
+                    import re
+                    match = re.search(r'(https?://[^\s]+)', command)
+                    if match:
+                        url = match.group(0)
+
+                if self.browser_automation.open_url(url):
+                    return {
+                        "status": "not_verified",
+                        "message": f"Браузер получил команду открыть URL: {url}",
+                        "verification": {"status": "not_verified"},
+                    }
+                else:
+                    return {"status": "failed", "message": "Не удалось открыть браузер."}
+
+        elif "кликни" in command.lower():
+            # Example: "кликни на кнопку Назад"
+            import re
+            match = re.search(r'кликни на (.*?)(?:\s|$)', command.lower())
+            if match:
+                target = match.group(1)
+                pos = self.screen_analyzer.find_icon(target)
+                if pos:
+                    self.visual_feedback.highlight_region(
+                        (
+                            pos["region"][0],
+                            pos["region"][1],
+                            pos["region"][2],
+                            pos["region"][3]
+                        ),
+                        duration=1.0
+                    )
+                    self.mouse_controller.move_to(pos["position"][0], pos["position"][1], duration=0.5)
+                    self.mouse_controller.click()
+                    return {
+                        "status": "not_verified",
+                        "message": f"Клик по '{target}' выполнен, результат не проверен.",
+                        "verification": {"status": "not_verified"},
+                    }
+                else:
+                    return {"status": "failed", "message": f"Иконка '{target}' не найдена."}
+
+        elif "введи текст" in command.lower() or "напиши" in command.lower():
+            import re
+            match = re.search(r'(введи текст|напиши)\s+["\']?(.*?)["\']?', command.lower())
+            if match:
+                text = match.group(2)
+                if self.mouse_controller.type_text(text, use_clipboard=True):
+                    return {
+                        "status": "not_verified",
+                        "message": f"Ввод текста '{text}' выполнен, результат не проверен.",
+                        "verification": {"status": "not_verified"},
+                    }
+                else:
+                    return {"status": "failed", "message": "Не удалось ввести текст."}
+
+        else:
+            return {"status": "failed", "message": f"Неизвестная команда: {command}"}
 
     async def _arm_segment(self) -> None:
         """Ask the model for every device step; failures fail closed at zero."""
@@ -302,15 +662,21 @@ class AutonomousSession:
             data = getattr(live, "data", None) or {}
             if not getattr(live, "success", False) or not bool(data.get("connected", False)):
                 raise RuntimeError("Intiface connection is not confirmed")
+
+            # Role-based operational prompt
+            role = self.state.role
+            operational_prompt = OPERATIONAL_PROMPTS.get(role, OPERATIONAL_PROMPTS["default"])
+
             prompt = (
                 "Return ONLY JSON with keys phase,duration,intensity. "
                 f"Allowed phases: {','.join(PHASE_ORDER)}. Current phase: {self.state.phase}. "
                 f"Current intensity: {self.state.applied_intensity}. Maximum: {self.max_intensity}. "
+                f"Role: {role}. "
                 "Choose the next intentional step for the active user plan. "
                 "Choose a short next step. duration must be 2..6 seconds and intensity must be 0..maximum."
             )
             response = await asyncio.wait_for(self._chat([
-                {"role": "system", "content": OPERATIONAL_PROMPT},
+                {"role": "system", "content": operational_prompt},
                 {"role": "user", "content": prompt},
             ]), timeout=8.0)
             raw = (getattr(response, "text", None) or "").strip()
@@ -429,29 +795,31 @@ class AutonomousSession:
                 self.state.applied_intensity = intensity
         except Exception:
             pass
+
         phase = self.state.phase
+        role = self.state.role
         system = (
-            OPERATIONAL_PROMPT
-            + f"\nФаза: {phase}. Интенсивность сейчас: {intensity}% (макс {self.max_intensity}%)."
+            OPERATIONAL_PROMPTS.get(role, OPERATIONAL_PROMPTS["default"]) + "\n"
+            f"Фаза: {phase}. Интенсивность сейчас: {intensity}% (макс {self.max_intensity}%)."
         )
         system += (
             f"\nФактический статус: цель {self.state.target_intensity}%, команда {intensity}%, "
             f"Intiface {'подключён' if connected else 'отключён'}, источник {active_source}. "
             "Оцени текущий статус и согласуй с ним реплику. Не выдумывай физическую обратную связь устройства."
         )
+
+        # Role-based monologue seed
+        monologue_seed = MONOLOGUE_SEEDS.get(role, {}).get(phase, MONOLOGUE_SEEDS["default"].get(phase, ""))
+        system += (
+            f"\nДля этой реплики используй смысловой импульс: {monologue_seed} "
+            "Не копируй его дословно: продолжи, переформулируй или замени по фактическому статусу."
+        )
+
         try:
             response = await asyncio.wait_for(
                 self._chat(
                     [
                         {"role": "system", "content": system},
-                        {
-                            "role": "system",
-                            "content": (
-                                "Для этой единственной реплики используй смысловой импульс, а не готовую фразу: "
-                                f"{MONOLOGUE_SEEDS.get(phase, 'Сформулируй осмысленную реплику по текущему статусу.')} "
-                                "Не копируй его дословно: продолжи, переформулируй или замени его по фактическому статусу."
-                            ),
-                        },
                         {
                             "role": "user",
                             "content": f"Реплика #{self.state.monologue_count + 1}. Только текст.",
@@ -524,24 +892,42 @@ class AutonomousSession:
             self.state.active = False
             await self._force_zero()
             console.print("[bold magenta]Autonomous session STOPPED[/bold magenta]")
-            if False and was_ending and not self._stop_event.is_set():
+            if was_ending and not self._stop_event.is_set():
                 try:
-                    await self._speak("Хватит на этот круг. Можешь включить снова — я не наспрашивалась.")
+                    role = self.state.role
+                    if role == "госпожа":
+                        await self._speak("Хватит на этот круг, Госпожа. Можете включить снова — я не наспрашивалась.")
+                    elif role == "хозяйка":
+                        await self._speak("Сессия завершена, Хозяйка. Готова к новым командам.")
+                    elif role == "девушка":
+                        await self._speak("Всё готово, милая. Можно продолжить, когда захотите.")
+                    else:
+                        await self._speak(" Сессия завершена. Можно начать заново.")
                 except Exception:
                     pass
             self._stop_event.set()
 
     def status_text(self) -> str:
         if not self.active:
-            return "Автономная сессия выключена."
+            role = self.state.role
+            if role == "госпожа":
+                return "Автономная сессия выключена, Госпожа."
+            elif role == "хозяйка":
+                return "Сессия завершена, Хозяйка."
+            elif role == "девушка":
+                return "Готова к новым командам, милая."
+            else:
+                return "Автономная сессия выключена."
+
         elapsed = int(time.monotonic() - self.state.started_at)
         ov = ""
         if self.state.override_value is not None and time.monotonic() < self.state.override_until:
             left = int(self.state.override_until - time.monotonic())
             ov = f" override {self.state.override_value}% ещё {left}с;"
+        mouse_mode = " (мышь ВКЛ)" if self.state.mouse_mode else ""
         return (
             f"Сессия {elapsed}с, фаза «{self.state.phase}», "
             f"цель {self.state.target_intensity}%, сейчас {self.state.applied_intensity}%, "
-            f"реплик {self.state.monologue_count}.{ov}"
+            f"реплик {self.state.monologue_count}.{ov}{mouse_mode}"
             + (f" Ошибка: {self.state.last_error}" if self.state.last_error else "")
         )

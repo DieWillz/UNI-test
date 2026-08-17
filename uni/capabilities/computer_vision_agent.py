@@ -24,7 +24,7 @@ class ComputerVisionAgent:
     async def act_on_screen(self, goal: str, max_steps: int | None = None) -> dict:
         """Цикл: скриншот -> анализ (VLM) -> действие -> (проверка).
 
-        Возвращает {"status": "success"|"failed", "steps": [...], "error": str}.
+        Возвращает {"status": "not_verified"|"failed", "steps": [...], "error": str}.
         """
         steps: list[dict[str, Any]] = []
         n = max_steps or self.max_steps
@@ -65,9 +65,14 @@ class ComputerVisionAgent:
             await self.tool_executor.execute(
                 "vision.capture_screen_png", {"label": f"cva_after_{step}"}
             )
-            # простая эвристика успеха: все шаги исполнены
+            # Выполненные шаги не доказывают достижение пользовательской цели.
             if steps and all(s.get("ok") for s in steps):
-                return {"status": "success", "steps": steps}
+                return {
+                    "status": "not_verified",
+                    "steps": steps,
+                    "error": "Действия выполнены, но постусловие цели независимо не проверено",
+                    "verification": {"status": "not_verified"},
+                }
         return {"status": "failed", "error": f"Цель не достигнута за {n} шагов", "steps": steps}
 
     @staticmethod

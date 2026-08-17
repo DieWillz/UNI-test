@@ -16,7 +16,7 @@ def test_save_and_load_trajectory(tmp_path, monkeypatch):
     rec = ts.save_trajectory("открой блокнот", [{"action": "click", "x": 1, "y": 2}],
                              ["сделала", "проверила"])
     assert rec["goal"] == "открой блокнот"
-    assert rec["status"] == "success"
+    assert rec["status"] == "verified"
     loaded = ts.load_trajectories()
     assert len(loaded) == 1
     assert loaded[0]["goal"] == "открой блокнот"
@@ -64,7 +64,7 @@ def test_save_trajectory_called_on_success(monkeypatch):
             return ToolResult(success=True, data={"analysis": "да, достигнуто"}, message="да")
 
     saved = {}
-    def fake_save(goal, steps, history, status="success", meta=None):
+    def fake_save(goal, steps, history, status="verified", meta=None):
         saved["goal"] = goal; saved["status"] = status
         return {}
     monkeypatch.setattr(ts, "save_trajectory", fake_save)
@@ -72,6 +72,6 @@ def test_save_trajectory_called_on_success(monkeypatch):
     agent = VisualActionAgent(_Comp(), _Vis())
     import asyncio
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert saved.get("goal") == "открой блокнот"
-    assert saved.get("status") == "success"
+    assert saved.get("status") == "verified"

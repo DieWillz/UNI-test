@@ -175,14 +175,18 @@ async function loadOverview(){
   try{
     const st = await apiJson('/api/admin/stats');
     const pytest = st.pytest;
-    const pytestKind = (typeof pytest==='string' && pytest.includes('нет'))?'warn':(pytest&&pytest.passed)?'ok':'info';
+    const pytestKind = (typeof pytest==='string' && pytest.includes('нет'))?'warn':
+      (pytest&&pytest.status==='stale')?'err':(pytest&&Number(pytest.failed||0)===0&&Number(pytest.passed||0)>0)?'ok':'info';
+    const pytestText = typeof pytest==='object'
+      ? (pytest.status==='stale' ? 'устарел: процесс отсутствует' : `${Number(pytest.passed||0)}✓ / ${Number(pytest.failed||0)}✗`)
+      : String(pytest);
     $('ov-stats').innerHTML =
       `<div class="kv"><span>События UI (по компонентам)</span><span>${Object.keys(st.ui_events_by_component||{}).length} комп.</span></div>
        <div class="kv"><span>STOP нажатий</span><span>${esc(st.stop_count)}</span></div>
        <div class="kv"><span>Демо-мышь</span><span>${esc(st.demo_mouse_count)}</span></div>
        <div class="kv"><span>Захватов экрана</span><span>${esc(st.vision_capture_count)}</span></div>
        <div class="kv"><span>Сообщений чата</span><span>${esc(st.chat_messages)}</span></div>
-       <div class="kv"><span>pytest</span><span>${badge(pytestKind, typeof pytest==='object'?(pytest.passed+'✓ / '+pytest.failed+'✗'):String(pytest))}</span></div>`;
+       <div class="kv"><span>pytest</span><span>${badge(pytestKind, pytestText)}</span></div>`;
     setBadge('ov-stats-card','ok','статистика');
   }catch(e){ $('ov-stats').textContent='ОШИБКА: '+e.message; setBadge('ov-stats-card','err','ошибка'); }
 }
@@ -283,7 +287,7 @@ async function loadTasks(){
           <th>ID</th><th>Название</th><th>Статус</th><th>Доказательство</th>
           </tr></thead><tbody>` +
           ph.map(p=>{
-            const done = p.done || p.status==='done' || p.status==='[V]';
+            const done = p.done === true || ['done','verified','completed','complete','[v]','[x]'].includes(String(p.status||'').toLowerCase());
             const proof = (p.proof || p.proof_path || '—').toString();
             return `<tr>
               <td>${esc(p.id||p.id_num||'—')}</td>
@@ -498,8 +502,98 @@ async function loadXtoys(){
     }).join('');
     setBadge('xt-cards','ok','XToys');
   }catch(e){ cards.innerHTML = `<div class="tile">${badge('err','ОШИБКА')} ${esc(e.message)}</div>`; setBadge('xt-cards','err','ошибка'); }
+  // 🤖 Hermes (2026-08-16): удалённая комната (WebRTC) — переиспользование
+  // /api/xtoys/remote/* из remote-control.html (не дублируем архитектуру).
+  initRemoteXtoys();
 }
 $('xt-refresh')?.addEventListener('click', loadXtoys);
+
+// ── УДАЛЁННАЯ КОМНАТА (WebRTC) — адаптация remote-control.html ──────
+// Токен берётся из location.hash (#token=...). Без токена комната не
+// подключится — честно показываем бейдж «НЕТ ТОКЕНА».
+let _xtSeq = 0, _xtAfter = 0, _xtPc = null, _xtPendingIce = [], _xtRoomTimer = null, _xtBeatTimer = null, _xtCompTimer = null, _xtRoomStarted = false;
+function _xtToken(){
+  const t = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+  return t;
+}
+async function _xtSend(path, data={}){
+  const token = _xtToken();
+  const r = await fetch(API+path, {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(Object.assign({sequence:++_xtSeq}, data))});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  if(d.max_intensity != null){ const rng = $('xt-range'); if(rng) rng.max = d.max_intensity; }
+  return d;
+}
+async function _xtRoom(body){
+  const token = _xtToken();
+  const r = await fetch(API+'/api/xtoys/remote/room', {method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify(Object.assign({role:'controller'}, body))});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+async function _xtEnsurePeer(){
+  if(_xtPc) return _xtPc;
+  const video = $('xt-video'), waiting = $('xt-waiting'), mediaStatus = $('xt-mediaStatus');
+  const pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  pc.onicecandidate = e => { if(e.candidate) _xtRoom({action:'send', kind:'ice', payload:e.candidate.toJSON()}).catch(()=>{}); };
+  pc.ontrack = e => { if(video) video.srcObject = e.streams[0]; if(waiting) waiting.style.display='none'; if(video) video.play().catch(()=>{}); if(mediaStatus) mediaStatus.textContent='видео и звук подключены'; };
+  pc.onconnectionstatechange = () => { if(mediaStatus) mediaStatus.textContent = 'медиа: '+pc.connectionState; };
+  _xtPc = pc; return pc;
+}
+function _xtAddChat(who, text){
+  const chat = $('xt-chat'); if(!chat) return;
+  const row = document.createElement('div'); row.textContent = who+': '+text; chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+}
+async function _xtPollRoom(){
+  try{
+    const d = await _xtRoom({action:'poll', after:_xtAfter});
+    for(const e of d.events || []){
+      _xtAfter = Math.max(_xtAfter, e.id);
+      if(e.kind === 'offer'){
+        const p = await _xtEnsurePeer(); await p.setRemoteDescription(e.payload);
+        for(const c of _xtPendingIce.splice(0)) await p.addIceCandidate(c);
+        const answer = await p.createAnswer(); await p.setLocalDescription(answer);
+        await _xtRoom({action:'send', kind:'answer', payload:p.localDescription.toJSON()});
+      } else if(e.kind === 'ice'){
+        const p = await _xtEnsurePeer(); if(p.remoteDescription) await p.addIceCandidate(e.payload); else _xtPendingIce.push(e.payload);
+      } else if(e.kind === 'chat'){ _xtAddChat('Владелец', String(e.payload || '')); }
+      else if(e.kind === 'hangup'){ if(_xtPc){ _xtPc.close(); _xtPc = null; } const v=$('xt-video'); if(v) v.srcObject=null; const w=$('xt-waiting'); if(w) w.style.display='inline'; const ms=$('xt-mediaStatus'); if(ms) ms.textContent='трансляция остановлена'; }
+    }
+  }catch(e){ const ms=$('xt-mediaStatus'); if(ms) ms.textContent = e.message; }
+}
+function initRemoteXtoys(){
+  const statusEl = $('xt-status'), roomBadge = $('xt-room-badge');
+  // защита от двойного запуска (повторный клик по вкладке)
+  if(_xtRoomStarted) return; _xtRoomStarted = true;
+  const token = _xtToken();
+  if(!token){ if(statusEl) statusEl.textContent='НЕТ ТОКЕНА — добавьте #token=... в URL'; if(roomBadge) roomBadge.outerHTML = badge('warn','НЕТ ТОКЕНА'); return; }
+  if(roomBadge) roomBadge.outerHTML = badge('info','подключение');
+  if(statusEl) statusEl.textContent = 'Подключение…';
+
+  const range = $('xt-range'), value = $('xt-value'), stop = $('xt-stop');
+  let _timer = null;
+  if(range) range.oninput = () => { if(value) value.textContent = range.value; clearTimeout(_timer); _timer = setTimeout(()=>{ _xtSend('/api/xtoys/remote/control', {value:Number(range.value)}).catch(e=>{ if(statusEl) statusEl.textContent = e.message; }); }, 60); };
+  if(stop) stop.onclick = () => { if(range) range.value = 0; if(value) value.textContent = '0'; _xtSend('/api/xtoys/remote/control', {value:0}).catch(e=>{ if(statusEl) statusEl.textContent = e.message; }); };
+
+  const sendChat = $('xt-sendChat'), message = $('xt-message');
+  if(sendChat) sendChat.onclick = async () => { const text = message ? message.value.trim() : ''; if(!text) return; try{ await _xtRoom({action:'send', kind:'chat', payload:text}); _xtAddChat('Ты', text); if(message) message.value=''; }catch(e){ if(statusEl) statusEl.textContent = e.message; } };
+  if(message) message.onkeydown = e => { if(e.key === 'Enter' && sendChat) sendChat.click(); };
+
+  const computerGoal = $('xt-computerGoal'), computerLog = $('xt-computerLog'), computerBadge = $('xt-computer-badge');
+  function logStep(t){ if(!computerLog) return; const r = document.createElement('div'); r.textContent = t; computerLog.appendChild(r); computerLog.scrollTop = computerLog.scrollHeight; }
+  if(computerBadge) computerBadge.outerHTML = badge('info','готов');
+  const computerAct = $('xt-computerAct');
+  if(computerAct) computerAct.onclick = async () => { const g = computerGoal ? computerGoal.value.trim() : ''; if(!g) return; logStep('▶ '+g); try{ const d = await _xtSend('/api/computer/act', {goal:g, max_steps:8}); logStep('✅ принято: '+(d.message||'')); }catch(e){ logStep('❌ '+(e.message||e)); } };
+  const computerStop = $('xt-computerStop');
+  if(computerStop) computerStop.onclick = async () => { try{ const d = await _xtSend('/api/computer/stop', {}); logStep('🛑 остановка: '+(d.stopped?'да':'нет')); }catch(e){ logStep('❌ '+(e.message||e)); } };
+
+  _xtRoomTimer = setInterval(_xtPollRoom, 700);
+  _xtBeatTimer = setInterval(()=>_xtSend('/api/xtoys/remote/heartbeat').catch(e=>{ if(statusEl) statusEl.textContent = e.message; }), 1000);
+  if(computerLog) _xtCompTimer = setInterval(()=>{ _xtSend('/api/computer/status', {}).then(d=>{ if(d && d.active) logStep('⏳ шагов: '+d.steps); }).catch(()=>{}); }, 1500);
+  addEventListener('pagehide', () => { try{ navigator.sendBeacon(API+'/api/xtoys/remote/control', JSON.stringify({token, value:0, sequence:++_xtSeq})); }catch(e){} });
+  _xtSend('/api/xtoys/remote/heartbeat').catch(e=>{ if(statusEl) statusEl.textContent = e.message; });
+  _xtPollRoom();
+}
 
 // ── НАСТРОЙКИ ──────────────────────────────────────────────────
 // 🤖 Qwen (2026-08-16, thinking-mode): /api/config возвращает

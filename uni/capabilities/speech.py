@@ -114,7 +114,9 @@ class SpeechCapability(Capability):
         for root in search_roots:
             for name in names:
                 path = root / name
-                if path.exists():
+                # Piper requires the model and its adjacent .onnx.json config.
+                # Do not select an incomplete earlier search-root candidate.
+                if path.exists() and Path(str(path) + ".json").exists():
                     return str(path.resolve())
         return value
 

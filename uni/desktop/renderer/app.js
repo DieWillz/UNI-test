@@ -47,6 +47,7 @@ dragHeader?.addEventListener('pointerup', () => { dragStart = null; });
 
 const state = {
   mode: 'quick', stopped: false, observing: true, listening: false,
+  cameraActive: false, attachments: {},
   mouseOnly: false, autoVoice: false,
   minimized: false, avatar: 'working', consentLevel: 'off', busy: false,
   pollTimer: null,
@@ -146,11 +147,16 @@ function applyUiEvent(event) {
   switch (event.type) {
     case 'task.started':
     case 'task.update':   return renderTaskUpdate(event);
-    case 'task.done':     return renderTaskDone(event);
+    case 'task.verified': return renderTaskDone(event);
+    case 'task.not_verified': return renderTaskNotVerified(event);
+    case 'task.failed':
+    case 'task.blocked':
+    case 'task.interrupted':
     case 'task.error':    return renderTaskError(event);
     case 'mission.started':
     case 'mission.update':return renderMissionUpdate(event);
-    case 'mission.done':  return renderMissionDone(event);
+    case 'mission.verified': return renderMissionDone(event);
+    case 'mission.not_verified': return renderTaskNotVerified(event);
     case 'approval.required': return renderApproval(event);
     default:
       // неизвестный тип — честный текстовый пузырь, не падаем
@@ -215,6 +221,24 @@ function renderTaskDone(event) {
       c?.classList.add('collapsed');
     }, 1200);
   }
+}
+
+function renderTaskNotVerified(event) {
+  const e = event || {};
+  const ui = e.ui || {};
+  const card = (e.task_id && $(`[data-task-id="${CSS.escape(e.task_id)}"]`)) || makeCard(e.task_id);
+  card.innerHTML = '';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'ui-card-title';
+  titleEl.append(document.createTextNode(e.title || 'Результат не подтверждён'));
+  card.append(titleEl);
+  renderComponentInto(card, ui);
+  const warning = document.createElement('p');
+  warning.className = 'error-text';
+  warning.textContent = 'Действие могло выполниться, но независимой проверки результата нет.';
+  card.append(warning);
+  setAction('error', 'Не подтверждено');
+  setStatus('Не подтверждено', 'waiting');
 }
 
 function renderTaskError(event) {
@@ -586,6 +610,7 @@ async function send() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
+        files: state.attachments,
         // фронт заявляет поддерживаемые компоненты — НЕ классифицирует сам (Директива §3/§4)
         client_capabilities: [
           'progress_task', 'result_text', 'result_gallery', 'result_list',
@@ -595,6 +620,7 @@ async function send() {
     });
     if (!r.ok) { addBubble('Не удалось получить ответ (ошибка сервера).', 'uni'); setAction('error', 'Ошибка выполнения'); setStatus('Ошибка', 'waiting'); return; }
     const data = await r.json();
+    state.attachments = {};
     const reply = (data && (data.reply || data.text || data.message || data.response)) || '';
     // The textual reply is the canonical chat message. Structured UI events are
     // an additional view and must never hide what UNI actually said.
@@ -624,8 +650,11 @@ async function pollComputerTask() {
       for (; shown < history.length; shown++) addBubble(history[shown], 'uni');
       if (!d.active) {
         const status = d.status || (d.stopped ? 'interrupted' : 'готово');
-        if (d.message && status !== 'success' && status !== 'готово') addBubble(d.message, 'uni');
-        setStatus(status === 'success' ? 'Готово' : status === 'interrupted' ? 'Остановлено' : 'Ошибка', status === 'success' ? 'done' : 'waiting');
+        if (d.message && status !== 'verified' && status !== 'готово') addBubble(d.message, 'uni');
+        if (status === 'verified') setStatus('Проверено', 'done');
+        else if (status === 'not_verified') setStatus('Не подтверждено', 'waiting');
+        else if (status === 'interrupted') setStatus('Остановлено', 'waiting');
+        else setStatus('Ошибка', 'waiting');
         return;
       }
       setStatus(`Выполняю мышью · шаг ${d.steps || shown + 1}`, 'working');
@@ -853,15 +882,29 @@ window.uni?.onEvent?.((raw) => {
     $('#visionButton')?.classList.toggle('active', state.observing);
   }
 });
-$('#cameraButton').onclick = () => {
+$('#cameraButton').onclick = async () => {
   const button = $('#cameraButton');
-  const active = !button.classList.contains('active');
-  button.classList.toggle('active', active);
-  button.querySelector('img').src = active
-    ? '../assets/icons/computer-camera-svgrepo-com.svg'
-    : '../assets/icons/computer-camera-off-svgrepo-com.svg';
-  button.title = active ? 'Камера включена' : 'Камера выключена';
-  notify(active ? 'Камера включена' : 'Камера выключена');
+  const target = !state.cameraActive;
+  button.disabled = true;
+  try {
+    const r = await fetch(`${API}${target ? '/api/camera/start' : '/api/camera/stop'}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    state.cameraActive = target;
+    button.classList.toggle('active', target);
+    button.setAttribute('aria-pressed', String(target));
+    button.querySelector('img').src = target
+      ? '../assets/icons/computer-camera-svgrepo-com.svg'
+      : '../assets/icons/computer-camera-off-svgrepo-com.svg';
+    button.title = target ? 'Камера включена' : 'Камера выключена';
+    notify(target ? 'Камера включена' : 'Камера выключена');
+  } catch (e) {
+    notify('Камера недоступна: ' + e.message);
+  } finally {
+    button.disabled = false;
+  }
 };
 async function toggleMouseOnly() {
   state.mouseOnly = !state.mouseOnly;
@@ -1065,7 +1108,18 @@ $('#autoVoiceInput').onchange = async (e) => {
   persist();
 };
 $('#notifyButton').onclick = () => { setAvatar('waiting'); notify('Юни сообщит, когда понадобится решение'); };
-$('#attachButton').onclick = () => notify('Прикрепление файлов появится после выбора безопасного хранилища');
+$('#attachButton').onclick = async () => {
+  try {
+    const selected = await window.uni?.selectTextAttachment?.();
+    if (!selected || selected.canceled) return;
+    if (!selected.ok) { notify(selected.error || 'Файл не выбран'); return; }
+    state.attachments = { [selected.name]: selected.text };
+    notify(`Прикреплён файл: ${selected.name}`);
+    $('#messageInput')?.focus();
+  } catch (e) {
+    notify('Не удалось прикрепить файл');
+  }
+};
 // 🤖 M-04 (2026-08-13): кнопка «Демо мыши» в оверлее -> POST /api/demo/mouse.
 // Бэкенд сам делает 3 клика в safe-зоне + рисует фигуру с лайм-кольцом «Юни».
 $('#demoMouseButton').onclick = async () => {

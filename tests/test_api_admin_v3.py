@@ -91,15 +91,11 @@ def test_heartbeats(server):
 
 def test_journal(server):
     status, data = _get(server, "/api/journal")
-    # UNI_JOURNAL.jsonl может отсутствовать на диске (рантайм-лог) — тогда
-    # сервер возвращает 404 с {"error": ...}. Это корректное поведение, не регрессия.
-    if status == 200:
-        assert "entries" in data
-        assert isinstance(data["entries"], list)
-        assert len(data["entries"]) <= 100
-    else:
-        assert status == 404
-        assert "error" in data
+    assert status == 200
+    assert "entries" in data
+    assert isinstance(data["entries"], list)
+    assert len(data["entries"]) <= 100
+    assert data.get("available") in (True, False)
 
 
 def test_participants_dirs(server):

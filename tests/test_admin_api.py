@@ -82,12 +82,26 @@ def test_handle_admin_action_unknown_raises():
         a._handle_admin_action("hack_everything", {})
 
 
-def test_handle_admin_action_set_ui_variant():
-    # реально пишет в state.json и возвращает результат
-    res = a._handle_admin_action("set_ui_variant", {"v": "v3"})
-    assert res["key"] == "interface" and res["value"] == "v3"
-    # вернуть обратно, чтобы не ломать state пользователя
-    a._write_state("interface", "v4")
+def test_handle_admin_action_set_ui_variant(tmp_path, monkeypatch):
+    import pytest
+
+    monkeypatch.setattr(a, "_STATE_PATH", tmp_path / "state.json")
+    res = a._handle_admin_action("set_ui_variant", {"v": "v4"})
+    assert res["key"] == "ui_variant" and res["value"] == "v4"
+    with pytest.raises(ValueError):
+        a._handle_admin_action("set_ui_variant", {"v": "v5"})
+
+
+def test_stale_pytest_process_is_not_reported_running(tmp_path, monkeypatch):
+    monkeypatch.setattr(a, "_RUNTIME", tmp_path)
+    (tmp_path / "pytest_last.json").write_text(
+        json.dumps({"status": "running", "pid": 99999999}), encoding="utf-8"
+    )
+    monkeypatch.setattr(a, "_pid_alive", lambda _pid: False)
+    result = a.admin_stats()["pytest"]
+    assert result["status"] == "stale"
+    assert result["stale"] is True
+    assert result["passed"] == 0 and result["failed"] == 0
 
 
 def test_handle_admin_action_create_stop_txt(tmp_path, monkeypatch):

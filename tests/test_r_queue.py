@@ -37,11 +37,12 @@ def server():
         httpd.server_close()
 
 
-def test_r01_v3_route_serves_html(server):
-    # R-01: /v3 должен отдавать v3/index.html (200, text/html)
+def test_r01_v3_route_redirects_to_supported_admin(server):
+    # Единственная поддерживаемая админка доступна через /v4/.
     with urllib.request.urlopen(server + "/v3", timeout=5) as r:
         body = r.read().decode("utf-8")
         assert r.status == 200
+        assert r.geturl().endswith("/v4/")
         assert "text/html" in r.headers.get("Content-Type", "")
         assert "admin" in body.lower() or "Юни" in body or "UNI" in body
 

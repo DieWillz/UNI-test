@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UNI Admin — Полный контроль</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">UNI ADMIN</div>
+      <button class="nav-btn active" data-view="dashboard">Дашборд</button>
+      <button class="nav-btn" data-view="phases">Фазы и задачи</button>
+      <button class="nav-btn" data-view="logs">Логи</button>
+      <button class="nav-btn" data-view="reports">Отчёты</button>
+      <button class="nav-btn" data-view="agents">Агенты</button>
+      <button class="nav-btn" data-view="settings">Настройки</button>
+    </aside>
+    <main class="main">
+      <section class="view active" id="view-dashboard">
+        <h2>Дашборд</h2>
+        <div class="grid cards" id="dash-cards"></div>
+      </section>
+      <section class="view" id="view-phases">
+        <h2>Фазы и задачи</h2>
+        <div id="phases-block"></div>
+        <h3 style="margin-top:18px;color:var(--muted)">Backlog</h3>
+        <div id="backlog-block"></div>
+        <h3 style="margin-top:18px;color:var(--muted)">Locks</h3>
+        <pre id="locks-block">—</pre>
+      </section>
+      <section class="view" id="view-logs">
+        <h2>Логи</h2>
+        <div class="row">
+          <select id="log-source">
+            <option value="llama">llama</option>
+            <option value="webui">webui</option>
+            <option value="desktop">desktop</option>
+            <option value="launcher">launcher</option>
+          </select>
+          <select id="log-level">
+            <option value="">все уровни</option>
+            <option value="ERROR">ERROR</option>
+            <option value="WARN">WARN</option>
+            <option value="INFO">INFO</option>
+          </select>
+          <button class="btn" id="log-refresh">Обновить</button>
+        </div>
+        <div class="logs" id="log-view" style="margin-top:10px"></div>
+      </section>
+      <section class="view" id="view-reports">
+        <h2>Отчёты</h2>
+        <div id="reports-list" class="grid cards"></div>
+        <pre id="report-content">Выберите отчёт слева.</pre>
+      </section>
+      <section class="view" id="view-agents">
+        <h2>Агенты (heartbeats)</h2>
+        <table id="agents-table">
+          <thead><tr><th>Имя</th><th>Статус</th><th>Мин с биения</th><th>Последняя строка</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+      <section class="view" id="view-settings">
+        <h2>Настройки</h2>
+        <div class="card" style="max-width:520px">
+          <div class="kv"><span>UI вариант</span>
+            <select id="set-ui_variant"><option>v3</option><option>v4</option><option>v5</option></select></div>
+          <div class="kv"><span>Роль</span>
+            <input id="set-role" value="default" size="14"></div>
+          <div class="kv"><span>Consent</span>
+            <select id="set-consent"><option>L0</option><option>L1</option><option>L2</option><option>L3</option><option>L4</option></select></div>
+          <div class="kv"><span>Autostart</span>
+            <input type="checkbox" id="set-autostart" checked></div>
+          <div class="kv"><span>Opacity</span>
+            <input id="set-opacity" value="0.95" size="6"></div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="apply-settings">Применить</button>
+            <button class="btn amber" id="open-overlay">Открыть оверлей</button>
+            <button class="btn amber" id="shot-overlay">Скриншот оверлея</button>
+          </div>
+          <div id="settings-result" class="pill" style="margin-top:8px">—</div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="stop-bar"><button class="stop-btn" id="stop-btn">■ STOP</button></div>
+  <script src="admin.js"></script>
+</body>
+</html>

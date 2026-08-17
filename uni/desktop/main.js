@@ -49,11 +49,18 @@ function rendererFolder(variant) {
 }
 
 function loadState() {
-  try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf-8")); }
+  try {
+    const state = JSON.parse(fs.readFileSync(STATE_PATH, "utf-8"));
+    if (!state.ui_variant && ["classic", "v4"].includes(String(state.interface || "").toLowerCase())) {
+      state.ui_variant = String(state.interface).toLowerCase();
+    }
+    return state;
+  }
   catch { return {}; }
 }
 function saveState(obj) {
   const s = Object.assign(loadState(), obj);
+  delete s.interface;
   try { fs.writeFileSync(STATE_PATH, JSON.stringify(s, null, 2)); } catch {}
   return s;
 }
@@ -142,8 +149,19 @@ function createWindow() {
     icon: path.join(__dirname, "uni.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true, nodeIntegration: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (event, targetUrl) => {
+    if (!targetUrl.startsWith("file://")) {
+      event.preventDefault();
+      log("blocked renderer navigation", targetUrl);
+    }
   });
   const variant = (loadState().ui_variant || "v4").toLowerCase();
   const folder = rendererFolder(variant);
@@ -266,6 +284,20 @@ function createWindow() {
     log("ui_variant ->", v, "(применится при пересоздании окна)");
     return { ok: true, variant: v };
   });
+  ipcMain.handle("select-text-attachment", async () => {
+    const selected = await dialog.showOpenDialog(win, {
+      title: "Прикрепить текстовый файл",
+      properties: ["openFile"],
+      filters: [{ name: "Текст и код", extensions: ["txt", "md", "json", "yaml", "yml", "csv", "log", "py", "js", "ts", "html", "css"] }],
+    });
+    if (selected.canceled || !selected.filePaths[0]) return { ok: false, canceled: true };
+    const filePath = path.resolve(selected.filePaths[0]);
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || stat.size > 250000) return { ok: false, error: "Файл должен быть текстовым и не больше 250 КБ" };
+    const text = fs.readFileSync(filePath, "utf-8");
+    if (text.includes("\u0000")) return { ok: false, error: "Бинарные файлы не поддерживаются" };
+    return { ok: true, name: path.basename(filePath), text };
+  });
   ipcMain.on("reload-variant", () => { if (win && !win.isDestroyed()) { win.reload(); } });
 
   // 🤖 P2 (2026-08-13): отрисовать PNG-состояния аватара ИЗ VRM offscreen -> assets/states/
@@ -320,8 +352,8 @@ function createWindow() {
 // F-01/F-02: SSE через fetch (streaming) — без http.get/Parse Error
 async function connectEvents() {
   try {
-    log("SSE connect", SERVER + "/api/desktop/events");
-    const r = await fetch(SERVER + "/api/desktop/events");
+    log("SSE connect", SERVER + "/api/uni/events");
+    const r = await fetch(SERVER + "/api/uni/events");
     if (!r.ok || !r.body) { setTimeout(connectEvents, 3000); return; }
     const reader = r.body.getReader();
     const dec = new TextDecoder();

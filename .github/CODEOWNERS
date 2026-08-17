@@ -1,0 +1,11 @@
+# Verification invariant: require repository-owner review on protected branches.
+/AGENTS.md @DieWillz
+/VERIFICATION_POLICY.md @DieWillz
+/uni/contracts.py @DieWillz
+/uni/config.py @DieWillz
+/uni/event_loop.py @DieWillz
+/uni/tools/visual_action.py @DieWillz
+/uni/webui/handlers/mission.py @DieWillz
+/uni/webui/server.py @DieWillz
+/scripts/check_verification_invariant.py @DieWillz
+/tests/test_verification_invariant.py @DieWillz

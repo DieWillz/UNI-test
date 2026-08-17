@@ -1,0 +1,152 @@
+/* UNI Admin v4 — дизайн-система (Hermes, 2026-08-14) */
+:root{
+  --bg:#0d1017; --bg2:#141925; --panel:#171e2c; --panel2:#1d2636;
+  --border:#273248; --border2:#33415e;
+  --text:#e6edf6; --text2:#aab6c8; --text3:#6c7a90;
+  --accent:#6ea8fe; --accent2:#9d7bff;
+  --ok:#3fd07a; --warn:#ffb454; --err:#ff5d6c; --info:#56c7ff; --unknown:#7a8aa3;
+  --radius:12px; --shadow:0 6px 24px rgba(0,0,0,.35);
+  font-synthesis:none;
+}
+[data-theme="light"]{
+  --bg:#eef1f6; --bg2:#e4e9f1; --panel:#ffffff; --panel2:#f4f7fb;
+  --border:#d4dbe6; --border2:#c2ccdb; --text:#16202e; --text2:#46546a;
+  --text3:#7888a0; --shadow:0 6px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.layout{display:flex; min-height:100vh}
+.sidebar{
+  width:228px; flex:0 0 228px; background:var(--bg2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:16px 12px; position:sticky; top:0; height:100vh;
+}
+.brand{display:flex; gap:10px; align-items:center; padding:4px 8px 14px}
+.brand-mark{font-size:22px; color:var(--accent)}
+.brand-name{font-weight:700; letter-spacing:.5px}
+.brand-sub{font-size:11px; color:var(--text3)}
+.nav{display:flex; flex-direction:column; gap:3px; margin-top:6px}
+.nav-item{
+  text-align:left; background:transparent; border:1px solid transparent; color:var(--text2);
+  padding:9px 12px; border-radius:9px; cursor:pointer; font-size:13.5px; transition:.13s;
+}
+.nav-item:hover{background:var(--panel); color:var(--text)}
+.nav-item.active{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#0b0f17; font-weight:600; border-color:transparent}
+.side-foot{margin-top:auto; display:flex; align-items:center; justify-content:space-between; padding:10px 6px 0; border-top:1px solid var(--border)}
+.mini-btn{background:var(--panel); border:1px solid var(--border); color:var(--text2); border-radius:8px; cursor:pointer; width:32px; height:30px}
+
+.main{flex:1; padding:22px 26px 60px; overflow-x:hidden}
+.view{display:none; animation:fade .18s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+.view-head{display:flex; align-items:center; justify-content:space-between; margin:0 0 18px}
+.view-head h1{font-size:21px; margin:0; font-weight:700}
+.head-actions{display:flex; gap:8px; align-items:center}
+
+.grid{display:grid; gap:14px}
+.grid.cards{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.grid.two{grid-template-columns:1fr 1fr; margin-top:14px}
+@media(max-width:880px){.grid.two{grid-template-columns:1fr}.sidebar{width:64px;flex-basis:64px}.nav-item{font-size:0}.nav-item::first-letter{font-size:16px}}
+
+.card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px; overflow:hidden}
+.card-h{display:flex; align-items:center; justify-content:space-between; padding:11px 15px; border-bottom:1px solid var(--border); font-weight:600; color:var(--text2); font-size:13px; background:var(--panel2)}
+.card-b{padding:14px 15px}
+
+.btn{background:var(--panel2); border:1px solid var(--border2); color:var(--text); padding:8px 14px; border-radius:9px; cursor:pointer; font-size:13px; transition:.13s}
+.btn:hover{border-color:var(--accent); color:#fff}
+.btn.ok{background:linear-gradient(90deg,var(--ok),#2bb866); color:#06210f; border:none; font-weight:600}
+.btn.danger{background:linear-gradient(90deg,var(--err),#d83a4a); color:#fff; border:none; font-weight:600}
+.btn.amber{background:linear-gradient(90deg,var(--warn),#e6933a); color:#241402; border:none; font-weight:600}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+
+/* Бейджи честности — ключевая фича v4 */
+.badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; border:1px solid transparent; white-space:nowrap}
+.badge::before{content:""; width:7px; height:7px; border-radius:50%; background:currentColor}
+.b-ok{color:var(--ok); background:rgba(63,208,122,.12); border-color:rgba(63,208,122,.3)}
+.b-warn{color:var(--warn); background:rgba(255,180,84,.12); border-color:rgba(255,180,84,.3)}
+.b-err{color:var(--err); background:rgba(255,93,108,.12); border-color:rgba(255,93,108,.3)}
+.b-info{color:var(--info); background:rgba(86,199,255,.12); border-color:rgba(86,199,255,.3)}
+.b-unknown{color:var(--unknown); background:rgba(122,138,163,.12); border-color:rgba(122,138,163,.3)}
+.b-stub{color:var(--warn); background:rgba(255,180,84,.16); border-color:rgba(255,180,84,.4); font-weight:700}
+
+.kv{display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); gap:10px}
+.kv:last-child{border-bottom:none}
+.kv select,.kv input{background:var(--bg2); border:1px solid var(--border2); color:var(--text); border-radius:7px; padding:6px 8px; font-size:13px}
+.pill{display:inline-block; padding:5px 10px; border-radius:8px; background:var(--panel2); border:1px solid var(--border); font-size:12px; color:var(--text2)}
+.hint{color:var(--text3); font-size:12.5px; margin:4px 0}
+code{background:var(--bg2); padding:1px 6px; border-radius:5px; font-size:12px; color:var(--accent)}
+pre.report{white-space:pre-wrap; word-break:break-word; font:12px/1.5 "SF Mono",Consolas,monospace; color:var(--text2); max-height:420px; overflow:auto; margin:0}
+
+/* Список компонентов стека */
+.stack-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border)}
+.stack-row:last-child{border-bottom:none}
+.stack-name{font-weight:600}
+.stack-meta{color:var(--text3); font-size:12px}
+
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--border)}
+th{color:var(--text3); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em}
+tr:hover td{background:var(--panel2)}
+
+.tile{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:13px}
+.tile h4{margin:0 0 6px; font-size:13px; display:flex; justify-content:space-between; align-items:center}
+.tile .big{font-size:19px; font-weight:700}
+.muted{color:var(--text3)}
+
+.toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--panel2); border:1px solid var(--border2); color:var(--text); padding:11px 18px; border-radius:10px; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:.25s; z-index:50; max-width:80%}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+.action-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px}
+.tool{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow)}
+.tool h4{margin:0 0 4px; font-size:14px; display:flex; gap:8px; align-items:center}
+.tool p{margin:0 0 10px; color:var(--text3); font-size:12px; min-height:32px}
+.tool .tool-foot{display:flex; gap:8px; align-items:center}
+.spinner{display:inline-block; width:13px; height:13px; border:2px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 🤖 Qwen (2026-08-16): компактная тема — уменьшенные отступы и шрифты */
+body.compact{
+  font-size:12.5px;
+}
+body.compact .card-b{padding:10px 12px}
+body.compact .kv{padding:5px 0}
+body.compact table th,body.compact table td{padding:6px 8px}
+body.compact .tile{padding:10px}
+body.compact .btn{padding:6px 10px;font-size:12px}
+
+/* 🤖 Qwen (2026-08-16): адаптивность для планшетов/телефонов */
+@media(max-width:640px){
+  .sidebar{width:56px;flex-basis:56px;padding:12px 6px}
+  .brand-name,.brand-sub{display:none}
+  .nav-item{font-size:0;padding:8px 6px}
+  .nav-item::first-letter{font-size:18px}
+  .main{padding:14px 12px 40px}
+  .view-head h1{font-size:17px}
+  .grid.cards{grid-template-columns:1fr}
+}
+
+/* 🤖 Qwen (2026-08-16): стили для страницы «Логи» — объединено из v3.
+ * Лог-вьюер: моноширинный шрифт, авто-подсветка ERROR/WARN/INFO,
+ * номер строки слева (серая), ховер подсвечивает строку. */
+.log-view{
+  max-height:580px; overflow:auto;
+  font:12px/1.55 "SF Mono",Consolas,"Liberation Mono",monospace;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:8px; padding:6px 2px;
+}
+.log-line{
+  padding:2px 10px; white-space:pre-wrap; word-break:break-word;
+  border-bottom:1px solid rgba(255,255,255,.03);
+}
+.log-line:hover{background:var(--panel2)}
+.log-idx{
+  display:inline-block; width:42px; text-align:right; margin-right:10px;
+  color:var(--text3); font-size:10px; user-select:none;
+}
+.log-error{color:var(--err)}
+.log-warn{color:var(--warn)}
+.log-info{color:var(--text2)}

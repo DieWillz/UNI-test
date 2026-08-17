@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>UNI · Чат-хаб (голос + камера + контекст)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/chat.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="mark"></span>
+  <span class="brand">UNI <small>чат-хаб · multimodal</small></span>
+  <span class="pill"><span id="backendLed" class="led"></span><span id="backendText">бэкенд: проверка…</span></span>
+  <span class="pill"><span id="camLed" class="led"></span><span id="camText">камера: выкл</span></span>
+  <span class="spacer"></span>
+  <a class="btn" href="/">← Консоль разработки</a>
+</div>
+
+<div class="layout">
+  <div class="col left">
+    <div class="col-head">Источники контекста / чаты</div>
+    <div class="panel">
+      <label class="switch"><input type="checkbox" id="feedEnabled"> Использовать внешние подсказки</label>
+      <label class="switch"><input type="checkbox" id="feedScrape"> Разрешить внешний скрейп (NSFW по умолч. выкл)</label>
+      <div class="field">
+        <label>Добавить URL / чат-фид</label>
+        <div class="row">
+          <input type="text" id="feedUrl" placeholder="@url:`https://…`">
+          <button class="btn sm" id="feedAdd">+</button>
+        </div>
+      </div>
+      <div class="feeds" id="feeds"><div class="empty">нет фидов</div></div>
+      <div class="field">
+        <label>Локальные подсказки стиля (без сети)</label>
+        <textarea id="localHints" placeholder="по одной фразе на строку"></textarea>
+      </div>
+      <button class="btn sm" id="hintsSave">Сохранить подсказки</button>
+    </div>
+
+    <div class="col-head">Стиль (Style Injector)</div>
+    <div class="panel">
+      <div class="field">
+        <label>Тональность</label>
+        <select id="tonalMode">
+          <option value="playful">Playful</option>
+          <option value="spicy">Spicy</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Интенсивность подсказок (Spiciness): <b id="rateVal">60%</b></label>
+        <input type="range" id="injectRate" min="0" max="100" value="60">
+      </div>
+    </div>
+  </div>
+
+  <div class="col center">
+    <div class="chat" id="chat">
+      <div class="msg sys">UNI готова. Пиши текстом или говори в микрофон. Голос озвучивается автоматически.</div>
+    </div>
+
+    <div class="vision">
+      <div class="vision-head">
+        <span>Видео / Камера</span>
+        <span class="row">
+          <button class="btn sm" id="camNotice">🔔 Уведомить</button>
+          <button class="btn sm" id="camStart">📷 Включить</button>
+          <button class="btn sm" id="camSnap">📸 Скриншот</button>
+          <button class="btn sm" id="camStop">⏹ Стоп</button>
+          <label class="switch"><input type="checkbox" id="camStream"> Стрим</label>
+        </span>
+      </div>
+      <div class="preview" id="preview"><div class="empty">камера выключена</div></div>
+    </div>
+
+    <div class="inputbar">
+      <button class="btn mic" id="micBtn" title="Сказать голосом (клик — начать, клик/тишина — закончить)">🎤</button>
+      <input type="text" id="msg" placeholder="Сообщение Юни… (Enter — отправить)" autocomplete="off">
+      <button class="btn primary" id="sendBtn">Отправить</button>
+      <label class="switch" title="Озвучивать ответы"><input type="checkbox" id="voiceOn" checked> Озвучивать</label>
+      <span class="voice-indicator" id="voiceIndicator" hidden>🔊 Ответ Юни…</span>
+    </div>
+    <audio id="audioEl" preload="none"></audio>
+  </div>
+</div>
+
+<script src="/chat.js"></script>
+</body>
+</html>

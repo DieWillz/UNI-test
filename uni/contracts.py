@@ -10,10 +10,11 @@ Legacy ToolResult is kept for backward compatibility during migration.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +27,121 @@ class ToolResult(BaseModel):
     message: str = ""
     data: Optional[Any] = None
     error: Optional[str] = None
+
+
+class VerificationStatus(str, Enum):
+    """Terminal verification states for user-visible work."""
+
+    VERIFIED = "verified"
+    NOT_VERIFIED = "not_verified"
+
+
+class TaskStatus(str, Enum):
+    """Canonical user-visible task states.
+
+    ``success`` is intentionally absent. A task is complete only when it is
+    ``verified``; otherwise it must remain ``not_verified`` or fail explicitly.
+    """
+
+    RUNNING = "running"
+    VERIFIED = "verified"
+    NOT_VERIFIED = "not_verified"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+    INTERRUPTED = "interrupted"
+
+
+class Evidence(BaseModel):
+    """A concrete observation used to verify an action outcome."""
+
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    source: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    data: Optional[Any] = None
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    model_config = ConfigDict(frozen=True)
+
+
+class Verification(BaseModel):
+    """Independent verification decision.
+
+    A verified decision without evidence is structurally invalid. This is the
+    central fail-closed invariant of UNI.
+    """
+
+    status: VerificationStatus = VerificationStatus.NOT_VERIFIED
+    method: str = ""
+    reason: str = "verification was not performed"
+    evidence: list[Evidence] = Field(default_factory=list)
+    verifier: str = "uni.verification_gate"
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @model_validator(mode="after")
+    def require_evidence_for_verified(self) -> "Verification":
+        if self.status is VerificationStatus.VERIFIED:
+            if not self.method.strip():
+                raise ValueError("verified requires a verification method")
+            if not self.evidence:
+                raise ValueError("verified requires at least one evidence item")
+        return self
+
+
+class TaskOutcome(BaseModel):
+    """Canonical terminal result returned to user-facing interfaces."""
+
+    command: str = Field(min_length=1)
+    status: TaskStatus
+    message: str = ""
+    actions: list["ActionResult"] = Field(default_factory=list)
+    observations: list["Observation"] = Field(default_factory=list)
+    verification: Verification = Field(default_factory=Verification)
+    task_id: str = Field(default_factory=lambda: f"task_{uuid4().hex[:12]}")
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @model_validator(mode="after")
+    def enforce_verified_terminal_state(self) -> "TaskOutcome":
+        is_verified = self.verification.status is VerificationStatus.VERIFIED
+        if self.status is TaskStatus.VERIFIED and not is_verified:
+            raise ValueError("task cannot be verified without verified evidence")
+        if is_verified and self.status is not TaskStatus.VERIFIED:
+            raise ValueError("verified evidence requires task status=verified")
+        return self
+
+    @classmethod
+    def finalize(
+        cls,
+        *,
+        command: str,
+        message: str,
+        actions: list["ActionResult"] | None = None,
+        observations: list["Observation"] | None = None,
+        verification: Verification | None = None,
+        failure_status: TaskStatus | None = None,
+    ) -> "TaskOutcome":
+        action_list = list(actions or [])
+        observation_list = list(observations or [])
+        decision = verification or Verification()
+        if failure_status is not None:
+            status = failure_status
+        elif any(not action.success for action in action_list):
+            status = TaskStatus.FAILED
+        elif decision.status is VerificationStatus.VERIFIED:
+            status = TaskStatus.VERIFIED
+        else:
+            status = TaskStatus.NOT_VERIFIED
+        return cls(
+            command=command,
+            status=status,
+            message=message,
+            actions=action_list,
+            observations=observation_list,
+            verification=decision,
+        )
+
+    @property
+    def is_success(self) -> bool:
+        return self.status is TaskStatus.VERIFIED
 
 
 # ---------------------------------------------------------------------------
@@ -49,8 +165,7 @@ class Action(BaseModel):
         description="Unique action id for task tracking",
     )
 
-    class Config:
-        frozen = True
+    model_config = ConfigDict(frozen=True)
 
 
 class ActionResult(BaseModel):
@@ -114,8 +229,7 @@ class Observation(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     timestamp: str = Field(default_factory=_utc_now)
 
-    class Config:
-        frozen = True
+    model_config = ConfigDict(frozen=True)
 
 
 class AgentContext(BaseModel):

@@ -14,7 +14,7 @@ from rich.console import Console
 from uni.brain import Brain
 from uni.capabilities.registry import CapabilityRegistry
 from uni.config import Config
-from uni.contracts import ToolResult
+from uni.contracts import Evidence, TaskOutcome, TaskStatus, ToolResult, Verification, VerificationStatus
 from uni.state import AgentState
 from uni.session_log import SessionLogger
 from uni.tools import ToolExecutor
@@ -79,10 +79,16 @@ class EventLoop:
         self._screen_watch_task: asyncio.Task[None] | None = None
         self._screen_watch_stop = asyncio.Event()
         self._screen_observations: list[dict[str, Any]] = []
+        self.last_outcome: TaskOutcome | None = None
+        self._current_command = ""
+        self._current_actions = []
+        self._current_observations = []
+        self._current_verification = Verification()
 
     def _log(self, event: str, message: object) -> None:
-        if self.session_logger is not None:
-            self.session_logger.log(event, message)
+        session_logger = getattr(self, "session_logger", None)
+        if session_logger is not None:
+            session_logger.log(event, message)
 
     @staticmethod
     def parse_direct_command(text: str) -> DirectCommand | None:
@@ -498,6 +504,19 @@ class EventLoop:
         async with self._tool_lock:
             result = await self.tool_executor.execute(action, args)
         self._log("RESULT", f"{action}: {result.message}")
+        from uni.contracts import ActionResult, Observation
+
+        action_result = ActionResult.from_tool_result(result, action, args)
+        self._current_actions.append(action_result)
+        if result.success and action.startswith(("vision.", "browser.extract", "browser.current")):
+            observation = Observation(
+                source=action,
+                summary=result.message or f"Наблюдение получено через {action}",
+                data=result.data,
+                confidence=0.5,
+            )
+            self._current_observations.append(observation)
+            self._log("OBSERVATION", observation.summary)
         return result
 
     async def _create_audio_message(self, text: str, audio_format: str) -> str:
@@ -878,7 +897,7 @@ class EventLoop:
     # -> замкнутый цикл зрение->действие->проверка (Agent.act_on_screen).
     # Добавлено без правки ядра LLM: перехватываем до parse_direct_command.
     _VISUAL_RE = re.compile(
-        r"^\s*(?:открой|кликни|нажми|запусти|включи|щёлкни|открыть|нажать|кликни по|кликни на)\b[\s:,-]*(.+)$",
+        r"^\s*(?:кликни\s+(?:по|на)|открой|кликни|нажми|запусти|включи|щёлкни|открыть|нажать)\b[\s:,-]*(.+)$",
         re.IGNORECASE,
     )
 
@@ -897,8 +916,23 @@ class EventLoop:
         try:
             result = await agent.act_on_screen(goal)
             status = result.get("status", "failed")
-            if status == "success":
+            if status == "verified":
+                raw_verification = result.get("verification") or {}
+                raw_evidence = raw_verification.get("evidence") or []
+                if not raw_evidence:
+                    self._log("NOT_VERIFIED", f"{goal}: verifier returned no evidence")
+                    return f"Действие выполнено, но результат не подтверждён: {goal}."
+                evidence = [Evidence(**item) for item in raw_evidence]
+                self._current_verification = Verification(
+                    status=VerificationStatus.VERIFIED,
+                    method=str(raw_verification.get("method") or "visual_goal_verification"),
+                    reason="Цель подтверждена независимым наблюдением после действия",
+                    evidence=evidence,
+                )
+                self._log("VERIFIED", f"{goal}: {evidence[0].summary if evidence else 'verified'}")
                 return f"Готово: {goal}."
+            if status == "not_verified":
+                return f"Действие выполнено, но результат не подтверждён: {goal}."
             if status == "blocked":
                 return f"Команда заблокирована: {result.get('error', '')}"
             if status == "interrupted":
@@ -1023,6 +1057,11 @@ class EventLoop:
         if not user_input:
             self.state = AgentState.IDLE
             return None
+        self._current_command = user_input
+        self._current_actions = []
+        self._current_observations = []
+        self._current_verification = Verification()
+        self._log("COMMAND", user_input)
         if self.is_stop_command(user_input):
             ctrl = self._autonomous()
             if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
@@ -1033,6 +1072,14 @@ class EventLoop:
             self.state = AgentState.IDLE
             return "stop"
         answer = await self._process_input(user_input)
+        self.last_outcome = TaskOutcome.finalize(
+            command=user_input,
+            message=answer,
+            actions=self._current_actions,
+            observations=self._current_observations,
+            verification=self._current_verification,
+        )
+        self._log("VERIFIED" if self.last_outcome.is_success else "NOT_VERIFIED", self.last_outcome.model_dump(mode="json"))
         self.state = AgentState.IDLE
         return answer
 

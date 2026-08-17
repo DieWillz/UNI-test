@@ -1,0 +1,79 @@
+/* ==========================================================================
+   Theme: Minimal Swiss Paper (Light)
+   ========================================================================== */
+
+:root {
+  --bg-main: #f4f5f8;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent-primary: #2563eb;
+  --accent-orange: #f97316;
+  --border-color: #e2e8f0;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+}
+
+body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Карточки и блоки */
+div, section, .card, fieldset {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Заголовки */
+h1, h2, h3, h4, .title {
+  color: var(--text-main) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Кнопки */
+button, input[type="button"], input[type="submit"] {
+  background: var(--text-main) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--text-main) !important;
+  font-weight: 500 !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 16px !important;
+  transition: all 0.15s ease !important;
+}
+
+button:hover, input[type="button"]:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* Инпуты, селекты, текстовые поля */
+input[type="text"], textarea, select {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 12px !important;
+  transition: border-color 0.15s ease !important;
+}
+
+input[type="text"]:focus, textarea:focus, select:focus {
+  background: #ffffff !important;
+  border-color: var(--accent-primary) !important;
+  outline: 2px solid rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Логи и терминальные фрагменты */
+pre, code, .log-output {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-radius: var(--radius-sm) !important;
+  border: none !important;
+}

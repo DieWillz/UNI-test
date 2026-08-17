@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNI · Admin Console v4</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<style>
+/* ═══ TOKENS ═══ */
+:root{
+  --bg:#0B1115;--bg2:#172026;--bg3:#1a2a30;--panel:rgba(23,32,38,.82);
+  --border:rgba(141,152,154,.16);--border2:rgba(141,152,154,.3);
+  --text:#F2F4EF;--text2:#c6cfce;--mute:#8D989A;
+  --lime:#B8E61D;--amber:#E7A92F;--red:#F04444;--blue:#38bdf8;
+  --font:'Segoe UI','Inter',system-ui,sans-serif;
+  --mono:'Consolas','JetBrains Mono',monospace;
+  --r:12px;--sidebar:240px
+}
+[data-theme="light"]{--bg:#f4f5f0;--bg2:#ffffff;--bg3:#eef1f7;--panel:rgba(255,255,255,.9);--border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.15);--text:#0B1115;--text2:#374151;--mute:#6b7280}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+a{color:var(--lime);text-decoration:none}
+code{font-family:var(--mono);background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-size:12px}
+
+/* ═══ LAYOUT ═══ */
+#app{display:flex;height:100vh;overflow:hidden}
+#sidebar{width:var(--sidebar);background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ═══ SIDEBAR ═══ */
+.brand{padding:16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-logo{width:36px;height:36px;border-radius:10px;background:var(--lime);color:#0B1115;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+.brand-name{font-weight:800;font-size:16px}
+.brand-sub{font-size:10px;color:var(--mute);margin-top:1px}
+.nav-label{font-size:9px;text-transform:uppercase;color:var(--mute);font-weight:700;padding:12px 16px 4px;letter-spacing:.8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;border-radius:8px;margin:2px 8px;width:calc(100% - 16px);transition:.15s}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(184,230,29,.12);color:var(--lime);font-weight:600}
+.nav-icon{font-size:15px;width:22px;text-align:center}
+.nav-badge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:auto}
+.nav-badge.new{background:rgba(184,230,29,.2);color:var(--lime)}
+.nav-badge.warn{background:rgba(231,169,47,.2);color:var(--amber)}
+
+/* ═══ TOPBAR ═══ */
+#topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 16px;flex-shrink:0;backdrop-filter:blur(16px)}
+.pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mute);background:var(--bg3);padding:4px 10px;border-radius:14px;border:1px solid var(--border)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--mute)}
+.dot.on{background:var(--lime);box-shadow:0 0 6px var(--lime)}
+.dot.err{background:var(--red)}
+.dot.warn{background:var(--amber)}
+.spacer{flex:1}
+
+/* ═══ BUTTONS ═══ */
+.btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;transition:.15s;font-family:var(--font)}
+.btn:hover{background:var(--border);color:var(--text)}
+.btn.primary{background:var(--lime);color:#0B1115;border-color:var(--lime);font-weight:700}
+.btn.primary:hover{opacity:.9}
+.btn.danger{background:rgba(240,68,68,.12);border-color:rgba(240,68,68,.3);color:var(--red)}
+.btn.danger:hover{background:rgba(240,68,68,.2)}
+.btn.sm{padding:4px 10px;font-size:11px}
+
+/* ═══ VIEWS ═══ */
+.view{display:none;flex:1;overflow-y:auto;padding:20px 24px}
+.view.active{display:block}
+.view-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.view-head h1{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.view-head p{font-size:12px;color:var(--mute);margin-top:3px}
+.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ═══ CARDS ═══ */
+.card{background:var(--panel);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;backdrop-filter:blur(12px)}
+.card-h{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
+.card-b{padding:16px}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;border:1px solid transparent}
+.b-ok{background:rgba(184,230,29,.15);color:var(--lime);border-color:rgba(184,230,29,.3)}
+.b-warn{background:rgba(231,169,47,.15);color:var(--amber);border-color:rgba(231,169,47,.3)}
+.b-err{background:rgba(240,68,68,.15);color:var(--red);border-color:rgba(240,68,68,.3)}
+.b-info{background:rgba(56,189,248,.15);color:var(--blue);border-color:rgba(56,189,248,.3)}
+.b-unknown{background:var(--bg3);color:var(--mute);border-color:var(--border)}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══ GRIDS ═══ */
+.grid{display:grid;gap:12px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-auto{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.mt-4{margin-top:16px}.mt-3{margin-top:12px}.mb-3{margin-bottom:12px}
+
+/* ═══ STAT CARDS ═══ */
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:14px;display:flex;align-items:center;gap:12px}
+.stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(184,230,29,.12)}
+.stat-info h4{font-size:10px;color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.stat-info h2{font-size:18px;font-weight:700;margin-top:2px}
+.stat-info p{font-size:10px;color:var(--mute);margin-top:1px}
+
+/* ═══ FORMS ═══ */
+input,select,textarea{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:12px;outline:none;font-family:var(--font)}
+input:focus,select:focus,textarea:focus{border-color:var(--lime)}
+select{cursor:pointer}
+.kv{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:10px}
+.kv:last-child{border-bottom:none}
+.kv>span:first-child{font-size:12px;color:var(--text2)}
+.toggle{position:relative;width:38px;height:20px;background:var(--mute);border-radius:10px;cursor:pointer;transition:.3s;flex-shrink:0}
+.toggle.on{background:var(--lime)}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.3s}
+.toggle.on::after{transform:translateX(18px);background:#0B1115}
+.slider-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.slider-row label{font-size:11px;color:var(--mute);display:flex;justify-content:space-between}
+.slider-row input[type=range]{width:100%;accent-color:var(--lime)}
+
+/* ═══ CHAT ═══ */
+.chat-feed{height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)}
+.msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.5;font-size:12px;white-space:pre-wrap;word-break:break-word}
+.msg .who{font-size:10px;color:var(--mute);margin-bottom:3px}
+.msg.user{align-self:flex-end;background:rgba(184,230,29,.15);border:1px solid rgba(184,230,29,.3)}
+.msg.uni{align-self:flex-start;background:var(--panel);border:1px solid var(--border)}
+.msg.sys{align-self:center;color:var(--mute);font-size:10px;background:transparent;padding:4px}
+.chat-input{display:flex;align-items:center;gap:8px;padding:12px;border-top:1px solid var(--border)}
+.chat-input input{flex:1;padding:10px 16px;border-radius:20px}
+
+/* ═══ LOGS ═══ */
+.log-view{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.7;min-height:200px;max-height:500px}
+.log-line{display:flex;gap:8px;margin-bottom:2px}
+.log-time{color:var(--mute);flex-shrink:0;font-size:10px}
+.log-tag{font-weight:700;flex-shrink:0}
+.log-tag.info{color:var(--blue)}.log-tag.ok{color:var(--lime)}.log-tag.warn{color:var(--amber)}.log-tag.err{color:var(--red)}
+.log-msg{color:var(--text2);white-space:pre-wrap;word-break:break-all}
+
+/* ═══ TABLES ═══ */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th,.tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.tbl th{color:var(--mute);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.tbl tbody tr:hover{background:var(--bg3)}
+
+/* ═══ PARTICIPANTS ═══ */
+.prow{display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px}
+.prow:last-child{border:none}
+.ag-name{display:flex;align-items:center;gap:8px;font-weight:600}
+.ag-av{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.pill-sm{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;display:inline-block}
+.p-ok{background:rgba(184,230,29,.15);color:var(--lime)}
+.p-warn{background:rgba(231,169,47,.15);color:var(--amber)}
+.p-err{background:rgba(240,68,68,.15);color:var(--red)}
+.p-out{background:transparent;border:1px solid var(--border);color:var(--mute)}
+
+/* ═══ REPORT ═══ */
+.report{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-family:var(--mono);font-size:11px;white-space:pre-wrap;max-height:520px;overflow:auto;line-height:1.6;color:var(--text2)}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:var(--r);background:var(--panel);border:1px solid var(--border2);color:var(--text);font-size:12px;z-index:9999;transform:translateY(80px);opacity:0;transition:.3s;backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.ok{border-color:var(--lime);color:var(--lime)}
+
+/* ═══ HINT ═══ */
+.hint{font-size:11px;color:var(--mute);line-height:1.5;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.muted{color:var(--mute)}
+.w-full{width:100%}
+.flex{display:flex}.gap-2{gap:8px}.items-center{align-items:center}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:1200px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){#sidebar{display:none}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">U</div>
+      <div>
+        <div class="brand-name">UNI</div>
+        <div class="brand-sub">Admin Console · v4.0</div>
+      </div>
+    </div>
+
+    <div class="nav-label">Система</div>
+    <button class="nav-item active" data-view="overview"><span class="nav-icon">📊</span>Обзор</button>
+    <button class="nav-item" data-view="agents"><span class="nav-icon">👥</span>Агенты</button>
+    <button class="nav-item" data-view="logs"><span class="nav-icon">📜</span>Логи</button>
+
+    <div class="nav-label">Управление</div>
+    <button class="nav-item" data-view="chat"><span class="nav-icon">💬</span>Чат с Юни<span class="nav-badge new">NEW</span></button>
+    <button class="nav-item" data-view="computer"><span class="nav-icon">🖥</span>Компьютер</button>
+    <button class="nav-item" data-view="vision"><span class="nav-icon">👁</span>Зрение</button>
+    <button class="nav-item" data-view="autonomous"><span class="nav-icon">⚡</span>Автономность</button>
+    <button class="nav-item" data-view="memory"><span class="nav-icon">🧠</span>Память</button>
+
+    <div class="nav-label">Разработка</div>
+    <button class="nav-item" data-view="tools"><span class="nav-icon">🛠</span>Инструменты</button>
+    <button class="nav-item" data-view="plugins"><span class="nav-icon">🧩</span>Плагины</button>
+    <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Настройки</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main">
+    <!-- TOPBAR -->
+    <div id="topbar">
+      <span class="pill"><span class="dot" id="dotLlama"></span><span id="lblLlama">LLM :1235</span></span>
+      <span class="pill"><span class="dot" id="dotWebui"></span>WebUI :8787</span>
+      <span class="pill"><span class="dot" id="dotDesktop"></span><span id="lblDesktop">Desktop</span></span>
+      <span class="pill"><span class="dot" id="dotLms"></span><span id="lblLms">LM :1234</span></span>
+      <div class="spacer"></div>
+      <span class="pill" id="connPill"><span class="dot" id="dotConn"></span><span id="lblConn">проверка…</span></span>
+      <button class="btn sm" id="themeBtn" title="Сменить тему">🌙</button>
+      <button class="btn sm danger" id="stopBtn" title="Экстренный СТОП">■ STOP</button>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section class="view active" id="view-overview">
+      <div class="view-head">
+        <div><h1>Обзор системы</h1><p>Живой статус всех компонентов · обновление каждые 30 с</p></div>
+        <div class="head-actions">
+          <button class="btn" onclick="loadHealth()">🔄 Обновить</button>
+        </div>
+      </div>
+      <div class="grid grid-4" id="ov-stats"><div class="hint">Загрузка статуса…</div></div>
+      <div class="card mt-4">
+        <div class="card-h"><span>⚙ Детальный статус компонентов</span><span class="badge b-unknown" id="ov-badge">—</span></div>
+        <div class="card-b" id="ov-detail">Загрузка…</div>
+      </div>
+    </section>
+
+    <!-- AGENTS -->
+    <section class="view" id="view-agents">
+      <div class="view-head">
+        <div><h1>Агенты и участники</h1><p>Heartbeat-логи ИИ-совета</p></div>
+        <div class="head-actions"><button class="btn" onclick="loadAgents()">🔄 Обновить</button></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span>Участники по heartbeat</span><span class="badge b-unknown" id="ag-badge">—</span></div>
+        <div class="card-b" id="ag-list">Загрузка…</div>
+      </div>
+    </section>
+
+    <!-- LOGS -->
+    <section class="view" id="view-logs">
+      <div class="view-head">
+        <div><h1>Логи системы</h1><p>Runtime-логи всех компонентов</p></div>
+        <div class="head-actions">
+          <select id="lg-source" style="width:auto">
+            <option value="llama">llama (LLM)</option>
+            <option value="webui">webui (панель)</option>
+            <option value="desktop">desktop (оверлей)</option>
+            <option value="electron">electron</option>
+            <option value="llama_err">llama.err</option>
+            <option value="webui_err">webui.err</option>
+            <option value="uni_bat">uni_bat (launcher)</option>
+          </select>
+          <button class="btn" onclick="loadLogs()">🔄 Обновить</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span id="lg-title">Содержимое лога</span></div>
+        <div class="card-b"><div class="log-view" id="lg-lines"><div class="hint">Выберите источник и нажмите «Обновить».</div></div></div>
+      </div>
+    </section>
+
+    <!-- CHAT -->
+    <section class="view" id="view-chat">
+      <div class="view-head">
+        <div><h1>💬 Чат с Юни</h1><p>Прямое общение с агентом через /api/chat</p></div>
+        <div class="head-actions">
+          <select id="ch-role" style="width:auto"><option>загрузка ролей…</option></select>
+          <label class="flex items-center gap-2" style="font-size:12px;color:var(--mute)"><input type="checkbox" id="ch-speak" checked> озвучивать</label>
+        </div>
+      </div>
+      <div class="card" style="max-width:800px">
+        <div class="card-h"><span>Диалог</span><span class="badge b-unknown" id="ch-model">—</span></div>
+        <div class="chat-feed" id="ch-feed"><div class="msg sys">Напишите что-нибудь Юни…</div></div>
+        <div class="chat-input">
+          <input type="text" id="ch-input" placeholder="Сообщение Юни… (Enter — отправить)">
+          <button class="btn primary" id="ch-send">➤ Отправить</button>
+          <button class="btn" id="ch-clear">🗑</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPUTER -->
+    <section class="view" id="view-computer">
+      <div class="view-head">
+        <div><h1>🖥 Компьютер под зрением</h1><p>Юни видит экран, находит элемент, кликает и проверяет результат</p></div>
+        <div class="head-actions"><button class="btn danger" onclick="computerStop()">■ СТОП</button></div>
+      </div>
+      <div class="card" style="max-width:800px">
+        <div class="card-h"><span>Цель для Юни</span><span class="badge b-unknown" id="comp-badge">—</span></div>
+        <div class="card-b">
+          <div class="flex gap-2 mb-3">
+            <input type="text" id="comp-goal" placeholder="Например: открой блокнот и напиши привет" style="flex:1">
+            <button class="btn primary" onclick="computerAct()">▶ Выполнить</button>
+          </div>
+          <div class="hint">Работает через <code>/api/computer/act</code>. Безопасность: blacklist опасных команд, порог уверенности 0.55, <code>max_steps=8</code>.</div>
+          <div class="log-view mt-3" id="comp-log" style="height:280px">Ожидание команды…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISION -->
+    <section class="view" id="view-vision">
+      <div class="view-head">
+        <div><h1>👁 Зрение</h1><p>Состояние наблюдения, захват экрана</p></div>
+        <div class="head-actions">
+          <button class="btn" onclick="loadConsent()">🔄 Обновить</button>
+          <button class="btn primary" onclick="captureScreen()">📷 Снимок экрана</button>
+        </div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-h"><span>Consent (наблюдение)</span><span class="badge b-unknown" id="vs-consent-badge">—</span></div>
+          <div class="card-b" id="vs-consent">Загрузка…</div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span>Управление согласием</span></div>
+          <div class="card-b">
+            <div class="kv"><span>Уровень</span>
+              <select id="vs-level" style="width:auto">
+                <option value="off">off</option><option value="observe">observe</option>
+                <option value="suggest">suggest</option><option value="act">act</option>
+              </select>
+            </div>
+            <button class="btn primary mt-3 w-full" onclick="setConsent()">Сохранить</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span>Последний снимок</span></div>
+          <div class="card-b" id="vs-shot"><div class="muted">Нажмите 📷 Снимок экрана</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUTONOMOUS -->
+    <section class="view" id="view-autonomous">
+      <div class="view-head">
+        <div><h1>⚡ Автономный режим</h1><p>SSE-поток автономных фраз Юни</p></div>
+        <div class="head-actions">
+          <button class="btn primary" onclick="startAutonomous()">▶ Подключить</button>
+          <button class="btn danger" onclick="stopAutonomous()">■ Отключить</button>
+        </div>
+      </div>
+      <div class="card" style="max-width:700px">
+        <div class="card-h"><span>Автономные фразы (live)</span><span class="badge b-unknown" id="au-badge">—</span></div>
+        <div class="card-b">
+          <div class="log-view" id="au-feed" style="height:360px"><div class="hint">Нажмите «Подключить» для получения SSE-событий.</div></div>
+        </div>
+      </div>
+      <div class="hint mt-3" style="max-width:700px">
+        Автономный режим по умолчанию <b>выключен</b> в <code>config.yaml</code>.
+        <code>verification_enabled: false</code> означает, что действия не имеют независимой проверки.
+      </div>
+    </section>
+
+    <!-- MEMORY -->
+    <section class="view" id="view-memory">
+      <div class="view-head">
+        <div><h1>🧠 Память</h1><p>Факты, диалоги, извлечение знаний</p></div>
+        <div class="head-actions">
+          <button class="btn" onclick="loadFacts()">🔄 Обновить</button>
+          <button class="btn primary" onclick="extractFacts()">🧩 Извлечь факты</button>
+          <button class="btn" onclick="compactMemory()">🗜 Компактизация</button>
+        </div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-h"><span>Статистика</span></div>
+          <div class="card-b" id="mem-stats">Загрузка…</div>
+        </div>
+        <div class="card" style="grid-column:span 2">
+          <div class="card-h"><span>Факты</span><span class="badge b-unknown" id="mem-badge">—</span></div>
+          <div class="card-b" id="mem-facts" style="max-height:500px;overflow:auto">Загрузка…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="view" id="view-tools">
+      <div class="view-head">
+        <div><h1>🛠 Инструменты</h1><p>Ручной запуск команд</p></div>
+      </div>
+      <div class="grid grid-auto" id="tl-actions"></div>
+      <div class="card mt-4">
+        <div class="card-h"><span>Результат последнего действия</span></div>
+        <div class="card-b"><pre class="report" id="tl-result">—</pre></div>
+      </div>
+    </section>
+
+    <!-- PLUGINS -->
+    <section class="view" id="view-plugins">
+      <div class="view-head">
+        <div><h1>🧩 Плагины</h1><p>Обнаруженные capabilities и расширения</p></div>
+        <div class="head-actions">
+          <button class="btn" onclick="loadPlugins()">🔄 Обновить</button>
+          <button class="btn primary" onclick="rediscoverPlugins()">🔍 Пересканировать</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><span>Список плагинов</span><span class="badge b-unknown" id="pl-badge">—</span></div>
+        <div class="card-b" id="pl-list">Загрузка…</div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="view-head">
+        <div><h1>⚙ Настройки</h1><p>Интерфейс, роли, TTS, конфиг</p></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-h"><span>🔒 Безопасность</span></div>
+          <div class="card-b">
+            <div class="kv"><span>Уровень автономии</span>
+              <select id="set-level" style="width:auto">
+                <option>off</option><option>observe</option><option>suggest</option><option>act</option>
+              </select>
+            </div>
+            <button class="btn danger mt-3 w-full" onclick="emergencyStop()">🛑 Аварийная остановка</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span>🔊 Голос / TTS</span></div>
+          <div class="card-b">
+            <div class="kv"><span>Движок</span>
+              <select id="set-tts" style="width:auto">
+                <option value="silero">Silero</option><option value="piper">Piper (офлайн)</option><option value="browser">Браузер</option>
+              </select>
+            </div>
+            <div class="kv"><span>Голос</span>
+              <select id="set-voice" style="width:auto">
+                <option>xenia</option><option>kseniya</option><option>baya</option><option>eugene</option><option>aidar</option>
+              </select>
+            </div>
+            <div class="slider-row"><label>Темп <span id="set-rate-v">1.00×</span></label>
+              <input type="range" min="0.5" max="2" step="0.05" value="1" id="set-rate" oninput="$('set-rate-v').textContent=Number(this.value).toFixed(2)+'×'">
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button class="btn primary" onclick="testVoice()">🔊 Проверить</button>
+              <button class="btn" onclick="stopVoice()">■ Стоп</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span>🌐 Провайдеры</span></div>
+          <div class="card-b">
+            <div class="kv"><span>LM Studio URL</span><input class="input" id="set-lms" value="http://127.0.0.1:1234" style="width:180px"></div>
+            <div class="kv"><span>WebUI</span><input class="input" value="http://127.0.0.1:8787" style="width:180px" disabled></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span>🎨 Интерфейс</span></div>
+          <div class="card-b">
+            <div class="kv"><span>Тема</span>
+              <select id="set-theme" style="width:auto">
+                <option value="dark">🌑 Тёмная</option><option value="light">☀ Светлая</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card mt-4">
+        <div class="card-h"><span>Конфигурация (read-only)</span><span class="badge b-info">маскировка</span></div>
+        <div class="card-b">
+          <div class="hint">config.yaml содержит секреты и не отдаётся через API. Показан sanitized ответ /api/config.</div>
+          <pre class="report mt-3" id="set-config">Загрузка…</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// UNI Admin Console v4 — полная рабочая логика
+// Все эндпоинты реальные, без заглушек
+// ═══════════════════════════════════════════════════════
+
+const $ = id => document.getElementById(id);
+const HRM = location.origin;
+let LMS = localStorage.getItem('uni_lms') || 'http://127.0.0.1:1234';
+let LMS_MODEL = '';
+let currentRolePrompt = '';
+let _ttsAudio = null;
+let _autonomousES = null;
+
+// ── УТИЛИТЫ ──────────────────────────────────────────
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function now() { const d = new Date(); return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2, '0')).join(':'); }
+function toast(msg, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+async function api(url, ms = 5000) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal }); clearTimeout(t); return r; }
+  catch (e) { clearTimeout(t); throw e; }
+}
+async function apiJson(url, ms) { const r = await api(url, ms); return r.json(); }
+function setBadge(id, ok, text) {
+  const el = $(id);
+  if (!el) return;
+  el.className = 'badge ' + (ok === true ? 'b-ok' : ok === false ? 'b-err' : 'b-unknown');
+  el.textContent = text || (ok === true ? 'OK' : ok === false ? 'ERR' : '—');
+}
+
+// ── НАВИГАЦИЯ ────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    const v = $('view-' + btn.dataset.view);
+    if (v) v.classList.add('active');
+    // автозагрузка данных при переключении
+    const view = btn.dataset.view;
+    if (view === 'overview') loadHealth();
+    if (view === 'agents') loadAgents();
+    if (view === 'logs') loadLogs();
+    if (view === 'chat') loadRoles();
+    if (view === 'vision') loadConsent();
+    if (view === 'memory') loadFacts();
+    if (view === 'plugins') loadPlugins();
+    if (view === 'settings') loadConfig();
+    if (view === 'tools') renderTools();
+  });
+});
+
+// ── ТЕМА ─────────────────────────────────────────────
+function setTheme(v) {
+  document.documentElement.setAttribute('data-theme', v);
+  localStorage.setItem('uni_theme', v);
+  $('themeBtn').textContent = v === 'dark' ? '☀' : '🌙';
+}
+$('themeBtn').addEventListener('click', () => {
+  setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+setTheme(localStorage.getItem('uni_theme') || 'dark');
+
+// ── СТОП ─────────────────────────────────────────────
+$('stopBtn').addEventListener('click', emergencyStop);
+async function emergencyStop() {
+  try { await fetch(HRM + '/api/admin/stop', { method: 'POST' }); toast('■ Остановка запрошена', 'ok'); }
+  catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+  setTimeout(loadHealth, 2000);
+}
+
+// ══════════════════════════════════════════════════════
+// OVERVIEW — /api/uni/health
+// ══════════════════════════════════════════════════════
+async function loadHealth() {
+  const stats = $('ov-stats'), detail = $('ov-detail');
+  try {
+    const d = await apiJson(HRM + '/api/uni/health', 8000);
+    const c = d.components || {};
+    const items = [
+      ['LLM :1235', c.llama?.running, c.llama?.model || ('порт ' + (c.llama?.port || 1235)), '🧠'],
+      ['WebUI :8787', c.webui?.running, 'порт ' + (c.webui?.port || 8787), '🌐'],
+      ['Desktop', c.electron?.running, c.electron?.pid ? 'pid ' + c.electron.pid : 'не запущен', '🖥'],
+      ['Память', c.memory?.trajectories_ok, (c.memory?.facts_count || 0) + ' фактов, ' + (c.memory?.dialogue_turns || 0) + ' реплик', '🧠'],
+    ];
+    stats.innerHTML = items.map(([n, ok, sub, icon]) => `
+      <div class="stat-card">
+        <div class="stat-icon">${icon}</div>
+        <div class="stat-info">
+          <h4>${esc(n)}</h4>
+          <h2 style="color:${ok ? 'var(--lime)' : 'var(--red)'}">${ok ? 'работает' : 'остановлен'}</h2>
+          <p>${esc(sub || 'нет данных')}</p>
+        </div>
+      </div>
+    `).join('');
+    // topbar dots
+    $('dotLlama').className = 'dot ' + (c.llama?.running ? 'on' : 'err');
+    $('dotWebui').className = 'dot ' + (c.webui?.running ? 'on' : 'err');
+    $('dotDesktop').className = 'dot ' + (c.electron?.running ? 'on' : 'err');
+    $('dotConn').className = 'dot on';
+    $('lblConn').textContent = 'подключено';
+    // LM Studio check
+    try {
+      const r = await api(LMS + '/v1/models', 3000);
+      const m = await r.json();
+      if (m.data && m.data.length) {
+        LMS_MODEL = m.data[0].id;
+        $('dotLms').className = 'dot on';
+        $('lblLms').textContent = 'LM: ' + LMS_MODEL.split('/').pop();
+      }
+    } catch (e) { $('dotLms').className = 'dot err'; $('lblLms').textContent = 'LM :1234 офлайн'; }
+    // detailed components
+    setBadge('ov-badge', d.ok, d.ok ? 'ВСЕ ОК' : 'ПРОБЛЕМЫ');
+    let html = '<table class="tbl"><thead><tr><th>Компонент</th><th>Статус</th><th>Детали</th></tr></thead><tbody>';
+    for (const [name, comp] of Object.entries(c)) {
+      if (typeof comp !== 'object' || comp === null) continue;
+      const ok = comp.running || comp.reachable || comp.valid;
+      const details = [];
+      if (comp.port) details.push('порт ' + comp.port);
+      if (comp.pid) details.push('pid ' + comp.pid);
+      if (comp.model) details.push('модель: ' + comp.model);
+      if (comp.models) details.push('модели: ' + comp.models.join(', '));
+      if (comp.facts_count !== undefined) details.push(comp.facts_count + ' фактов');
+      if (comp.dialogue_turns !== undefined) details.push(comp.dialogue_turns + ' реплик');
+      if (comp.warnings && comp.warnings.length) details.push('⚠ ' + comp.warnings.join('; '));
+      html += `<tr><td><b>${esc(name)}</b></td><td><span class="badge ${ok ? 'b-ok' : 'b-err'}">${ok ? 'OK' : 'ERR'}</span></td><td>${esc(details.join(' · ') || '—')}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    detail.innerHTML = html;
+  } catch (e) {
+    stats.innerHTML = '<div class="hint" style="grid-column:span 4">Ошибка: ' + esc(e.message) + '</div>';
+    $('dotConn').className = 'dot err';
+    $('lblConn').textContent = 'нет связи';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// AGENTS — /api/participants + /api/heartbeats
+// ══════════════════════════════════════════════════════
+const COLORS = { Hermes:'#dc2626', Qwen:'#16a34a', Codex:'#2563eb', Gemini:'#ea580c', Mistral:'#4f46e5', Grok:'#ca8a04', Claude:'#7c3aed' };
+async function loadAgents() {
+  const list = $('ag-list');
+  try {
+    const d = await apiJson(HRM + '/api/heartbeats', 5000);
+    const parts = Array.isArray(d.participants) ? d.participants : [];
+    if (!parts.length) { list.innerHTML = '<div class="hint">Нет активных участников.</div>'; setBadge('ag-badge', true, '0'); return; }
+    let html = '<div class="prow header"><div>Имя</div><div>Статус</div><div>Метод</div><div>Последний heartbeat</div></div>';
+    parts.forEach(p => {
+      const c = COLORS[p.name] || '#6b7280';
+      const ok = p.online || p.status === 'ready';
+      html += `<div class="prow">
+        <div class="ag-name"><div class="ag-av" style="background:${c}">${esc((p.name || '?')[0])}</div>${esc(p.name)}</div>
+        <div><span class="pill-sm ${ok ? 'p-ok' : 'p-warn'}">${ok ? 'online' : 'stale'}</span></div>
+        <div><span class="pill-sm p-out">${esc(p.method || '—')}</span></div>
+        <div style="color:var(--mute);font-size:10px">${esc((p.last || '').slice(0, 60))}</div>
+      </div>`;
+    });
+    list.innerHTML = html;
+    setBadge('ag-badge', true, parts.length + ' уч.');
+  } catch (e) {
+    list.innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>';
+    setBadge('ag-badge', false, 'ERR');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// LOGS — /api/uni/logs
+// ══════════════════════════════════════════════════════
+async function loadLogs() {
+  const source = $('lg-source').value;
+  const box = $('lg-lines');
+  try {
+    const d = await apiJson(HRM + '/api/uni/logs?source=' + encodeURIComponent(source) + '&since=0', 5000);
+    const lines = Array.isArray(d.lines) ? d.lines : [];
+    if (!lines.length) { box.innerHTML = '<div class="hint">Лог пуст.</div>'; return; }
+    box.innerHTML = lines.map(x => {
+      const level = (x.level || 'INFO').toUpperCase();
+      const cls = level === 'ERROR' ? 'err' : level === 'WARN' ? 'warn' : 'info';
+      return `<div class="log-line"><span class="log-time">${esc(x.i || '')}</span><span class="log-tag ${cls}">[${esc(level)}]</span><span class="log-msg">${esc(x.t || '')}</span></div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+    $('lg-title').textContent = 'Лог: ' + source + ' (' + lines.length + ' строк)';
+  } catch (e) {
+    box.innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// CHAT — /api/chat + /api/roles
+// ══════════════════════════════════════════════════════
+async function loadRoles() {
+  try {
+    const d = await apiJson(HRM + '/api/roles', 5000);
+    const sel = $('ch-role');
+    sel.innerHTML = (d.roles || []).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') || '<option>нет ролей</option>';
+    if (d.current) sel.value = d.current;
+    try { const pr = await apiJson(HRM + '/api/role/prompt?role=' + encodeURIComponent(sel.value), 3000); if (pr.prompt) currentRolePrompt = pr.prompt; } catch (e) {}
+    // model badge
+    if (LMS_MODEL) { $('ch-model').className = 'badge b-ok'; $('ch-model').textContent = LMS_MODEL.split('/').pop(); }
+  } catch (e) { /* silent */ }
+}
+
+$('ch-role').addEventListener('change', async function() {
+  try { await fetch(HRM + '/api/role/switch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: this.value }) }); toast('Роль: ' + this.value, 'ok'); }
+  catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+});
+
+function addMsg(feed, role, text) {
+  const m = document.createElement('div');
+  m.className = 'msg ' + role;
+  m.innerHTML = (role !== 'sys' ? `<div class="who">${role === 'user' ? 'Вы' : 'ЮНИ'} · ${now()}</div>` : '') + esc(text);
+  feed.appendChild(m);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+async function chatSend() {
+  const input = $('ch-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const feed = $('ch-feed');
+  addMsg(feed, 'user', text);
+  addMsg(feed, 'sys', '⏳ обработка…');
+
+  let reply = null, err = null;
+  // Try LM Studio first
+  if (LMS_MODEL) {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 120000);
+      const sys = currentRolePrompt || 'Ты — ЮНИ, локальный ассистент. Отвечай на русском, кратко.';
+      const r = await fetch(LMS + '/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: LMS_MODEL, messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], stream: false }),
+        signal: ctrl.signal
+      });
+      clearTimeout(to);
+      if (r.ok) { const d = await r.json(); reply = d.choices?.[0]?.message?.content; if (!reply) err = 'LM Studio вернул пустой ответ'; }
+      else { err = 'LM Studio HTTP ' + r.status; }
+    } catch (e) { err = 'LM Studio: ' + e.message; }
+  }
+  // Fallback to /api/chat
+  if (!reply) {
+    try {
+      const r = await fetch(HRM + '/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
+      const d = await r.json().catch(() => ({}));
+      reply = d.reply || d.response || d.message;
+      if (!reply) err = (err || '') + ' /api/chat: ' + (d.error || 'пустой ответ');
+    } catch (e) { err = (err || '') + ' /api/chat: ' + e.message; }
+  }
+  feed.lastChild.remove();
+  if (reply) {
+    addMsg(feed, 'uni', reply);
+    if ($('ch-speak').checked) speak(reply);
+  } else {
+    addMsg(feed, 'sys', '❌ ' + (err || 'нет ответа'));
+  }
+}
+
+$('ch-send').addEventListener('click', chatSend);
+$('ch-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } });
+$('ch-clear').addEventListener('click', () => { $('ch-feed').innerHTML = '<div class="msg sys">Напишите что-нибудь Юни…</div>'; });
+
+// ── TTS ──────────────────────────────────────────────
+async function speak(text) {
+  if (!text || !text.trim()) return;
+  try {
+    const r = await fetch(HRM + '/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
+    const d = await r.json().catch(() => ({}));
+    if (d.audio_url) { _ttsAudio = new Audio(d.audio_url); _ttsAudio.play().catch(() => {}); }
+    else if (d.browser) { const u = new SpeechSynthesisUtterance(text); u.lang = 'ru-RU'; speechSynthesis.speak(u); }
+  } catch (e) { /* silent */ }
+}
+
+function testVoice() {
+  const t = 'Привет! Я Юни. Рада тебя слышать.';
+  speak(t);
+  toast('🔊 Проверка голоса…');
+}
+
+function stopVoice() {
+  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio.currentTime = 0; _ttsAudio = null; }
+  try { speechSynthesis.cancel(); } catch (e) {}
+  toast('■ Остановлено');
+}
+
+// ══════════════════════════════════════════════════════
+// COMPUTER — /api/computer/act + /api/computer/status
+// ══════════════════════════════════════════════════════
+function compLog(msg, kind) {
+  const box = $('comp-log');
+  if (!box) return;
+  const line = document.createElement('div');
+  line.textContent = '[' + now() + '] ' + msg;
+  line.style.color = kind === 'err' ? 'var(--red)' : kind === 'ok' ? 'var(--lime)' : 'var(--text)';
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function computerAct() {
+  const goal = $('comp-goal').value.trim();
+  if (!goal) { compLog('Пустая цель', 'err'); return; }
+  setBadge('comp-badge', null, 'работаю…');
+  compLog('▶ цель: ' + goal);
+  try {
+    const r = await fetch(HRM + '/api/computer/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal, max_steps: 8 }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { compLog('ошибка: ' + (d.error || r.status), 'err'); setBadge('comp-badge', false, 'ERR'); return; }
+    compLog('команда принята: ' + (d.message || 'ok'), 'ok');
+    computerPoll();
+  } catch (e) { compLog('ошибка: ' + e.message, 'err'); setBadge('comp-badge', false, 'ERR'); }
+}
+
+async function computerPoll() {
+  let n = 0, shown = 0;
+  while (n < 20) {
+    await new Promise(r => setTimeout(r, 1500)); n++;
+    try {
+      const r = await fetch(HRM + '/api/computer/status');
+      const d = await r.json().catch(() => ({}));
+      const hist = Array.isArray(d.history) ? d.history : [];
+      for (; shown < hist.length; shown++) {
+        const line = hist[shown];
+        const kind = /достигнута|✅/.test(line) ? 'ok' : /не удалось|ошибка/.test(line) ? 'err' : '';
+        compLog(line, kind);
+      }
+      if (d.active) { setBadge('comp-badge', null, 'шаг ' + (d.steps || n)); }
+      else { setBadge('comp-badge', d.status === 'success', d.status || 'готово'); break; }
+    } catch (e) { /* silent */ }
+  }
+}
+
+async function computerStop() {
+  compLog('■ СТОП…');
+  try {
+    const r = await fetch(HRM + '/api/computer/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json().catch(() => ({}));
+    compLog(d.stopped ? 'остановлено' : 'нет активного цикла', 'ok');
+    setBadge('comp-badge', true, 'остановлено');
+  } catch (e) { compLog('ошибка: ' + e.message, 'err'); }
+}
+
+// ══════════════════════════════════════════════════════
+// VISION — /api/desktop/consent + /api/vision/capture
+// ══════════════════════════════════════════════════════
+async function loadConsent() {
+  try {
+    const d = await apiJson(HRM + '/api/desktop/consent', 3000);
+    const level = d.level || 'off';
+    const obs = d.observation_enabled;
+    $('vs-consent').innerHTML = `
+      <div class="kv"><span>Наблюдение</span><span class="badge ${obs ? 'b-ok' : 'b-warn'}">${obs ? 'ВКЛ' : 'ВЫКЛ'}</span></div>
+      <div class="kv"><span>Уровень</span><span class="badge b-info">${esc(level)}</span></div>
+      <div class="kv"><span>Изменено</span><span class="muted">${esc(d.last_change || '—')}</span></div>
+    `;
+    $('vs-level').value = level;
+    setBadge('vs-consent-badge', obs, level.toUpperCase());
+  } catch (e) {
+    $('vs-consent').innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>';
+    setBadge('vs-consent-badge', false, 'ERR');
+  }
+}
+
+async function setConsent() {
+  const level = $('vs-level').value;
+  try {
+    const r = await fetch(HRM + '/api/desktop/consent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ observation_enabled: level !== 'off', level }) });
+    const d = await r.json().catch(() => ({}));
+    toast('Consent сохранён: ' + level, 'ok');
+    loadConsent();
+  } catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+async function captureScreen() {
+  const shot = $('vs-shot');
+  shot.innerHTML = '<div class="spinner"></div> Захват экрана…';
+  try {
+    const r = await fetch(HRM + '/api/vision/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json().catch(() => ({}));
+    if (d.image_b64) {
+      shot.innerHTML = '<img src="' + d.image_b64 + '" style="width:100%;border-radius:8px;border:1px solid var(--border)">';
+      toast('📷 Снимок получен', 'ok');
+    } else {
+      shot.innerHTML = '<div class="hint">Кадр не получен: ' + esc(d.error || 'нет данных') + '</div>';
+    }
+  } catch (e) { shot.innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>'; }
+}
+
+// ══════════════════════════════════════════════════════
+// AUTONOMOUS — SSE /api/autonomous/stream
+// ══════════════════════════════════════════════════════
+function startAutonomous() {
+  if (_autonomousES) { toast('Уже подключено'); return; }
+  try {
+    const es = new EventSource(HRM + '/api/autonomous/stream');
+    _autonomousES = es;
+    setBadge('au-badge', true, 'LIVE');
+    const feed = $('au-feed');
+    feed.innerHTML = '<div class="hint">Ожидание событий…</div>';
+    es.onmessage = ev => {
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.type === 'phrase') {
+          const line = document.createElement('div');
+          line.className = 'log-line';
+          line.innerHTML = `<span class="log-time">${now()}</span><span class="log-msg">${esc(d.text)}</span>`;
+          feed.appendChild(line);
+          feed.scrollTop = feed.scrollHeight;
+          if (d.audio_url) { const a = new Audio(d.audio_url); a.play().catch(() => {}); }
+          else speak(d.text);
+        }
+      } catch (e) {}
+    };
+    es.onerror = () => { setBadge('au-badge', false, 'ERR'); };
+    toast('▶ SSE подключено', 'ok');
+  } catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+function stopAutonomous() {
+  if (_autonomousES) { _autonomousES.close(); _autonomousES = null; }
+  setBadge('au-badge', null, '—');
+  toast('■ Отключено');
+}
+
+// ══════════════════════════════════════════════════════
+// MEMORY — /api/memory/facts + /api/memory/extract_facts
+// ══════════════════════════════════════════════════════
+async function loadFacts() {
+  try {
+    const d = await apiJson(HRM + '/api/memory/facts', 5000);
+    $('mem-stats').innerHTML = `
+      <div class="kv"><span>Фактов</span><b>${d.count || 0}</b></div>
+      <div class="kv"><span>Реплик диалога</span><b>${d.dialogue_turns || 0}</b></div>
+    `;
+    const facts = d.facts || {};
+    const subjects = Object.keys(facts);
+    if (!subjects.length) {
+      $('mem-facts').innerHTML = '<div class="hint">Фактов пока нет. Нажмите «Извлечь факты» для анализа диалога.</div>';
+      setBadge('mem-badge', true, '0');
+      return;
+    }
+    let html = '';
+    for (const subj of subjects) {
+      const items = facts[subj] || [];
+      html += `<div style="margin-bottom:12px"><b style="color:var(--lime)">${esc(subj)}</b> (${items.length})<br>`;
+      items.forEach(f => { html += `<div style="padding:2px 0 2px 12px;font-size:11px;color:var(--text2)">${esc(f.predicate)}: <b>${esc(f.object)}</b></div>`; });
+      html += '</div>';
+    }
+    $('mem-facts').innerHTML = html;
+    setBadge('mem-badge', true, d.count + ' фактов');
+  } catch (e) {
+    $('mem-facts').innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>';
+    setBadge('mem-badge', false, 'ERR');
+  }
+}
+
+async function extractFacts() {
+  try {
+    const d = await apiJson(HRM + '/api/memory/extract_facts', 5000);
+    toast('Извлечено фактов: ' + (d.extracted || 0), 'ok');
+    loadFacts();
+  } catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+async function compactMemory() {
+  try {
+    const r = await fetch(HRM + '/api/memory/compact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_age_days: 30 }) });
+    const d = await r.json().catch(() => ({}));
+    toast('Удалено: ' + (d.removed || 0) + ', осталось: ' + (d.remaining || 0), 'ok');
+    loadFacts();
+  } catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+// ══════════════════════════════════════════════════════
+// PLUGINS — /api/plugins
+// ══════════════════════════════════════════════════════
+async function loadPlugins() {
+  try {
+    const d = await apiJson(HRM + '/api/plugins', 5000);
+    const plugins = d.plugins || [];
+    if (!plugins.length) { $('pl-list').innerHTML = '<div class="hint">Плагинов не обнаружено.</div>'; setBadge('pl-badge', true, '0'); return; }
+    let html = '<table class="tbl"><thead><tr><th>Имя</th><th>Версия</th><th>Путь</th><th>Тип</th></tr></thead><tbody>';
+    plugins.forEach(p => { html += `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.version || '—')}</td><td style="font-size:10px;color:var(--mute)">${esc(p.path || '—')}</td><td>${esc(p.type || '—')}</td></tr>`; });
+    html += '</tbody></table>';
+    $('pl-list').innerHTML = html;
+    setBadge('pl-badge', true, plugins.length);
+  } catch (e) {
+    $('pl-list').innerHTML = '<div class="hint">Ошибка: ' + esc(e.message) + '</div>';
+    setBadge('pl-badge', false, 'ERR');
+  }
+}
+
+async function rediscoverPlugins() {
+  try {
+    const r = await fetch(HRM + '/api/plugins/discover', { method: 'POST' });
+    const d = await r.json().catch(() => ({}));
+    toast('Пересканировано: ' + (d.plugins?.length || 0), 'ok');
+    loadPlugins();
+  } catch (e) { toast('Ошибка: ' + e.message, 'err'); }
+}
+
+// ══════════════════════════════════════════════════════
+// TOOLS — ручной запуск команд
+// ══════════════════════════════════════════════════════
+function renderTools() {
+  const tools = [
+    ['Перезапуск LLM', '/api/admin/restart-llm', 'POST', '🔄'],
+    ['Стоп LLM', '/api/admin/stop-llm', 'POST', '■'],
+    ['Старт WebUI', '/api/admin/start-webui', 'POST', '▶'],
+    ['Стоп WebUI', '/api/admin/stop-webui', 'POST', '■'],
+    ['Демо мыши', '/api/computer/demo', 'POST', '🖱'],
+    ['Снимок экрана', '/api/vision/capture', 'POST', '📷'],
+  ];
+  $('tl-actions').innerHTML = tools.map(([name, path, method, icon]) => `
+    <div class="card" style="cursor:pointer" onclick="runTool('${name}','${path}','${method}')">
+      <div class="card-b" style="text-align:center;padding:20px">
+        <div style="font-size:24px;margin-bottom:6px">${icon}</div>
+        <div style="font-weight:600;font-size:12px">${esc(name)}</div>
+        <div style="font-size:10px;color:var(--mute);margin-top:3px">${esc(method)} ${esc(path)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function runTool(name, path, method) {
+  const result = $('tl-result');
+  result.textContent = '⏳ ' + name + '…';
+  try {
+    const r = await fetch(HRM + path, { method, headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json().catch(() => ({}));
+    result.textContent = '✅ ' + name + '\n\nHTTP ' + r.status + '\n' + JSON.stringify(d, null, 2);
+    toast(name + ' ✓', 'ok');
+  } catch (e) {
+    result.textContent = '❌ ' + name + '\n\n' + e.message;
+    toast('Ошибка: ' + e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS — /api/config
+// ══════════════════════════════════════════════════════
+async function loadConfig() {
+  try {
+    const d = await apiJson(HRM + '/api/config', 5000);
+    $('set-config').textContent = JSON.stringify(d, null, 2);
+  } catch (e) {
+    $('set-config').textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+$('set-theme').addEventListener('change', function() { setTheme(this.value); });
+
+// ══════════════════════════════════════════════════════
+// АВТОЗАГРУЗКА
+// ══════════════════════════════════════════════════════
+loadHealth();
+setInterval(loadHealth, 30000);
+loadRoles();
+</script>
+</body>
+</html>

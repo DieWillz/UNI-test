@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld("uni", {
   hitTest: (interactive) => ipcRenderer.send("hit-test", interactive),
   // push-to-talk состояние
   onPTT: (cb) => ipcRenderer.on("ptt", (_e, on) => cb(on)),
-  // события оверлея от main (SSE /api/desktop/events)
+  // события оверлея от main (канонический SSE /api/uni/events)
   onEvent: (cb) => ipcRenderer.on("desktop-event", (_e, data) => cb(data)),
   // скрыть в трей
   hide: () => ipcRenderer.send("hide"),
@@ -26,4 +26,5 @@ contextBridge.exposeInMainWorld("uni", {
   saveState: (obj) => ipcRenderer.invoke("save-state", obj),
   loadState: () => ipcRenderer.invoke("load-state"),
   setUiVariant: (variant) => ipcRenderer.invoke("set-ui-variant", variant),
+  selectTextAttachment: () => ipcRenderer.invoke("select-text-attachment"),
 });

@@ -1,0 +1,25 @@
+{
+  "mission": {
+    "started": "Mission started",
+    "completed": "Mission completed",
+    "income_confirmed": "Income confirmed: {amount}",
+    "no_active": "No active mission"
+  },
+  "health": {
+    "ready": "UNI is ready",
+    "issues": "There are issues — see components"
+  },
+  "memory": {
+    "empty_dialogue": "Dialogue is empty",
+    "facts_extracted": "Facts extracted: {count}"
+  },
+  "camera": {
+    "watch_started": "Starting camera observation for about {minutes:g} minutes.",
+    "watch_stopped": "I finished observing and turned off the camera.",
+    "reminder": "Reminder: I'm still watching via camera."
+  },
+  "errors": {
+    "agent_unavailable": "I can't answer right now — give me a second and ask again.",
+    "goal_required": "Please specify the command goal"
+  }
+}

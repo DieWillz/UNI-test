@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import yaml
 
 class BrainConfig(BaseModel):
@@ -178,7 +178,7 @@ class AgentConfig(BaseModel):
     default_role: str = "assistant"  # 🤖 Фаза-3: роль по умолчанию — assistant
     cycle_interval: float = 2.0
     max_retries: int = 3
-    verification_enabled: bool = False
+    verification_enabled: bool = True
     input_mode: str = "mixed"
     speak_responses: bool = True
     max_parallel_tasks: int = Field(default=3, ge=1, le=8)
@@ -189,6 +189,15 @@ class AgentConfig(BaseModel):
     response_max_chars: int = Field(default=700, ge=120, le=4000)
     spoken_response_max_chars: int = Field(default=320, ge=80, le=1200)
     autonomous: "AutonomousConfig" = Field(default_factory=lambda: AutonomousConfig())
+
+    @field_validator("verification_enabled")
+    @classmethod
+    def verification_must_remain_enabled(cls, value: bool) -> bool:
+        if value is not True:
+            raise ValueError(
+                "verification_enabled is a protected fail-closed invariant and cannot be disabled"
+            )
+        return True
 
 class LoggingConfig(BaseModel):
     enabled: bool = True

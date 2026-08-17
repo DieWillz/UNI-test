@@ -1,0 +1,25 @@
+{
+  "mission": {
+    "started": "Миссия запущена",
+    "completed": "Миссия завершена",
+    "income_confirmed": "Доход подтверждён: {amount}",
+    "no_active": "Нет активной миссии"
+  },
+  "health": {
+    "ready": "Юни готова",
+    "issues": "Есть проблемы — см. components"
+  },
+  "memory": {
+    "empty_dialogue": "Диалог пуст",
+    "facts_extracted": "Извлечено фактов: {count}"
+  },
+  "camera": {
+    "watch_started": "Начинаю наблюдение через камеру на {minutes:g} минут.",
+    "watch_stopped": "Я закончила наблюдение и выключила камеру.",
+    "reminder": "Напоминаю: я всё ещё наблюдаю через камеру."
+  },
+  "errors": {
+    "agent_unavailable": "Сейчас не могу ответить — дай мне пару секунд и спроси ещё раз.",
+    "goal_required": "Укажите цель команды"
+  }
+}

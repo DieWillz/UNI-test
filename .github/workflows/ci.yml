@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [clean/august-2026, main]
+  pull_request:
+    branches: [clean/august-2026, main]
+
+jobs:
+  pytest:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-timeout ruff black
+
+      - name: Run pytest
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest -p no:cacheprovider -o asyncio_mode=auto --tb=short -q
+
+      - name: Protected verification invariant
+        shell: bash
+        run: python scripts/check_verification_invariant.py
+
+      - name: Architecture audit
+        shell: bash
+        run: python -m uni.check_architecture --strict
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tools
+        run: pip install ruff black isort
+      - name: Ruff
+        run: ruff check uni/ tests/ scripts/
+      - name: Black (check)
+        run: black --check uni/ tests/ scripts/
+      - name: isort (check)
+        run: isort --check-only uni/ tests/ scripts/
+
+  js-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: node --check on desktop JS
+        shell: bash
+        run: |
+          find uni/desktop -name '*.js' -not -path '*/node_modules/*' -exec node --check {} \;
+          find scripts -name '*.js' -exec node --check {} \;

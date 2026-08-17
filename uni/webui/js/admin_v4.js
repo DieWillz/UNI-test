@@ -140,7 +140,7 @@ async function v4LoadTasks(){
     v4SetBadge('v4-tk-backlog','ok', items.length+' пунктов');
     const ph = d.phases||[];
     if(!ph.length){ v4$('v4-tk-phases').innerHTML = v4Badge('warn','НЕТ ДАННЫХ')+' — phases.json пуст'; v4SetBadge('v4-tk-phases','warn','нет фаз'); }
-    else{ v4$('v4-tk-phases').innerHTML = ph.map(p=>`<div class="v4-kv"><span>${v4Esc(p.name||p.id||'фаза')}</span><span>${v4Badge(p.done?'ok':'info', p.done?'готово':'в работе')}</span></div>`).join(''); v4SetBadge('v4-tk-phases','ok', ph.length+' фаз'); }
+    else{ v4$('v4-tk-phases').innerHTML = ph.map(p=>{ const done=p.done===true||['done','verified','completed','complete','[v]','[x]'].includes(String(p.status||'').toLowerCase()); return `<div class="v4-kv"><span>${v4Esc(p.name||p.id||'фаза')}</span><span>${v4Badge(done?'ok':'info', done?'готово':'в работе')}</span></div>`; }).join(''); v4SetBadge('v4-tk-phases','ok', ph.length+' фаз'); }
     v4$('v4-tk-locks').textContent = (d.locks && Object.keys(d.locks).length) ? JSON.stringify(d.locks,null,2) : '— (блокировок нет)';
   }catch(e){ if(v4$('v4-tk-backlog')) v4$('v4-tk-backlog').innerHTML = v4Badge('err','ОШИБКА')+' '+v4Esc(e.message); }
 }

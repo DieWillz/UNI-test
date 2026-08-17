@@ -42,7 +42,8 @@ async def test_act_on_screen_opens_notepad() -> None:
     exe = _make_executor_for_goal("открой блокнот")
     agent = ComputerVisionAgent(exe, max_steps=8)
     result = await agent.act_on_screen("открой блокнот")
-    assert result["status"] == "success"
+    assert result["status"] == "not_verified"
+    assert result["verification"]["status"] == "not_verified"
     assert any(c[0] == "computer.click" for c in exe.calls)
     # был хотя бы один шаг клика
     assert any(s["action"] == "click" for s in result["steps"])

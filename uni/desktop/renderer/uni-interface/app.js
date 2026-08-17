@@ -109,11 +109,16 @@ function applyUiEvent(event) {
   switch (event.type) {
     case 'task.started':
     case 'task.update':   return renderTaskUpdate(event);
-    case 'task.done':     return renderTaskDone(event);
+    case 'task.verified': return renderTaskDone(event);
+    case 'task.not_verified': return renderTaskNotVerified(event);
+    case 'task.failed':
+    case 'task.blocked':
+    case 'task.interrupted':
     case 'task.error':    return renderTaskError(event);
     case 'mission.started':
     case 'mission.update':return renderMissionUpdate(event);
-    case 'mission.done':  return renderMissionDone(event);
+    case 'mission.verified': return renderMissionDone(event);
+    case 'mission.not_verified': return renderTaskNotVerified(event);
     case 'approval.required': return renderApproval(event);
     default:
       // неизвестный тип — честный текстовый пузырь, не падаем
@@ -180,6 +185,24 @@ function renderTaskDone(event) {
       c?.classList.add('collapsed');
     }, 1200);
   }
+}
+
+function renderTaskNotVerified(event) {
+  const e = event || {};
+  const ui = e.ui || {};
+  const card = (e.task_id && $(`[data-task-id="${CSS.escape(e.task_id)}"]`)) || makeCard(e.task_id);
+  card.innerHTML = '';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'ui-card-title';
+  titleEl.append(document.createTextNode(e.title || 'Результат не подтверждён'));
+  card.append(titleEl);
+  renderComponentInto(card, ui);
+  const warning = document.createElement('p');
+  warning.className = 'error-text';
+  warning.textContent = 'Действие могло выполниться, но независимой проверки результата нет.';
+  card.append(warning);
+  setAction('error', 'Не подтверждено');
+  setStatus('Не подтверждено', 'waiting');
 }
 
 function renderTaskError(event) {

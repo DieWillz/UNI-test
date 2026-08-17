@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UNI · Remote Control</title>
+<link rel="stylesheet" href="css/admin.css">
+<style>
+body{padding:14px;max-width:1200px;margin:0 auto}
+.rgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
+@media(max-width:900px){.rgrid{grid-template-columns:1fr}}
+#bigSlider{-webkit-appearance:none;width:100%;height:26px;border-radius:14px;background:rgba(141,152,154,.25)}
+#bigSlider::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:99px;background:var(--lime);border:3px solid var(--ink)}
+#bigVal{font-size:34px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="row" style="margin-bottom:10px">
+  <b style="font-size:16px">UNI · Remote Control</b>
+  <span class="chip" id="rSes">сессия: —</span>
+  <span class="chip" id="rMax">max: —</span>
+  <span class="sp"></span>
+  <button class="btn red" style="font-size:14px;padding:10px 20px" onclick="rStop()">■ СТОП</button>
+</div>
+<div class="card" style="margin-bottom:12px">
+  <div class="row"><span id="bigVal">0%</span><span class="sp"></span><span class="tag g" id="rSrc">источник: гость</span></div>
+  <input type="range" id="bigSlider" min="0" max="100" value="0">
+  <div class="note" style="margin-top:6px">Большой слайдер скорости машинки. Значение ограничено лимитом сессии, заданным координатором.</div>
+</div>
+<div class="rgrid">
+  <div>
+    <div class="card"><h3>Паттерны</h3>
+      <div class="row"><label>мощность% <input id="pPow" type="number" value="70" style="width:56px"></label>
+      <label>×время <input id="pScale" type="number" value="1" step="0.1" style="width:56px"></label>
+      <button class="btn red" onclick="rStop()">■</button><span class="sp"></span><span class="tag g" id="patNow">—</span></div>
+      <div id="patGroups" style="margin-top:8px"></div>
+      <div class="kv" style="margin-top:8px"><b>Мой плейлист</b><span id="plCount">0</span></div>
+      <div class="row"><select id="plPat" style="max-width:160px"></select>
+        <label>% <input id="plPow" type="number" value="70" style="width:50px"></label>
+        <label>×<input id="plScale" type="number" value="1" step="0.1" style="width:50px"></label>
+        <button class="btn ghost" onclick="plAdd()">+ шаг</button>
+        <button class="btn" onclick="plRun()">▶ плейлист</button></div>
+      <div id="plList" class="note" style="margin-top:6px">пуст</div>
+    </div>
+    <div class="card" style="margin-top:12px"><h3>Видео и звук координатора</h3>
+      <video id="vid" autoplay playsinline style="width:100%;border-radius:10px;background:#000;min-height:140px"></video>
+      <div class="note" style="margin-top:6px" id="vidState">Трансляция появится, когда координатор нажмёт «Трансляция» и Hermes добавит WebRTC-сигналинг (директива в админке).</div>
+    </div>
+  </div>
+  <div class="card"><h3>Чат с координатором <span class="tag g" id="uniTag">Юни: —</span></h3>
+    <pre class="log" id="chatFeed" style="height:340px">…</pre>
+    <div class="row" style="margin-top:6px"><input id="chatIn" placeholder="сообщение…" style="flex:1"><button class="btn" onclick="chatSend()">➤</button></div>
+  </div>
+</div>
+<script src="js/curves.js"></script>
+<script src="js/remote.js"></script>
+</body>
+</html>

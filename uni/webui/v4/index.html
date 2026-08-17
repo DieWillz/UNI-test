@@ -223,12 +223,52 @@
           <div class="head-actions"><button class="btn" id="xt-refresh">Обновить</button></div>
         </header>
         <div class="grid cards" id="xt-cards"></div>
+        <div class="grid two">
+          <!-- 🔌 Удалённая комната (WebRTC) — переиспользование /api/xtoys/remote/* -->
+          <div class="card" id="xt-room-card">
+            <div class="card-h"><span>📹 Удалённая комната (видео/звук)</span><span class="badge b-unknown" data-b id="xt-room-badge">…</span></div>
+            <div class="card-b">
+              <div class="xt-media"><video id="xt-video" autoplay playsinline controls></video><span id="xt-waiting">Ожидание трансляции владельца…</span></div>
+              <div class="xt-status" id="xt-mediaStatus">подключение к комнате…</div>
+              <button class="btn" onclick="document.getElementById('xt-video').play()">Включить звук / воспроизведение</button>
+            </div>
+          </div>
+          <div class="card" id="xt-ctrl-card">
+            <div class="card-h"><span>🎛 Управление интенсивностью</span><span class="badge b-unknown" data-b id="xt-ctrl-badge">…</span></div>
+            <div class="card-b">
+              <div class="xt-status" id="xt-status">Подключение…</div>
+              <div class="xt-value"><span id="xt-value">0</span>%</div>
+              <input id="xt-range" type="range" min="0" max="40" value="0">
+              <button class="btn danger" id="xt-stop" style="width:100%;font-weight:700">СТОП · 0%</button>
+              <h3 style="margin:12px 0 6px">💬 Чат</h3>
+              <div class="xt-chat" id="xt-chat"></div>
+              <div class="row" style="display:flex;gap:6px">
+                <input id="xt-message" maxlength="1000" placeholder="Сообщение владельцу" style="flex:1;min-width:0;padding:9px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+                <button class="btn" id="xt-sendChat">Отправить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="xt-computer-card">
+          <div class="card-h"><span>🖥 Компьютер (замкнутый цикл под зрением)</span><span class="badge b-unknown" data-b id="xt-computer-badge">…</span></div>
+          <div class="card-b">
+            <div class="xt-status">Юни видит экран и действует под зрением владельца.</div>
+            <div class="row" style="display:flex;gap:6px">
+              <input id="xt-computerGoal" maxlength="500" placeholder="Цель: открой блокнот" style="flex:1;min-width:0;padding:9px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+              <button class="btn" id="xt-computerAct">Выполнить</button>
+            </div>
+            <button class="btn danger" id="xt-computerStop" style="width:100%;font-weight:700;margin-top:8px">🛑 СТОП Компьютер</button>
+            <div class="xt-chat" id="xt-computerLog" style="height:160px;margin-top:8px"></div>
+          </div>
+        </div>
         <div class="card">
           <div class="card-h"><span>Примечание</span></div>
           <div class="card-b">
             <p class="hint">Интеграция XToys/Intiface требует <b>реального устройства</b> и
             внешнего сервера (Intiface Central). Без железа статусы будут «НЕТ ДАННЫХ».
-            Safety-гейты (max_intensity, verified_physical=false, ESC-стоп) сохранены.</p>
+            Удалённая комната (WebRTC) подключается по токену: откройте <code>#token=...</code>
+            в адресе страницы. Safety-гейты (max_intensity, verified_physical=false, ESC-стоп) сохранены.
+            Отдельная точка входа — <code>remote-control.html</code> (не трогается).</p>
           </div>
         </div>
       </section>
@@ -242,7 +282,7 @@
         <div class="card" style="max-width:620px">
           <div class="card-h"><span>Параметры оверлея (state.json)</span><span class="badge b-unknown" data-b>…</span></div>
           <div class="card-b" id="st-form">
-            <div class="kv"><span>UI вариант</span><select id="st-ui_variant"><option>v3</option><option>v4</option><option>v5</option></select></div>
+            <div class="kv"><span>UI вариант</span><select id="st-ui_variant"><option value="v4">v4</option><option value="classic">classic</option></select></div>
             <div class="kv"><span>Роль</span><input id="st-role" value="default" size="14"></div>
             <div class="kv"><span>Consent (L0–L4)</span>
               <select id="st-consent"><option>L0</option><option>L1</option><option>L2</option><option>L3</option><option>L4</option></select></div>

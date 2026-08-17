@@ -104,7 +104,7 @@ def test_act_on_screen_success():
     el = {"x": 100, "y": 100, "width": 80, "height": 30, "confidence": 0.9}
     agent, computer, _ = _make_agent(locate=el, verify_yes=True)
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert len(computer.clicks) == 1
     assert computer.clicks[0] == (140, 115)
 

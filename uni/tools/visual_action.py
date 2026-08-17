@@ -111,7 +111,7 @@ class VisualActionAgent:
                 зоны не выполняется (безопасно по умолчанию).
 
         Возвращает dict:
-            {"status": "success"|"failed"|"interrupted"|"clarify"|"blocked",
+            {"status": "verified"|"failed"|"interrupted"|"clarify"|"blocked",
              "steps": [...], "error": str|None}
         """
         goal = (goal or "").strip()
@@ -201,13 +201,27 @@ class VisualActionAgent:
                 # 🤖 сохраняем успешную траекторию (B-05) — аддитивно, тихо
                 try:
                     from uni.tools.trajectory_store import save_trajectory
-                    save_trajectory(goal, steps, list(self.history), status="success")
+                    save_trajectory(goal, steps, list(self.history), status="verified")
                 except Exception:
                     pass
                 self._active = False
-                self._result_status = "success"
+                self._result_status = "verified"
                 self._result_error = "Задача выполнена"
-                return {"status": "success", "steps": steps, "error": None}
+                return {
+                    "status": "verified",
+                    "steps": steps,
+                    "error": None,
+                    "verification": {
+                        "status": "verified",
+                        "method": "fresh_desktop_observation",
+                        "evidence": [
+                            {
+                                "source": "vision.analyze_desktop",
+                                "summary": f"Свежий снимок подтвердил достижение цели: {goal}",
+                            }
+                        ],
+                    },
+                }
             self.history.append(f"шаг {step}: проверила — пока не достигнуто, повторяю")
 
         self._active = False
@@ -225,9 +239,17 @@ class VisualActionAgent:
             f"{goal}. Кратко ответь по-русски, фактически."
         )
         return {
-            "status": "success" if analysis.success else "failed",
+            "status": "verified" if analysis.success else "failed",
             "steps": [{"action": "observe", "message": analysis.message}],
             "error": None if analysis.success else analysis.message,
+            "verification": ({
+                "status": "verified",
+                "method": "direct_observation",
+                "evidence": [{
+                    "source": "vision.analyze_desktop",
+                    "summary": analysis.message or "Экран наблюдён",
+                }],
+            } if analysis.success else None),
         }
 
     # -- внутреннее -------------------------------------------------------

@@ -13,16 +13,23 @@ from uni.event_loop import EventLoop
 
 
 class _FakeVisualAgent:
-    def __init__(self, status="success"):
+    def __init__(self, status="verified"):
         self.calls = []
         self._status = status
 
     async def act_on_screen(self, goal, max_steps=8, screen_size=None):
         self.calls.append(goal)
-        return {"status": self._status, "steps": [], "error": None}
+        result = {"status": self._status, "steps": [], "error": None}
+        if self._status == "verified":
+            result["verification"] = {
+                "status": "verified",
+                "method": "fake_fresh_observation",
+                "evidence": [{"source": "fake.vision", "summary": "goal visible after action"}],
+            }
+        return result
 
 
-def _make_loop(status="success"):
+def _make_loop(status="verified"):
     loop = EventLoop.__new__(EventLoop)  # обход тяжёлого __init__
     agent = _FakeVisualAgent(status=status)
     loop._agent_ref = agent
@@ -30,7 +37,7 @@ def _make_loop(status="success"):
 
 
 def test_visual_route_opens_target():
-    loop, agent = _make_loop("success")
+    loop, agent = _make_loop("verified")
     out = asyncio.run(loop._try_visual_command("открой блокнот"))
     assert out is not None
     assert "Готово" in out
@@ -38,7 +45,7 @@ def test_visual_route_opens_target():
 
 
 def test_visual_route_click_target():
-    loop, agent = _make_loop("success")
+    loop, agent = _make_loop("verified")
     out = asyncio.run(loop._try_visual_command("кликни по кнопке сохранить"))
     assert out is not None
     assert "Готово" in out
@@ -52,7 +59,7 @@ def test_visual_route_blocked():
 
 
 def test_non_visual_text_returns_none():
-    loop, agent = _make_loop("success")
+    loop, agent = _make_loop("verified")
     out = asyncio.run(loop._try_visual_command("привет, как дела?"))
     assert out is None
     assert agent.calls == []  # act_on_screen не вызывался

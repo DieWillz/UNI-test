@@ -49,6 +49,32 @@ def _pids() -> dict:
     return _read_json(_RUNTIME / "pids.json", {}) or {}
 
 
+def _pid_alive(pid: Any) -> bool:
+    try:
+        value = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if value <= 0:
+        return False
+    try:
+        import psutil
+
+        proc = psutil.Process(value)
+        return proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE
+    except Exception:
+        try:
+            completed = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {value}", "/FO", "CSV", "/NH"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                creationflags=0x08000000 if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            return completed.returncode == 0 and f'"{value}"' in completed.stdout
+        except Exception:
+            return False
+
+
 # ────────────────────────────────────────────────────────────
 # /api/admin/stack — llama/webui/launcher/electron + модель
 # ────────────────────────────────────────────────────────────
@@ -77,11 +103,11 @@ def admin_stack() -> dict:
 
     # launcher (если есть pid)
     launcher_pid = (pids.get("launcher") or {}).get("pid")
-    out["launcher"] = {"pid": launcher_pid, "running": bool(launcher_pid)}
+    out["launcher"] = {"pid": launcher_pid, "running": _pid_alive(launcher_pid)}
 
     # electron (desktop)
     electron_pid = (pids.get("electron") or {}).get("pid")
-    out["electron"] = {"pid": electron_pid, "running": bool(electron_pid)}
+    out["electron"] = {"pid": electron_pid, "running": _pid_alive(electron_pid)}
 
     return out
 
@@ -150,7 +176,19 @@ def _phases() -> list[dict]:
     data = _read_json(_RUNTIME / "admin" / "phases.json", [])
     if isinstance(data, dict):  # поддержка {phases: [...]} и [...]
         data = data.get("phases", [])
-    return data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        return []
+    normalized = []
+    for raw in data:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        status = str(item.get("status") or "").strip().casefold()
+        item["done"] = bool(item.get("done")) or status in {
+            "done", "verified", "completed", "complete", "[v]", "[x]",
+        }
+        normalized.append(item)
+    return normalized
 
 
 def _backlog_items() -> list[dict]:
@@ -263,8 +301,18 @@ def admin_stats() -> dict:
             pass
     # последний pytest
     pt = _read_json(_RUNTIME / "pytest_last.json")
-    if pt:
-        stats["pytest"] = pt
+    if isinstance(pt, dict):
+        normalized = dict(pt)
+        if normalized.get("status") == "running" and not _pid_alive(normalized.get("pid")):
+            normalized["status"] = "stale"
+            normalized["stale"] = True
+            normalized["error"] = "процесс pytest отсутствует; сохранённый статус устарел"
+        for key in ("passed", "failed", "total"):
+            value = normalized.get(key)
+            normalized[key] = int(value) if isinstance(value, (int, float)) else 0
+        stats["pytest"] = normalized
+    elif pt:
+        stats["pytest"] = str(pt)
     else:
         xml = _OUTBOX / "HERMES_PYTEST.xml"
         if xml.is_file():
@@ -411,7 +459,10 @@ def _handle_admin_action(action: str, params: dict) -> dict:
         return {"created": str(stop)}
 
     if action == "set_ui_variant":
-        return _write_state("interface", str(params.get("v", "v4")))
+        variant = str(params.get("v", "v4")).strip().casefold()
+        if variant not in {"classic", "v4"}:
+            raise ValueError("ui_variant должен быть classic или v4")
+        return _write_state("ui_variant", variant)
 
     if action == "set_role":
         return _write_state("role", str(params.get("r", "default")))
@@ -461,4 +512,3 @@ def _handle_admin_action(action: str, params: dict) -> dict:
         return {"note": "build_dist.bat не найден"}
 
     raise ValueError(f"unknown action: {action}")
-

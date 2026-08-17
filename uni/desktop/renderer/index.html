@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src http://127.0.0.1:8787; img-src 'self' data:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>Юни</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -23,7 +24,7 @@
         <!-- 🤖 Hermes (2026-08-14): кнопка режима мыши Юни (аддитивно к 👁).
              Отдельный id uniMouseButton, чтобы не конфликтовать с существующей
              mouseModeButton (toggleMouseOnly / goal mouse_only). -->
-        <button id="cameraButton" class="icon-button camera-icon active" title="Камера включена" aria-label="Камера"><img src="../assets/icons/computer-camera-svgrepo-com.svg" alt=""></button>
+        <button id="cameraButton" class="icon-button camera-icon" title="Камера выключена" aria-label="Камера" aria-pressed="false"><img src="../assets/icons/computer-camera-off-svgrepo-com.svg" alt=""></button>
         <button id="mouseModeButton" class="icon-button mouse-icon" title="Физический режим мыши" aria-label="Физический режим мыши" aria-pressed="false"><img src="../assets/icons/mouse-svgrepo-com.svg" alt=""></button>
         <button id="overlayButton" class="icon-button overlay-icon" title="Прозрачный режим" aria-label="Прозрачный режим"><img src="../assets/icons/ghost-svgrepo-com.svg" alt=""></button>
         <button id="settingsButton" class="icon-button settings-icon" title="Настройки" aria-label="Настройки"><img src="../assets/icons/settings-3-svgrepo-com.svg" alt=""></button>

@@ -67,11 +67,11 @@ def test_approval_requires_confirmation_flag_preserved():
 
 def test_unknown_event_type_dropped():
     ev = validate_ui_events([
-        {"type": "task.done", "task_id": "t1", "ui": {"component": "result_text", "text": "ok"}},
+        {"type": "task.verified", "task_id": "t1", "verification": {"status": "verified", "method": "test", "evidence": [{"kind": "assertion", "value": "ok"}]}, "ui": {"component": "result_text", "text": "ok"}},
         {"type": "dogSearch.hack", "ui": {"component": "result_gallery"}},  # не канон
     ])
     assert len(ev) == 1
-    assert ev[0]["type"] == "task.done"
+    assert ev[0]["type"] == "task.verified"
 
 
 def test_resolve_action_known_and_unknown():

@@ -43,7 +43,7 @@ def test_integration_success():
     el = {"x": 10, "y": 10, "width": 20, "height": 20, "confidence": 0.9}
     agent = VisualActionAgent(_Comp(), _Vis(el, verify_yes=True))
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert len(agent._computer.clicks) == 1
 
 

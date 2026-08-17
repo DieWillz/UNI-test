@@ -74,7 +74,7 @@ def test_success_when_verify_yes():
     el = {"x": 100, "y": 100, "width": 80, "height": 30, "confidence": 0.9}
     agent, computer, _ = _make_agent(locate_result=el, verify_yes=True)
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert len(computer.clicks) == 1
     assert computer.clicks[0] == (140, 115)  # центр
 
@@ -112,7 +112,7 @@ def test_blocked_on_dangerous_goal():
 def test_observe_text_safe_mode():
     agent, computer, vision = _make_agent(locate_result=None, verify_yes=True)
     out = asyncio.run(agent.observe_text("что на экране"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert len(computer.clicks) == 0
     assert vision.analyze_calls == 1
 
@@ -136,7 +136,7 @@ def test_status_reflects_active_steps():
     assert st["active"] is False  # ещё не запускался
     assert st["steps"] == 0
     out = asyncio.run(agent.act_on_screen("цель"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert agent.status()["steps"] >= 1
 
 
@@ -162,7 +162,7 @@ def test_safe_zone_allows_normal_click():
     el = {"x": 900, "y": 500, "width": 100, "height": 40, "confidence": 0.9}
     agent, computer, vision = _make_agent(locate_result=el, verify_yes=True)
     out = asyncio.run(agent.act_on_screen("цель", screen_size=(1920, 1080)))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     assert len(computer.clicks) == 1
 
 
@@ -171,7 +171,7 @@ def test_history_records_steps_readable():
     el = {"x": 100, "y": 100, "width": 80, "height": 30, "confidence": 0.9}
     agent, computer, vision = _make_agent(locate_result=el, verify_yes=True)
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
-    assert out["status"] == "success"
+    assert out["status"] == "verified"
     hist = agent.get_history()
     joined = " ".join(hist).lower()
     assert "сделала" in joined, "нет этапа 'сделала' в истории"
