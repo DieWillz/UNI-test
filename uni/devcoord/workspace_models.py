@@ -95,6 +95,8 @@ class AgentSession(BaseModel):
     task_id: str | None = Field(default=None, max_length=300)
     process_id: int | None = Field(default=None, ge=1)
     worktree_path: str | None = Field(default=None, max_length=2000)
+    stdout_log_path: str | None = Field(default=None, max_length=2000)
+    stderr_log_path: str | None = Field(default=None, max_length=2000)
     capabilities: list[str] = Field(default_factory=list, max_length=100)
     state: SessionState = SessionState.ACTIVE
     started_at: str = Field(default_factory=utc_now)
