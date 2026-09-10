@@ -39,10 +39,37 @@ class SessionState(str, Enum):
     STOPPED = "stopped"
 
 
+class WorkTaskState(str, Enum):
+    PLANNED = "planned"
+    READY = "ready"
+    CLAIMED = "claimed"
+    ACTIVE = "active"
+    VERIFYING = "verifying"
+    VERIFIED = "verified"
+    BLOCKED = "blocked"
+    CONFLICT = "conflict"
+    FAILED = "failed"
+    STALE = "stale"
+    ABANDONED = "abandoned"
+
+
 class ResourceRequest(BaseModel):
     resource_type: ResourceType
     resource_key: str = Field(min_length=1, max_length=1000)
     access_mode: AccessMode = AccessMode.WRITE
+
+
+class WorkspaceTask(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=300)
+    title: str = Field(min_length=1, max_length=300)
+    priority: int = Field(default=0, ge=-10000, le=10000)
+    dependencies: list[str] = Field(default_factory=list, max_length=100)
+    required_capabilities: list[str] = Field(default_factory=list, max_length=100)
+    requested_resources: list[ResourceRequest] = Field(default_factory=list, max_length=200)
+    state: WorkTaskState = WorkTaskState.PLANNED
+    assigned_session_id: str | None = Field(default=None, max_length=300)
+    created_at: str = Field(default_factory=utc_now)
+    updated_at: str = Field(default_factory=utc_now)
 
 
 class ResourceLease(BaseModel):

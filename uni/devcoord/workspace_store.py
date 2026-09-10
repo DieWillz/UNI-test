@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-from uni.devcoord.workspace_models import AgentSession, WorkspaceEvent
+from uni.devcoord.workspace_models import AgentSession, WorkspaceEvent, WorkspaceTask
 
 
 class WorkspaceStore:
@@ -63,6 +63,17 @@ class WorkspaceStore:
             )
             conn.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS workspace_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    state TEXT NOT NULL,
+                    priority INTEGER NOT NULL,
+                    assigned_session_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_workspace_tasks_state_priority
+                    ON workspace_tasks(state, priority DESC, created_at, task_id);
                 CREATE TABLE IF NOT EXISTS resource_leases (
                     lease_id TEXT PRIMARY KEY,
                     task_id TEXT NOT NULL,
@@ -104,6 +115,50 @@ class WorkspaceStore:
         with self._connect() as conn:
             row = conn.execute("PRAGMA foreign_keys").fetchone()
         return bool(row[0])
+
+    def save_workspace_task(self, task: WorkspaceTask) -> None:
+        payload = task.model_dump_json()
+        with self.transaction(immediate=True) as conn:
+            conn.execute(
+                """
+                INSERT INTO workspace_tasks(
+                    task_id, state, priority, assigned_session_id,
+                    created_at, updated_at, payload_json
+                ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    state=excluded.state,
+                    priority=excluded.priority,
+                    assigned_session_id=excluded.assigned_session_id,
+                    updated_at=excluded.updated_at,
+                    payload_json=excluded.payload_json
+                """,
+                (
+                    task.id,
+                    task.state.value,
+                    task.priority,
+                    task.assigned_session_id,
+                    task.created_at,
+                    task.updated_at,
+                    payload,
+                ),
+            )
+
+    def get_workspace_task(self, task_id: str) -> WorkspaceTask:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM workspace_tasks WHERE task_id=?",
+                (task_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown workspace task: {task_id}")
+        return WorkspaceTask.model_validate(json.loads(row[0]))
+
+    def list_workspace_tasks(self) -> list[WorkspaceTask]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM workspace_tasks ORDER BY rowid"
+            ).fetchall()
+        return [WorkspaceTask.model_validate(json.loads(row[0])) for row in rows]
 
     def save_session(self, session: AgentSession) -> None:
         payload = session.model_dump_json()
