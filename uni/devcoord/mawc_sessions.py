@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
+from uni.devcoord.workspace_models import (
+    AgentSession,
+    LeaseState,
+    ResourceLease,
+    SessionState,
+    WorkspaceEvent,
+)
+from uni.devcoord.workspace_store import WorkspaceStore
+
+
+class AgentSessionManager:
+    """Lifecycle manager for MAWC executor sessions."""
+
+    def __init__(self, store: WorkspaceStore) -> None:
+        self.store = store
+
+    @staticmethod
+    def _window(ttl_seconds: float) -> tuple[str, str]:
+        if ttl_seconds <= 0:
+            raise ValueError("ttl_seconds must be positive")
+        now = datetime.now(timezone.utc)
+        return now.isoformat(), (now + timedelta(seconds=ttl_seconds)).isoformat()
+    def register(
+        self,
+        *,
+        agent_id: str,
+        display_name: str,
+        task_id: str | None = None,
+        session_id: str | None = None,
+        process_id: int | None = None,
+        worktree_path: str | None = None,
+        capabilities: list[str] | None = None,
+        ttl_seconds: float = 600.0,
+    ) -> AgentSession:
+        heartbeat_at, expires_at = self._window(ttl_seconds)
+        session = AgentSession(
+            session_id=session_id or str(uuid4()),
+            agent_id=agent_id,
+            display_name=display_name,
+            task_id=task_id,
+            process_id=process_id,
+            worktree_path=worktree_path,
+            capabilities=list(capabilities or []),
+            state=SessionState.ACTIVE,
+            heartbeat_at=heartbeat_at,
+            expires_at=expires_at,
+        )
+        self.store.save_session(session)
+        self.store.append_event(
+            WorkspaceEvent(event="session.registered", task_id=task_id, session_id=session.session_id)
+        )
+        return session
+
+    def get(self, session_id: str) -> AgentSession:
+        return self.store.get_session(session_id)
+
+    def heartbeat(self, session_id: str, *, ttl_seconds: float = 600.0) -> AgentSession:
+        session = self.store.get_session(session_id)
+        if session.state is SessionState.STALE:
+            raise RuntimeError("stale session requires controlled takeover")
+        heartbeat_at, expires_at = self._window(ttl_seconds)
+        next_state = (
+            SessionState.VERIFYING
+            if session.state is SessionState.VERIFYING
+            else SessionState.ACTIVE
+        )
+        refreshed = session.model_copy(
+            update={
+                "state": next_state,
+                "heartbeat_at": heartbeat_at,
+                "expires_at": expires_at,
+            }
+        )
+        self.store.save_session(refreshed)
+        self._refresh_leases(session_id, heartbeat_at, expires_at)
+        self.store.append_event(
+            WorkspaceEvent(
+                event="session.heartbeat",
+                task_id=refreshed.task_id,
+                session_id=session_id,
+            )
+        )
+        return refreshed
+
+    def _refresh_leases(self, session_id: str, heartbeat_at: str, expires_at: str) -> None:
+        with self.store.transaction(immediate=True) as conn:
+            rows = conn.execute(
+                "SELECT lease_id, payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
+                (session_id, LeaseState.RELEASED.value),
+            ).fetchall()
+            for lease_id, payload_json in rows:
+                lease = ResourceLease.model_validate(json.loads(payload_json)).model_copy(
+                    update={"heartbeat_at": heartbeat_at, "expires_at": expires_at}
+                )
+                conn.execute(
+                    "UPDATE resource_leases SET heartbeat_at=?, expires_at=?, payload_json=? WHERE lease_id=?",
+                    (heartbeat_at, expires_at, lease.model_dump_json(), lease_id),
+                )
+
+    def mark_stale(self, *, now: datetime | None = None) -> list[AgentSession]:
+        moment = now or datetime.now(timezone.utc)
+        stale_sessions: list[AgentSession] = []
+        with self.store.transaction(immediate=True) as conn:
+            rows = conn.execute(
+                "SELECT session_id, payload_json FROM agent_sessions WHERE state NOT IN (?, ?)",
+                (SessionState.STALE.value, SessionState.STOPPED.value),
+            ).fetchall()
+            for session_id, payload_json in rows:
+                session = AgentSession.model_validate(json.loads(payload_json))
+                if not session.expires_at or datetime.fromisoformat(session.expires_at) > moment:
+                    continue
+                stale = session.model_copy(update={"state": SessionState.STALE})
+                stale_sessions.append(stale)
+                conn.execute(
+                    "UPDATE agent_sessions SET state=?, payload_json=? WHERE session_id=?",
+                    (SessionState.STALE.value, stale.model_dump_json(), session_id),
+                )
+                lease_rows = conn.execute(
+                    "SELECT lease_id, payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
+                    (session_id, LeaseState.RELEASED.value),
+                ).fetchall()
+                for lease_id, lease_json in lease_rows:
+                    lease = ResourceLease.model_validate(json.loads(lease_json)).model_copy(
+                        update={"state": LeaseState.STALE}
+                    )
+                    conn.execute(
+                        "UPDATE resource_leases SET state=?, payload_json=? WHERE lease_id=?",
+                        (LeaseState.STALE.value, lease.model_dump_json(), lease_id),
+                    )
+        for stale in stale_sessions:
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="session.stale",
+                    task_id=stale.task_id,
+                    session_id=stale.session_id,
+                )
+            )
+        return stale_sessions
