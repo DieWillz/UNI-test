@@ -46,6 +46,7 @@ class WorkTaskState(str, Enum):
     ACTIVE = "active"
     VERIFYING = "verifying"
     VERIFIED = "verified"
+    MERGED = "merged"
     BLOCKED = "blocked"
     CONFLICT = "conflict"
     FAILED = "failed"
@@ -66,6 +67,7 @@ class WorkspaceTask(BaseModel):
     dependencies: list[str] = Field(default_factory=list, max_length=100)
     required_capabilities: list[str] = Field(default_factory=list, max_length=100)
     requested_resources: list[ResourceRequest] = Field(default_factory=list, max_length=200)
+    verification_argv: list[list[str]] = Field(default_factory=list, max_length=100)
     state: WorkTaskState = WorkTaskState.PLANNED
     assigned_session_id: str | None = Field(default=None, max_length=300)
     created_at: str = Field(default_factory=utc_now)
