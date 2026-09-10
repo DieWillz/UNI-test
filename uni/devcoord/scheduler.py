@@ -45,7 +45,7 @@ class TaskScheduler:
                 continue
             if any(
                 dependency not in by_id
-                or by_id[dependency].state is not WorkTaskState.VERIFIED
+                or by_id[dependency].state is not WorkTaskState.MERGED
                 for dependency in task.dependencies
             ):
                 continue

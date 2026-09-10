@@ -54,11 +54,18 @@ def test_ready_tasks_respect_dependencies_capabilities_and_priority(tmp_path: Pa
         capabilities=["python", "git"],
     ))
     store.save_workspace_task(WorkspaceTask(
-        id="BASE", title="Base", state=WorkTaskState.VERIFIED,
+        id="BASE", title="Base", state=WorkTaskState.MERGED,
     ))
     store.save_workspace_task(WorkspaceTask(
         id="HIGH", title="High", priority=100,
         dependencies=["BASE"], required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="VERIFIED_ONLY", title="Verified only", state=WorkTaskState.VERIFIED,
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="WAITING_MERGE", title="Waiting merge", priority=150,
+        dependencies=["VERIFIED_ONLY"], required_capabilities=["python"], state=WorkTaskState.READY,
     ))
     store.save_workspace_task(WorkspaceTask(
         id="BLOCKED", title="Blocked", priority=300,
