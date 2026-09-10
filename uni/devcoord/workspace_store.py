@@ -198,6 +198,13 @@ class WorkspaceStore:
             raise KeyError(f"unknown agent session: {session_id}")
         return AgentSession.model_validate(json.loads(row[0]))
 
+    def list_sessions(self) -> list[AgentSession]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM agent_sessions ORDER BY rowid"
+            ).fetchall()
+        return [AgentSession.model_validate(json.loads(row[0])) for row in rows]
+
     def append_event(self, event: WorkspaceEvent) -> None:
         payload = event.model_dump_json()
         with self.transaction(immediate=True) as conn:
