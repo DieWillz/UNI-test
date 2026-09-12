@@ -13,6 +13,7 @@ from uni.devcoord.integration import (
 )
 from uni.devcoord.leases import ResourceLeaseManager
 from uni.devcoord.workspace_models import (
+    AccessMode,
     AgentSession,
     ResourceRequest,
     ResourceType,
@@ -85,6 +86,8 @@ def test_owned_verified_change_merges_and_releases_session(tmp_path: Path) -> No
     outcome = manager.integrate("UNI-500")
 
     assert outcome.merged is True
+    assert not outcome.candidate_path.exists()
+    assert str(outcome.candidate_path) not in _git(repo, "worktree", "list", "--porcelain")
     assert store.get_workspace_task("UNI-500").state is WorkTaskState.MERGED
     session = store.get_session("session-hermes")
     assert session.state is SessionState.ACTIVE
@@ -135,3 +138,51 @@ def test_post_merge_verification_failure_does_not_advance_integration(tmp_path: 
         event.event == "integration.verification_failed"
         for event in store.list_events(limit=30)
     )
+
+
+def test_exclusive_lease_counts_as_write_ownership(tmp_path: Path) -> None:
+    command = [[sys.executable, "-c", "pass"]]
+    _, store, task_ref, manager = _setup(tmp_path, command)
+    leases = ResourceLeaseManager(store).list_active()
+    assert len(leases) == 1
+    ResourceLeaseManager(store).release(leases[0].lease_id)
+    ResourceLeaseManager(store).claim(
+        "UNI-500",
+        "session-hermes",
+        [ResourceRequest(
+            resource_type=ResourceType.FILE,
+            resource_key="owned.txt",
+            access_mode=AccessMode.EXCLUSIVE,
+        )],
+    )
+    (task_ref.path / "owned.txt").write_text("exclusive", encoding="utf-8")
+
+    outcome = manager.integrate("UNI-500")
+
+    assert outcome.merged is True
+    assert (manager.integration_path / "owned.txt").read_text(encoding="utf-8") == "exclusive"
+
+
+def test_merge_state_rolls_back_when_merged_event_write_fails(tmp_path: Path) -> None:
+    command = [[sys.executable, "-c", "pass"]]
+    _, store, task_ref, manager = _setup(tmp_path, command)
+    (task_ref.path / "owned.txt").write_text("changed", encoding="utf-8")
+    before_session = store.get_session("session-hermes")
+    before_leases = ResourceLeaseManager(store).list_active()
+    with store.transaction(immediate=True) as conn:
+        conn.execute(
+            "CREATE TRIGGER fail_integration_merged BEFORE INSERT ON workspace_events "
+            "WHEN NEW.event='integration.merged' BEGIN SELECT RAISE(ABORT, 'boom'); END"
+        )
+
+    with pytest.raises(Exception, match="boom"):
+        manager.integrate("UNI-500")
+
+    assert store.get_workspace_task("UNI-500").state is WorkTaskState.VERIFIED
+    after_session = store.get_session("session-hermes")
+    assert after_session.state is before_session.state
+    assert after_session.task_id == before_session.task_id
+    assert after_session.worktree_path == before_session.worktree_path
+    after_leases = ResourceLeaseManager(store).list_active()
+    assert [lease.lease_id for lease in after_leases] == [lease.lease_id for lease in before_leases]
+    assert all(lease.state is before.state for lease, before in zip(after_leases, before_leases))

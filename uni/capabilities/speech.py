@@ -92,6 +92,7 @@ class SpeechCapability(Capability):
         self._piper: PiperVoice | None = None
         self._silero = None
         self._stt_lock = asyncio.Lock()
+        self._listen_lock = asyncio.Lock()
         self._tts_lock = asyncio.Lock()
         self._playback_active = False
 
@@ -307,7 +308,9 @@ class SpeechCapability(Capability):
         return audio.reshape(-1)
 
     def _chunk_has_voice(self, audio: np.ndarray) -> bool:
-        prepared = self._prepare_input_audio(audio)
+        # Voice activation uses only fixed gain so adaptive gain cannot amplify
+        # the room noise and accidentally start a recording.
+        prepared = self._prepare_input_audio(audio, adaptive=False)
         if prepared.size == 0:
             return False
         rms = float(np.sqrt(np.mean(np.square(prepared), dtype=np.float64)))
@@ -358,23 +361,38 @@ class SpeechCapability(Capability):
 
         return np.concatenate(utterance).astype(np.float32, copy=False) if utterance else np.empty(0, dtype=np.float32)
 
-    def _prepare_input_audio(self, audio: np.ndarray) -> np.ndarray:
-        """Remove DC offset, amplify, and hard-limit audio for Whisper."""
+    def _prepare_input_audio(self, audio: np.ndarray, *, adaptive: bool = True) -> np.ndarray:
+        """Remove DC, apply configured gain and gently normalize quiet speech.
+
+        Adaptive gain is used only for the complete utterance sent to Whisper.
+        Voice activation deliberately disables it, so room noise is not promoted
+        into speech merely because AGC is enabled.
+        """
         prepared = np.asarray(audio, dtype=np.float32).reshape(-1)
         if prepared.size == 0:
             return prepared
         prepared = prepared - np.mean(prepared, dtype=np.float64)
         prepared = prepared * self.microphone_gain
+        if adaptive:
+            rms = float(np.sqrt(np.mean(np.square(prepared), dtype=np.float64)))
+            if 1e-5 < rms < 0.02:
+                adaptive_boost = min(10.0, 0.04 / rms)
+                prepared = prepared * adaptive_boost
         return np.clip(prepared, -1.0, 1.0).astype(np.float32, copy=False)
 
     async def listen(self, duration: float = 4.0) -> str:
-        await self._init_stt()
-        recorded = await asyncio.to_thread(self._record_utterance, max(0.5, float(duration)))
-        audio = self._prepare_input_audio(recorded)
-        if float(np.max(np.abs(audio), initial=0.0)) < 0.002:
-            return ""
-        assert self._whisper is not None
-        return await asyncio.to_thread(self._transcribe_audio, audio)
+        async with self._listen_lock:
+            # Do not transcribe UNI's own TTS playback in continuous-dialog mode.
+            deadline = time.monotonic() + 30.0
+            while self._playback_active and time.monotonic() < deadline:
+                await asyncio.sleep(0.05)
+            await self._init_stt()
+            recorded = await asyncio.to_thread(self._record_utterance, max(0.5, float(duration)))
+            audio = self._prepare_input_audio(recorded)
+            if float(np.max(np.abs(audio), initial=0.0)) < 0.002:
+                return ""
+            assert self._whisper is not None
+            return await asyncio.to_thread(self._transcribe_audio, audio)
 
     def _transcribe_audio(self, audio: np.ndarray) -> str:
         assert self._whisper is not None
@@ -410,6 +428,50 @@ class SpeechCapability(Capability):
         if any(marker in normalized for marker in hallucination_markers):
             return ""
         return transcript
+
+    async def transcribe_media_bytes(self, data: bytes, mime: str = "audio/webm") -> str:
+        """Transcribe uploaded media with the same configured local Whisper as live microphone STT."""
+        if not data:
+            return ""
+        await self._init_stt()
+        suffix = {
+            "audio/webm": ".webm", "audio/wav": ".wav", "audio/x-wav": ".wav",
+            "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/mp4": ".m4a",
+            "audio/x-m4a": ".m4a", "audio/ogg": ".ogg",
+        }.get(str(mime).split(";", 1)[0].casefold().strip(), ".webm")
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(prefix="uni-stt-", suffix=suffix, delete=False) as temp:
+                temp.write(data)
+                temp_path = temp.name
+            assert self._whisper is not None
+            segments, _ = await asyncio.to_thread(
+                self._whisper.transcribe,
+                temp_path,
+                language="ru",
+                beam_size=self.stt_beam_size,
+                vad_filter=True,
+                condition_on_previous_text=False,
+            )
+            accepted: list[str] = []
+            for segment in segments:
+                text = str(getattr(segment, "text", "")).strip()
+                if not text:
+                    continue
+                if float(getattr(segment, "no_speech_prob", 0.0)) > 0.65:
+                    continue
+                if float(getattr(segment, "avg_logprob", 0.0)) < -1.2:
+                    continue
+                if float(getattr(segment, "compression_ratio", 0.0)) > 2.4:
+                    continue
+                accepted.append(text)
+            return " ".join(accepted).strip()
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
 
     def _synthesize_audio(self, text: str) -> tuple[np.ndarray, int]:
         if self.tts_provider == "silero":

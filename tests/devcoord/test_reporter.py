@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from uni.devcoord.leases import ResourceLeaseManager
 from uni.devcoord.reporter import DevelopmentReporter
 from uni.devcoord.workspace_models import (
     AgentSession,
+    ResourceRequest,
+    ResourceType,
     SessionState,
     WorkTaskState,
     WorkspaceEvent,
@@ -72,3 +75,28 @@ def test_workspace_store_lists_sessions_for_supervisor(tmp_path: Path) -> None:
     sessions = store.list_sessions()
 
     assert [session.session_id for session in sessions] == ["b", "a"]
+
+
+def test_reporter_classifies_expired_runtime_state_as_stale(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="expired", agent_id="expired", display_name="Expired",
+        state=SessionState.ACTIVE,
+        expires_at="2000-01-01T00:00:00+00:00",
+    ))
+    ResourceLeaseManager(store).claim(
+        "TASK", "expired",
+        [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/expired.py")],
+        ttl_seconds=600,
+    )
+    lease = ResourceLeaseManager(store).list_active()[0]
+    store.save_resource_lease(lease.model_copy(update={
+        "expires_at": "2000-01-01T00:00:00+00:00"
+    }))
+
+    report = DevelopmentReporter(store).snapshot()
+
+    assert report.session_counts.get("active", 0) == 0
+    assert report.session_counts["stale"] == 1
+    assert report.lease_counts.get("claimed", 0) == 0
+    assert report.lease_counts["stale"] == 1

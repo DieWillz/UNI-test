@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0B1115">
+<title>UNI · Мобильная мышь</title>
+<link rel="stylesheet" href="css/admin.css?v=20260817-4">
+<style>
+html,body{height:100%;overscroll-behavior:none;touch-action:none}body{padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));max-width:760px;margin:auto;display:flex;flex-direction:column;gap:9px}.mobile-head{display:flex;align-items:center;gap:7px}.mobile-head b{font-size:16px}.mobile-head .tag{margin-left:auto}.touch-layout{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px;flex:1;min-height:310px}.touchpad,.wheel{border:1px solid rgba(141,152,154,.25);background:rgba(23,32,38,.78);border-radius:8px;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none}.touchpad{display:grid;place-items:center;color:var(--mute)}.touchpad:active,.wheel:active{border-color:var(--lime);background:rgba(184,230,29,.07)}.touchpad span{text-align:center;pointer-events:none}.wheel{display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:18px 5px;color:var(--mute)}.wheel:after{content:'';position:absolute;left:50%;top:50%;width:22px;height:52px;transform:translate(-50%,-50%);border:1px solid rgba(141,152,154,.35);border-radius:14px}.mouse-buttons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.mouse-buttons button,.clip-actions button{min-height:48px;font-size:13px}.clip-card textarea{width:100%;min-height:92px;resize:none;touch-action:pan-y}.clip-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}.mobile-status{min-height:34px;display:flex;align-items:center}.mobile-status[data-kind=error]{border-color:rgba(240,68,68,.45);color:var(--red)}
+@media(max-height:650px){.touch-layout{min-height:220px}.clip-card textarea{min-height:64px}}
+</style>
+</head>
+<body>
+<header class="mobile-head"><b>UNI · Мобильная мышь</b><span class="tag g" id="state">готово</span></header>
+<section class="touch-layout">
+  <div class="touchpad" id="touchpad"><span>Водите пальцем<br><small>касание без движения: левый клик</small></span></div>
+  <div class="wheel" id="wheel"><b>▲</b><span>колесо</span><b>▼</b></div>
+</section>
+<section class="mouse-buttons">
+  <button class="btn ghost" id="leftBtn">Левый клик</button>
+  <button class="btn ghost" id="doubleBtn">Двойной</button>
+  <button class="btn ghost" id="rightBtn">Правый клик</button>
+</section>
+<section class="card clip-card">
+  <textarea id="clipText" placeholder="Текст с компьютера или текст для вставки"></textarea>
+  <div class="clip-actions"><button class="btn ghost" id="copyBtn">Копировать с ПК</button><button class="btn" id="pasteBtn">Вставить на ПК</button></div>
+</section>
+<div class="note mobile-status" id="status">Команды выполняет Юни на этом компьютере.</div>
+<script src="js/mobile-control.js?v=20260817-4"></script>
+</body>
+</html>

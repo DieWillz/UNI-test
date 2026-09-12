@@ -90,6 +90,25 @@ def test_aggregator_bonuses_successful_providers(tmp_path: Path):
     assert out.confidence == pytest.approx(0.6)
 
 
+def test_success_bonus_does_not_accumulate_across_repeated_aggregation(tmp_path: Path):
+    agg = Aggregator(tmp_path)
+    result = _result("steady", "same code", confidence=0.4)
+
+    first = agg.aggregate("T1", [result], successful_providers={"steady"})
+    second = agg.aggregate("T1", [result], successful_providers={"steady"})
+
+    assert first.confidence == pytest.approx(0.6)
+    assert second.confidence == pytest.approx(0.6)
+    assert result.confidence == pytest.approx(0.4)
+
+
+def test_aggregate_with_quality_rejects_empty_results(tmp_path: Path):
+    agg = Aggregator(tmp_path)
+
+    with pytest.raises(ValueError, match="No valid responses to aggregate"):
+        agg.aggregate_with_quality("T1", [])
+
+
 def test_aggregator_quality_picks_verified_with_tests(tmp_path: Path):
     agg = Aggregator(tmp_path)
     verified_with_tests = _result("a", "def test_x():\n    assert True\npatch", confidence=0.1)

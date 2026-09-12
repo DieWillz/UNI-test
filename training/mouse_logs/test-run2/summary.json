@@ -1,0 +1,8 @@
+{
+  "set": "test-run2",
+  "total": 2,
+  "hits": 0,
+  "avg_deviation": 77.0,
+  "time_s": 2.3,
+  "stopped": false
+}

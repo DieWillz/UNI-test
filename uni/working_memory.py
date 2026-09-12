@@ -140,7 +140,8 @@ class WorkingMemory:
                 self.persist()
 
     def list_keys(self) -> list[str]:
-        return list(self.data["facts"].keys())
+        with self._lock:
+            return list(self.data["facts"].keys())
 
     def clear(self) -> None:
         with self._lock:
@@ -186,7 +187,9 @@ class WorkingMemory:
         budget = max(100, int(max_tokens) * 4)
         lines: list[str] = []
         total = 0
-        for key, value in self.data["facts"].items():
+        with self._lock:
+            facts = list(self.data["facts"].items())
+        for key, value in facts:
             line = f"{key}: {value}"
             if total + len(line) + 1 > budget:
                 break

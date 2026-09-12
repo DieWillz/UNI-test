@@ -95,6 +95,33 @@ class DevelopmentCoordinatorTests(unittest.IsolatedAsyncioTestCase):
                 ],
             )
 
+    async def test_unexpected_provider_exception_is_recorded_and_task_leaves_running(self):
+        class RaisingProvider(DevelopmentProvider):
+            async def request(self, handoff):
+                raise RuntimeError("provider exploded")
+
+        class RaisingRegistry(ProviderRegistry):
+            def build(self, provider_id):
+                return RaisingProvider(self.configs[provider_id])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            coordinator = DevelopmentCoordinator(
+                root, CoordinationStore(root / "state.json"), RaisingRegistry([api_config("boom")])
+            )
+            task = DevelopmentTask(
+                title="Fail safely", goal="g", instructions="i", provider_sequence=["boom"]
+            )
+            coordinator.create_task(task)
+
+            result = await coordinator.run_next(task.id)
+
+            self.assertEqual(result.status, TaskStatus.FAILED)
+            self.assertEqual(result.next_provider_index, 1)
+            self.assertEqual(result.results[-1].provider_id, "boom")
+            self.assertIn("provider exploded", result.results[-1].error or "")
+            self.assertEqual(coordinator.store.events_for(task.id)[-1].event, "provider.failed")
+
     def test_duplicate_sequence_is_rejected(self):
         with self.assertRaisesRegex(ValidationError, "duplicates"):
             DevelopmentTask(

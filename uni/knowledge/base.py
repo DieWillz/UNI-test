@@ -162,6 +162,7 @@ class KnowledgeBase:
         Фаза 0.3: добавить sqlite-vec для семантического поиска.
         Сейчас: простой текстовый поиск по ключевым словам.
         """
+        normalized_topic = " ".join(topic.lower().split())
         keywords = [kw.lower() for kw in topic.split() if len(kw) > 3]
 
         with sqlite3.connect(self.db_path) as conn:
@@ -177,8 +178,12 @@ class KnowledgeBase:
 
             results: list[CouncilResponse] = []
             for row in cursor.fetchall():
+                response_topic = " ".join(str(row[3]).lower().split())
                 response_text = row[4].lower()
-                match_count = sum(1 for kw in keywords if kw in response_text)
+                haystack = f"{response_topic} {response_text}"
+                match_count = sum(1 for kw in keywords if kw in haystack)
+                if normalized_topic and response_topic == normalized_topic:
+                    match_count += max(1, len(keywords) + 1)
                 if match_count > 0:
                     results.append(
                         CouncilResponse(
@@ -197,8 +202,9 @@ class KnowledgeBase:
                     )
 
             results.sort(
-                key=lambda r: sum(
-                    1 for kw in keywords if kw in r.response_text.lower()
+                key=lambda r: (
+                    (max(1, len(keywords) + 1) if " ".join(r.topic.lower().split()) == normalized_topic else 0)
+                    + sum(1 for kw in keywords if kw in f"{r.topic.lower()} {r.response_text.lower()}")
                 ),
                 reverse=True,
             )

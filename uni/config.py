@@ -4,14 +4,11 @@ from pydantic import BaseModel, Field, field_validator
 import yaml
 
 class BrainConfig(BaseModel):
-    # 🤖 DEPRECATED by Hermes (2026-08-13): старое значение по умолчанию
-    # `http://localhost:1234/v1` (LM Studio) сохранено как fallback. Новый
-    # дефолт — встроенный llama.cpp на 1235 (llm_provider: embedded).
-    base_url: str = "http://localhost:1234/v1"
-    # 🤖 Новый переключатель провайдера LLM.
-    #   "embedded" -> llama.cpp (runtime/llama/llama-server.exe) на 127.0.0.1:1235
-    #   "lmstudio" -> старый путь LM Studio на 127.0.0.1:1234 (DEPRECATED, опционально флагом)
-    llm_provider: str = "lmstudio"
+    # 🤖 Дефолт — встроенный llama.cpp (runtime/llama/llama-server.exe) на 1235.
+    # lmstudio (localhost:1234) оставлен как опциональный флаг для тех, у кого
+    # уже поднят LM Studio; переключается через llm_provider="lmstudio".
+    base_url: str = "http://127.0.0.1:1235/v1"
+    llm_provider: str = "embedded"
     embedded_base_url: str = "http://127.0.0.1:1235/v1"
     api_key: str = "lm-studio"
     model: str = "auto"
@@ -24,10 +21,9 @@ class BrainConfig(BaseModel):
 
     @property
     def effective_base_url(self) -> str:
-        """Реальный base_url с учётом выбранного провайдера (без удаления старого)."""
+        """Реальный base_url с учётом выбранного провайдера."""
         if self.llm_provider == "embedded":
             return self.embedded_base_url
-        # lmstudio (DEPRECATED) — старый путь остаётся доступен по флагу
         return self.base_url
 
 class AgentCursorConfig(BaseModel):
@@ -175,7 +171,7 @@ class CapabilitiesConfig(BaseModel):
     xtoys: XToysConfig = Field(default_factory=XToysConfig)
 
 class AgentConfig(BaseModel):
-    default_role: str = "assistant"  # 🤖 Фаза-3: роль по умолчанию — assistant
+    default_role: str = "mistress2"  # 🤖 Фаза-3: роль по умолчанию — assistant
     cycle_interval: float = 2.0
     max_retries: int = 3
     verification_enabled: bool = True

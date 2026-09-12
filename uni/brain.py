@@ -70,9 +70,30 @@ class Brain:
 
         self.model = selected
         self._model_resolved = True
-        if self.vision_model is None:
+        if self.vision_model is None or self.vision_model == "auto":
             self.vision_model = selected
         return selected, names, used_fallback
+
+    @staticmethod
+    def _pick_vision_model(names: list[str]) -> str:
+        """Prefer a vision-capable model among loaded models.
+
+        LM Studio's ``/v1/models`` does not tag multimodal models, so we
+        heuristically prefer known vision model name fragments and fall back
+        to the first loaded model.
+        """
+        for name in names:
+            low = name.lower()
+            if any(
+                k in low
+                for k in (
+                    "vl", "vision", "visual", "llava", "moondream",
+                    "qwen2-vl", "qwen2.5-vl", "qwen25-vl", "minicpm",
+                    "smolvlm", "internvl", "phi-3.5-v", "glm-4v",
+                )
+            ):
+                return name
+        return names[0]
 
     async def _ensure_model(self) -> None:
         if not self._model_resolved:
@@ -122,26 +143,53 @@ class Brain:
             raise RuntimeError(response.error)
         return response.text
 
+    async def _vision_call(self, model: str, image_data: str, prompt: str, max_tokens: Optional[int]) -> str:
+        response = await self.vision_client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": image_data}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=0.1,
+        )
+        return response.choices[0].message.content or ""
+
+    async def _resolve_vision_model(self) -> str:
+        """Resolve the VLM to use: explicit name, else follow a loaded model.
+
+        When ``vision_model`` is ``None``/``"auto"`` we pick among currently
+        loaded models in LM Studio, preferring vision-capable ones. This lets
+        the user just load any multimodal model and have UNI use it without
+        editing config.
+        """
+        if self.vision_model and self.vision_model != "auto":
+            return self.vision_model
+        selected, names, _ = await self._resolve_loaded_model()
+        if self.vision_model and self.vision_model != "auto":
+            return self.vision_model
+        return self._pick_vision_model(names)
+
     async def vision(self, image_data: str, prompt: str, max_tokens: Optional[int] = None) -> str:
         if not image_data.startswith("data:image"):
             image_data = f"data:image/png;base64,{image_data}"
         try:
-            if self.vision_model is None:
-                await self._ensure_model()
-            response = await self.vision_client.chat.completions.create(
-                model=self.vision_model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": image_data}},
-                            {"type": "text", "text": prompt},
-                        ],
-                    }
-                ],
-                max_tokens=max_tokens or self.config.max_tokens,
-                temperature=0.1,
-            )
-            return response.choices[0].message.content or ""
+            model = await self._resolve_vision_model()
+            try:
+                return await self._vision_call(model, image_data, prompt, max_tokens)
+            except Exception as exc:
+                # Retry once if the configured model name is not loaded
+                # (e.g. LM Studio has a different model loaded).
+                err = str(exc).lower()
+                if any(k in err for k in ("not found", "does not exist", "invalid model", "model_not_found")):
+                    selected, names, _ = await self._resolve_loaded_model()
+                    model = self._pick_vision_model(names)
+                    return await self._vision_call(model, image_data, prompt, max_tokens)
+                raise
         except Exception as exc:
             raise RuntimeError(f"VLM API недоступен: {exc}") from exc

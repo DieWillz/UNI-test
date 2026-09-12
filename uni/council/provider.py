@@ -293,6 +293,17 @@ class CodexProvider(CouncilProvider):
         self.timeout_seconds = timeout_seconds
         self._proc = None
 
+    async def _stop_process(self) -> None:
+        if self._proc is None or self._proc.returncode is not None:
+            return
+        try:
+            self._proc.kill()
+            wait = getattr(self._proc, "wait", None)
+            if wait is not None:
+                await wait()
+        except Exception:
+            pass
+
     async def ask(self, participant: str, prompt: str, *, max_tokens: int = 2000) -> ParticipantReply:
         import asyncio
         import json as _json
@@ -349,6 +360,12 @@ class CodexProvider(CouncilProvider):
                 error = (stderr or b"").decode("utf-8", "replace")[:400] or f"codex exited {self._proc.returncode}"
             else:
                 error = "Codex completed without a final agent message"
+        except asyncio.CancelledError:
+            await self._stop_process()
+            raise
+        except asyncio.TimeoutError as exc:
+            await self._stop_process()
+            error = f"{type(exc).__name__}: {exc}"
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
         return ParticipantReply(
@@ -361,12 +378,8 @@ class CodexProvider(CouncilProvider):
         )
 
     async def close(self) -> None:
-        if self._proc is not None and self._proc.returncode is None:
-            try:
-                self._proc.kill()
-            except Exception:
-                pass
-            self._proc = None
+        await self._stop_process()
+        self._proc = None
 
 
 def build_provider(spec: dict[str, Any]) -> CouncilProvider:

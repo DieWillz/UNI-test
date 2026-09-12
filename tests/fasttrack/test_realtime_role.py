@@ -33,6 +33,9 @@ class TrackingExecutor:
         self.browser_started = asyncio.Event()
         self.browser_release = asyncio.Event()
 
+    def canonical_name(self, name):
+        return name
+
     async def execute(self, name, _args=None):
         if name in {"speech.listen", "speech.speak"}:
             self.audio_active += 1
@@ -54,6 +57,29 @@ class RealtimeRoleTests(unittest.IsolatedAsyncioTestCase):
         config = Config()
         config.agent.speak_responses = True
         executor = TrackingExecutor()
+
+        class FakeOperatorRuntime:
+            async def run_action(self, canonical, args):
+                result = await executor.execute(canonical, args or {})
+                return SimpleNamespace(
+                    status=SimpleNamespace(value="verified" if result.success else "failed"),
+                    message=result.message,
+                    is_success=result.success,
+                    actions=[],
+                    observations=[],
+                    verification=None,
+                )
+
+            async def run(self, *_args, **_kwargs):
+                return SimpleNamespace(
+                    status=SimpleNamespace(value="verified"),
+                    message="operator done",
+                    is_success=True,
+                    actions=[],
+                    observations=[],
+                    verification=None,
+                )
+
         loop = EventLoop(
             brain=FakeBrain(),
             capabilities=SimpleNamespace(get_names=lambda: []),
@@ -62,6 +88,7 @@ class RealtimeRoleTests(unittest.IsolatedAsyncioTestCase):
             config=config,
             role_prompt="ROLE MARKER",
         )
+        loop._agent_ref = SimpleNamespace(operator=FakeOperatorRuntime())
         return loop, executor
 
     def test_role_loads_independently_of_cwd(self):

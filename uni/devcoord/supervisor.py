@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from uni.devcoord.dispatcher import PreparedDispatch, TaskDispatcher
+from uni.devcoord.integration import IntegrationManager
 from uni.devcoord.mawc_sessions import AgentSessionManager
 from uni.devcoord.reporter import DevelopmentReport, DevelopmentReporter
 from uni.devcoord.runner import AgentRun, LocalAgentRunner
-from uni.devcoord.workspace_models import SessionState, WorkspaceEvent
+from uni.devcoord.verification import VerificationManager
+from uni.devcoord.workspace_models import SessionState, WorkTaskState, WorkspaceEvent
 from uni.devcoord.workspace_store import WorkspaceStore
 
 
@@ -43,6 +45,8 @@ class SupervisorFailure:
 class SupervisorTick:
     started_runs: list[AgentRun] = field(default_factory=list)
     finished_runs: list[AgentRun] = field(default_factory=list)
+    verified_tasks: list[str] = field(default_factory=list)
+    merged_tasks: list[str] = field(default_factory=list)
     failures: list[SupervisorFailure] = field(default_factory=list)
     report: DevelopmentReport | None = None
 
@@ -57,18 +61,24 @@ class DevelopmentSupervisor:
         runner: LocalAgentRunner,
         *,
         profiles: list[AgentLaunchProfile],
+        verification_manager: VerificationManager | None = None,
+        integration_manager: IntegrationManager | None = None,
     ) -> None:
         self.store = store
         self.dispatcher = dispatcher
         self.runner = runner
         self.reporter = DevelopmentReporter(store)
         self.sessions = AgentSessionManager(store)
+        self.verification_manager = verification_manager
+        self.integration_manager = integration_manager
         self.profiles = {profile.agent_id: profile for profile in profiles}
         self._active_runs: dict[str, AgentRun] = {}
 
     def tick(self, *, ttl_seconds: float = 600.0) -> SupervisorTick:
         result = SupervisorTick()
         self._poll_runs(result, ttl_seconds=ttl_seconds)
+        self._advance_lifecycle(result)
+        self.sessions.mark_stale()
         self._dispatch_free_sessions(result, ttl_seconds=ttl_seconds)
         result.report = self.reporter.snapshot()
         return result
@@ -83,6 +93,32 @@ class DevelopmentSupervisor:
             if not observation.running:
                 result.finished_runs.append(run)
                 self._active_runs.pop(session_id, None)
+
+    def _advance_lifecycle(self, result: SupervisorTick) -> None:
+        for task in self.store.list_workspace_tasks():
+            session_id = task.assigned_session_id
+            if not session_id or session_id in self._active_runs:
+                continue
+
+            if task.state is WorkTaskState.VERIFYING and self.verification_manager is not None:
+                try:
+                    outcome = self.verification_manager.verify(task.id)
+                except Exception as exc:
+                    self._record_failure(result, session_id, "verification", exc)
+                    continue
+                if not outcome.passed:
+                    continue
+                result.verified_tasks.append(task.id)
+                task = self.store.get_workspace_task(task.id)
+
+            if task.state is WorkTaskState.VERIFIED and self.integration_manager is not None:
+                try:
+                    outcome = self.integration_manager.integrate(task.id)
+                except Exception as exc:
+                    self._record_failure(result, session_id, "integration", exc)
+                    continue
+                if outcome.merged:
+                    result.merged_tasks.append(task.id)
 
     def _dispatch_free_sessions(
         self,
@@ -99,8 +135,14 @@ class DevelopmentSupervisor:
             if profile is None:
                 continue
             try:
+                base_ref = (
+                    self.integration_manager.dispatch_base_ref()
+                    if self.integration_manager is not None
+                    else "HEAD"
+                )
                 prepared = self.dispatcher.prepare(
                     session.session_id,
+                    base_ref=base_ref,
                     ttl_seconds=ttl_seconds,
                 )
                 if prepared is None:

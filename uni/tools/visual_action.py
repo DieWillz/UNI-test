@@ -47,6 +47,7 @@ class VisualActionAgent:
         verify_delay: float = 1.2,
         safe_margin: int = 40,
         log: Callable[[str, object], None] | None = None,
+        trajectory_sink: Callable[..., object] | None = None,
     ) -> None:
         # computer/vision — инстансы capability, переданные извне.
         self._computer = computer
@@ -58,6 +59,7 @@ class VisualActionAgent:
         # зоны (верхняя/нижняя панель задач, углы уведомлений Windows).
         self.safe_margin = max(0, int(safe_margin))
         self.log = log or (lambda _event, _message: None)
+        self._trajectory_sink = trajectory_sink
         self.steps_used = 0
         self._active = False
         self._result_status = "idle"
@@ -198,12 +200,13 @@ class VisualActionAgent:
             steps.append({"step": step, "action": "verify", "achieved": ok})
             if ok:
                 self.history.append(f"шаг {step}: проверила — цель «{goal}» достигнута ✅")
-                # 🤖 сохраняем успешную траекторию (B-05) — аддитивно, тихо
-                try:
-                    from uni.tools.trajectory_store import save_trajectory
-                    save_trajectory(goal, steps, list(self.history), status="verified")
-                except Exception:
-                    pass
+                # Запись траектории — явная production-зависимость. Тестовые и
+                # standalone VisualActionAgent не должны менять runtime-память.
+                if self._trajectory_sink is not None:
+                    try:
+                        self._trajectory_sink(goal, steps, list(self.history), status="verified")
+                    except Exception:
+                        pass
                 self._active = False
                 self._result_status = "verified"
                 self._result_error = "Задача выполнена"

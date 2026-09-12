@@ -1,14 +1,9 @@
 """Autonomous UNI session: status-aware speech, device control, and mouse/browser automation.
 
-Start: «начни сессию» / «режим госпожи» / «автономный режим»
-Stop:  «стоп» / «красный» / «остановись» / «останови сессию»
-
-Supports:
-- XToys device control (intensity, status)
-- Mouse control via HumanMouseController
-- Browser automation (Yandex, Chrome, etc.)
-- Role-based chat responses (e.g., "Госпожа", "Хозяйка")
-- Visual feedback (highlighting icons before clicks)
+DEPRECATED by Hermes (2026-08-29): этот класс — legacy-адаптер. Единый контур
+управления теперь в uni/control_queue.py (ControlQueue). AutonomousSession более
+не запускается сервером при старте сессии; он оставлен для обратной совместимости
+и как запасной путь. Не использует браузерный xtoys.app (см. DEPRECATED-блоки ниже).
 """
 
 from __future__ import annotations
@@ -21,6 +16,8 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional, Dict, List
 
 from rich.console import Console
+from uni.contracts import ToolResult
+from uni.xtoys_control_coordinator import AUTONOMOUS, ToyControlCoordinator
 
 console = Console()
 
@@ -33,7 +30,7 @@ try:
     HAS_MOUSE_CONTROL = True
 except ImportError:
     HAS_MOUSE_CONTROL = False
-    console.print("[yellow]Warning: Mouse control modules not available[/yellow]")
+    console.print("")
 
 # --- Constants ---
 SpeakFn = Callable[[str], Awaitable[bool]]
@@ -353,6 +350,7 @@ class AutonomousSession:
         require_connect: bool = False,
         interrupt_speech: InterruptFn | None = None,
         log: LogFn | None = None,
+        coordinator: ToyControlCoordinator | None = None,
     ) -> None:
         self._run_tool = run_tool
         self._speak = speak
@@ -367,14 +365,18 @@ class AutonomousSession:
         self.require_connect = require_connect
         self._interrupt_speech = interrupt_speech
         self._log = log or (lambda _e, _m: None)
+        self.coordinator = coordinator
+        self._stop_generation = -1
 
         # Initialize mouse control (if available)
         self._mouse_control_available = HAS_MOUSE_CONTROL
-        if self._mouse_control_available:
-            self.browser_automation = BrowserAutomation()
-            self.mouse_controller = HumanMouseController()
-            self.screen_analyzer = ScreenAnalyzer()
-            self.visual_feedback = VisualFeedback()
+        # DEPRECATED by Codex: device sessions must not instantiate browser/mouse tools.
+        self.browser_automation = None
+        # if self._mouse_control_available:
+        #     self.browser_automation = BrowserAutomation()
+        #     self.mouse_controller = HumanMouseController()
+        #     self.screen_analyzer = ScreenAnalyzer()
+        #     self.visual_feedback = VisualFeedback()
 
         self.state = SessionState(role=role_prompt)
         self._task: Optional[asyncio.Task[None]] = None
@@ -396,10 +398,17 @@ class AutonomousSession:
             except Exception:
                 pass
 
-    async def start(self, *, open_xtoys: bool = True, confirm_ready: bool = True) -> str:
+    async def start(self, *, open_xtoys: bool = False, confirm_ready: bool = True) -> str:
         async with self._lock:
             if self.active:
                 return "Сессия уже идёт. Скажи «стоп», чтобы остановить."
+            if self.coordinator is None or not self.coordinator.autonomous_allowed():
+                self.state.last_error = "Нужны autonomous.enabled, autonomous_physical, verified_physical; STOP должен быть снят"
+                return self.state.last_error
+            self._stop_generation = self.coordinator.stop_generation
+            if not await self.coordinator.acquire(AUTONOMOUS, preempt=True):
+                self.state.last_error = "Источник управления занят или аварийно остановлен"
+                return self.state.last_error
             self._stop_event.clear()
             self.state = SessionState(
                 active=True,
@@ -416,40 +425,46 @@ class AutonomousSession:
                     break
 
             # Initialize mouse mode if available
-            if self._mouse_control_available:
+            if self.browser_automation is not None:
                 self.browser_automation.mouse.set_mouse_mode(self.state.mouse_mode)
 
-            if open_xtoys:
-                opened = await self._run_tool("xtoys.open", {})
-                ok = getattr(opened, "success", False)
-                msg = getattr(opened, "message", str(opened))
-                self._log("SESSION", f"xtoys.open: {msg}")
-                if not ok:
-                    self.state.active = False
-                    return (
-                        f"Не удалось открыть XToys: {msg}. "
-                        "Открой вкладку вручную и повтори «начни сессию»."
-                    )
+            # DEPRECATED by Codex: open_xtoys is ignored; browser setup is forbidden.
+            # if open_xtoys:
+            #     opened = await self._run_tool("xtoys.open", {})
+            #     ok = getattr(opened, "success", False)
+            #     msg = getattr(opened, "message", str(opened))
+            #     self._log("SESSION", f"xtoys.open: {msg}")
+            #     if not ok:
+            #         self.state.active = False
+            #         return (
+            #             f"Не удалось открыть XToys: {msg}. "
+            #             "Открой вкладку вручную и повтори «начни сессию»."
+            #         )
 
-            status = await self._run_tool("xtoys.get_status", {})
+            status = await self._device_status()
             status_text = ""
             if getattr(status, "success", False) and isinstance(getattr(status, "data", None), dict):
                 status_text = str(status.data.get("visible_text") or "").casefold()
-            connected_hint = any(
-                token in status_text
-                for token in ("connected", "подключ", "disconnect", "отключ", "fredorch", "rotary")
-            )
-            if self.require_connect and not connected_hint:
+            connected_hint = bool(status.success and status.data.get("connected") and status.data.get("devices"))
+            if not connected_hint:
                 self.state.active = False
-                return (
-                    "XToys открыт, но устройство не видно как подключённое. "
-                    "Подключи Fredorch (Connect) и снова скажи «начни сессию»."
-                )
+                self.state.last_error = "Подключите Fredorch в Intiface и повторите запуск"
+                await self.coordinator.release(AUTONOMOUS)
+                return self.state.last_error
 
             await self._apply_intensity(0, force=True)
+            if self.state.last_error or self._stop_event.is_set():
+                self.state.active = False
+                await self._force_zero()
+                return self.state.last_error or "Запуск прерван остановкой"
             self.state.device_ready = True
             self.state.applied_intensity = 0
             await self._arm_segment()
+            if (self._stop_event.is_set() or not self.coordinator.autonomous_allowed()
+                    or self._stop_generation != self.coordinator.stop_generation):
+                self.state.active = False
+                await self._force_zero()
+                return "Запуск прерван остановкой"
             self._ensure_task()
 
             # Role-based intro
@@ -461,7 +476,7 @@ class AutonomousSession:
 
             if confirm_ready and not connected_hint:
                 intro += "Подключи устройство, если ещё не готово. "
-            intro += "Физический пульт у тебя — я управляю мышью и устройством."
+            intro += "Управление через Intiface. Мышь выключена; STOP всегда доступен."
             return intro
 
     def _ensure_task(self) -> None:
@@ -469,6 +484,10 @@ class AutonomousSession:
             self._task = asyncio.create_task(self._run_loops(), name="uni-autonomous-session")
 
     async def stop(self, *, reason: str = "user") -> str:
+        self._stop_event.set()
+        self.state.active = False
+        if self.coordinator is not None and reason == "user":
+            await self.coordinator.emergency_stop()
         await self._interrupt()
         async with self._lock:
             self._stop_event.set()
@@ -495,9 +514,11 @@ class AutonomousSession:
 
     async def emergency_stop(self) -> str:
         """Fast path: interrupt speech, cancel loops, zero intensity."""
-        await self._interrupt()
         self._stop_event.set()
         self.state.active = False
+        if self.coordinator is not None:
+            await self.coordinator.emergency_stop()
+        await self._interrupt()
         self.state.ending = True
         task = self._task
         self._task = None
@@ -519,12 +540,14 @@ class AutonomousSession:
 
     async def _force_zero(self) -> None:
         try:
-            await self._run_tool("xtoys.set_intensity", {"value": 0})
+            if self.coordinator is not None:
+                await self.coordinator.release(AUTONOMOUS)
         except Exception as exc:
             self._log("SESSION", f"zero failed: {exc}")
-        self.state.last_applied_intensity = 0
+        value = int(round(self.coordinator.current_value)) if self.coordinator else 0
+        self.state.last_applied_intensity = value
         self.state.target_intensity = 0
-        self.state.applied_intensity = 0
+        self.state.applied_intensity = value
         self.state.override_value = None
         self.state.override_until = 0.0
 
@@ -560,9 +583,16 @@ class AutonomousSession:
         """Enable/disable mouse control mode."""
         if not self._mouse_control_available:
             return "Управление мышью недоступно (модули не загружены)."
+        if enabled and self.coordinator is not None:
+            return "В Dorch-сессии управление мышью отключено"
+        if enabled and self.browser_automation is None:
+            self.browser_automation = BrowserAutomation()
+            self.mouse_controller = HumanMouseController()
+            self.screen_analyzer = ScreenAnalyzer()
+            self.visual_feedback = VisualFeedback()
 
         self.state.mouse_mode = enabled
-        if self._mouse_control_available:
+        if self.browser_automation is not None:
             self.browser_automation.mouse.set_mouse_mode(enabled)
         self._log("SESSION", f"mouse mode set to {enabled}")
 
@@ -654,11 +684,20 @@ class AutonomousSession:
         else:
             return {"status": "failed", "message": f"Неизвестная команда: {command}"}
 
+    async def _device_status(self) -> ToolResult:
+        if self.coordinator is None:
+            return ToolResult(success=False, data={}, message="Координатор Intiface недоступен")
+        data = self.coordinator._bridge.status()
+        data.update(self.coordinator.status())
+        data["value"] = self.coordinator.current_value
+        data["status"] = "not_verified"
+        return ToolResult(success=True, data=data, message="Последняя команда Intiface, не физическая обратная связь")
+
     async def _arm_segment(self) -> None:
         """Ask the model for every device step; failures fail closed at zero."""
         phase, duration, intensity = self.state.phase, 2.0, 0
         try:
-            live = await self._run_tool("xtoys.get_status", {})
+            live = await self._device_status()
             data = getattr(live, "data", None) or {}
             if not getattr(live, "success", False) or not bool(data.get("connected", False)):
                 raise RuntimeError("Intiface connection is not confirmed")
@@ -721,7 +760,16 @@ class AutonomousSession:
 
     async def _apply_intensity(self, value: int, *, force: bool = False) -> None:
         target = self._clamp(value)
-        if not force and target == self.state.last_applied_intensity:
+        if target > 0 and (self._stop_event.is_set() or not self.state.active
+                          or self.coordinator is None or not self.coordinator.autonomous_allowed()
+                          or self._stop_generation != self.coordinator.stop_generation):
+            self.state.last_error = "Движение запрещено или остановлено"
+            await self._force_zero()
+            return
+        if (not force and target == self.state.last_applied_intensity
+                and self.coordinator is not None
+                and self.coordinator.active_source == AUTONOMOUS
+                and self.coordinator.current_value == target):
             return
         if self.state.consecutive_errors >= 5 and not force:
             if self.state.consecutive_errors == 5:
@@ -730,18 +778,21 @@ class AutonomousSession:
             if self.state.consecutive_errors >= 8:
                 return
 
-        result = await self._run_tool("xtoys.set_intensity", {"value": target})
+        # DEPRECATED by Codex: no capability/DOM dispatch for device movement.
+        sent = bool(self.coordinator and await self.coordinator.set_intensity(AUTONOMOUS, target))
+        result = ToolResult(success=sent, message="Intiface принял команду" if sent else "Intiface: команда отклонена")
         ok = getattr(result, "success", False)
         msg = getattr(result, "message", str(result))
         if ok:
-            self.state.last_applied_intensity = target
-            self.state.applied_intensity = target
+            self.state.last_applied_intensity = int(round(self.coordinator.current_value))
+            self.state.applied_intensity = self.state.last_applied_intensity
             self.state.last_error = ""
             self.state.consecutive_errors = 0
             console.print(f"[magenta]DEVICE → {target}%[/magenta]")
         else:
             self.state.last_error = msg
             self.state.consecutive_errors += 1
+            await self._force_zero()
             console.print(f"[red]DEVICE fail {target}%: {msg}[/red]")
         self._log("DEVICE", f"{target}% ok={ok} {msg}")
 
@@ -768,6 +819,11 @@ class AutonomousSession:
 
     async def _device_loop(self) -> None:
         while not self._stop_event.is_set() and self.state.active:
+            if (self.coordinator is None or not self.coordinator.autonomous_allowed()
+                    or self._stop_generation != self.coordinator.stop_generation):
+                self.state.last_error = "Движение запрещено или аварийно остановлено"
+                self._stop_event.set()
+                break
             now = time.monotonic()
             if now - self.state.started_at >= self.session_max_seconds:
                 self._log("SESSION", "max duration reached")
@@ -786,7 +842,7 @@ class AutonomousSession:
         connected = self.state.device_ready
         active_source = "autonomous"
         try:
-            live = await self._run_tool("xtoys.get_status", {})
+            live = await self._device_status()
             data = getattr(live, "data", None) or {}
             if getattr(live, "success", False):
                 intensity = int(round(float(data.get("value", intensity))))
@@ -879,18 +935,22 @@ class AutonomousSession:
 
     async def _run_loops(self) -> None:
         console.print("[bold magenta]Autonomous session RUNNING[/bold magenta]")
+        tasks = [asyncio.create_task(loop()) for loop in
+                 (self._device_loop, self._speech_loop, self._prefetch_loop)]
         try:
-            await asyncio.gather(
-                self._device_loop(),
-                self._speech_loop(),
-                self._prefetch_loop(),
-            )
+            # DEPRECATED by Codex: gather waited forever after the device loop ended.
+            finished, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in finished:
+                task.result()
         except asyncio.CancelledError:
             pass
         finally:
+            for task in tasks:
+                task.cancel()
             was_ending = self.state.ending
             self.state.active = False
             await self._force_zero()
+            await asyncio.gather(*tasks, return_exceptions=True)
             console.print("[bold magenta]Autonomous session STOPPED[/bold magenta]")
             if was_ending and not self._stop_event.is_set():
                 try:

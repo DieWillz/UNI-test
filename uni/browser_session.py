@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus, urlparse
+from uuid import uuid4
 
 from playwright.async_api import BrowserContext, Page, Playwright, async_playwright
 
@@ -43,6 +44,61 @@ class BrowserSession:
         self._page: Page | None = None
         self._owns_context = False
         self._lock = asyncio.Lock()
+        # Shared with semantic DOM operations; never launch a second browser.
+        self.operator_lock = asyncio.Lock()
+        self._operator_epoch = 0
+        self._tab_ids: dict[Page, str] = {}
+        self._observed_pages: set[Page] = set()
+        self._operator_dom = None
+        self._observed_context = None
+        self._session_id: str | None = None
+        self._operator_pinned_page: Page | None = None
+
+    @property
+    def session_id(self) -> str | None:
+        self._observe_context()
+        return self._session_id
+
+    def _observe_context(self) -> None:
+        if self._context is self._observed_context:
+            return
+        self.invalidate_operator_snapshot()
+        self._observed_context = self._context
+        self._operator_pinned_page = None
+        self._session_id = f"browser-{uuid4().hex}" if self._context is not None else None
+        if self._context is not None:
+            observed = self._context
+
+            def new_page(page: Page) -> None:
+                if self._context is observed:
+                    self.tab_id(page)
+                    self._page = page
+                    self.invalidate_operator_snapshot()
+
+            observed.on("page", new_page)
+
+    def invalidate_operator_snapshot(self) -> None:
+        self._operator_epoch += 1
+
+    def tab_id(self, page: Page) -> str:
+        if page not in self._tab_ids:
+            self._tab_ids[page] = f"tab-{uuid4().hex}"
+        if page not in self._observed_pages:
+            self._observed_pages.add(page)
+            page.on("close", lambda *_: self.invalidate_operator_snapshot())
+            page.on("framenavigated", lambda *_: self.invalidate_operator_snapshot())
+        return self._tab_ids[page]
+
+    def release_operator_page_pin(self) -> None:
+        self._operator_pinned_page = None
+
+    @property
+    def operator_dom(self):
+        if self._operator_dom is None:
+            from uni.operator.dom import DOMOperator
+
+            self._operator_dom = DOMOperator(self)
+        return self._operator_dom
 
     async def start(self) -> None:
         if self._context is not None:
@@ -57,17 +113,23 @@ class BrowserSession:
                 # This keeps the user's connected devices/sessions alive.
                 try:
                     self._browser = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
-                    self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
+                    if not self._browser.contexts:
+                        raise RuntimeError("cdp_existing_context_unavailable")
+                    self._context = self._browser.contexts[0]
                     self._owns_context = False
                     pages = self._context.pages
-                    self._page = pages[0] if pages else await self._context.new_page()
+                    self._page = pages[0] if pages else None
+                    self._observe_context()
                     await self._install_agent_cursor()
                     return
                 except Exception as exc:
-                    console = __import__("rich.console", fromlist=["Console"]).Console()
-                    console.print(f"[yellow]Не удалось подключиться к CDP {self.cdp_url}: {exc}. Запускаю свой браузер.[/yellow]")
+                    # P0 (owner directive 2026-09-12): CDP attach failure must NOT
+                    # abort the task when a managed browser can still be launched.
+                    # Fall back to a normal persistent-context launch below. Keep
+                    # the playwright instance alive: it is reused for the launch.
                     self._browser = None
                     self._context = None
+                    self._observe_context()
             launch_options: dict[str, Any] = {
                 "headless": self.headless,
                 "viewport": self.viewport,
@@ -87,6 +149,7 @@ class BrowserSession:
                 self._owns_context = True
             pages = self._context.pages
             self._page = pages[0] if pages else await self._context.new_page()
+            self._observe_context()
             await self._install_agent_cursor()
 
     async def _install_agent_cursor(self) -> None:
@@ -100,8 +163,10 @@ class BrowserSession:
             pass
 
     async def close(self) -> None:
+        self.invalidate_operator_snapshot()
         context, playwright = self._context, self._playwright
         self._context = None
+        self._observe_context()
         self._playwright = None
         self._page = None
         owns_context = self._owns_context
@@ -134,15 +199,102 @@ class BrowserSession:
                 self._browser = None
             await self.start()
 
-    async def active_page(self) -> Page:
-        await self.ensure_alive()
-        assert self._context is not None
-        if self._page is None or self._page.is_closed():
+    async def active_page(self, *, start_if_missing: bool = True) -> Page | None:
+        """Return the tracked page; inspection must use start_if_missing=False.
+
+        The read-only branch does not start/attach a runtime or create a page.
+        It notices focus changes among pages already in this session.
+        """
+        if start_if_missing:
+            await self.ensure_alive()
+        self._observe_context()
+        if self._context is None or (self._browser is not None and not self._browser.is_connected()):
+            return None
+        try:
             pages = [page for page in self._context.pages if not page.is_closed()]
-            self._page = pages[-1] if pages else await self._context.new_page()
+        except Exception:
+            if not start_if_missing:
+                return None
+            raise
+        for candidate in pages:
+            self.tab_id(candidate)
+        pinned = self._operator_pinned_page
+        if pinned is not None and pinned in pages and not pinned.is_closed():
+            self._page = pinned
+        elif not start_if_missing:
+            focused = []
+            for candidate in pages:
+                try:
+                    if await candidate.evaluate("() => document.hasFocus()"):
+                        focused.append(candidate)
+                except Exception:
+                    continue
+            if len(focused) == 1 and self._page is not focused[0]:
+                self.invalidate_operator_snapshot()
+                self._page = focused[0]
+        if self._page is None or self._page.is_closed():
+            self.invalidate_operator_snapshot()
+            self._page = pages[-1] if pages else (await self._context.new_page() if start_if_missing else None)
+        if self._page is not None:
+            self.tab_id(self._page)
         return self._page
 
+    async def list_tabs(self) -> list[dict[str, Any]]:
+        active = await self.active_page(start_if_missing=False)
+        if self._context is None:
+            return []
+        tabs = []
+        for page in self._context.pages:
+            if not page.is_closed():
+                tabs.append({"tab_id": self.tab_id(page), "url": page.url,
+                             "title": await page.title(), "active": page is active})
+        return tabs
+
+    async def change_tab(self, action: str, *, tab_id: str = "", url: str = "") -> dict[str, Any]:
+        async with self.operator_lock:
+            self.invalidate_operator_snapshot()
+            if action == "new_tab":
+                await self.ensure_alive()
+                assert self._context is not None
+                page = await self._context.new_page()
+                self._page = page
+                if url:
+                    await page.goto(self._sanitize_url(url), wait_until="domcontentloaded", timeout=30_000)
+            else:
+                if self._context is None:
+                    raise RuntimeError("browser_not_running")
+                page = next((p for p in self._context.pages
+                             if not p.is_closed() and self.tab_id(p) == tab_id), None)
+                if page is None:
+                    raise ValueError("unknown_tab")
+                if action == "close_tab":
+                    await page.close()
+                    if self._page is page:
+                        self._page = None
+                    if self._operator_pinned_page is page:
+                        self._operator_pinned_page = None
+                    return {"closed_tab_id": tab_id}
+                if action != "switch_tab":
+                    raise ValueError("unsupported_tab_action")
+                self._page = page
+            await page.bring_to_front()
+            self._operator_pinned_page = page
+            return {"tab_id": self.tab_id(page), "url": page.url, "title": await page.title()}
+
+    async def history(self, *, forward: bool = False) -> dict[str, Any]:
+        async with self.operator_lock:
+            page = await self.active_page(start_if_missing=False)
+            if page is None:
+                raise RuntimeError("browser_not_running")
+            self.invalidate_operator_snapshot()
+            if forward:
+                await page.go_forward(wait_until="domcontentloaded", timeout=30_000)
+            else:
+                await page.go_back(wait_until="domcontentloaded", timeout=30_000)
+            return {"tab_id": self.tab_id(page), "url": page.url, "title": await page.title()}
+
     async def page_for_host(self, host: str, *, create_url: str | None = None) -> Page:
+        self.invalidate_operator_snapshot()
         await self.ensure_alive()
         assert self._context is not None
         host = host.lower()
@@ -171,11 +323,14 @@ class BrowserSession:
         return url
 
     async def navigate(self, url: str) -> Page:
-        url = self._sanitize_url(url)
-        page = await self.active_page()
-        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-        await page.bring_to_front()
-        return page
+        async with self.operator_lock:
+            self.invalidate_operator_snapshot()
+            url = self._sanitize_url(url)
+            page = await self.active_page()
+            assert page is not None
+            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            await page.bring_to_front()
+            return page
 
     async def search_web(self, query: str) -> tuple[Page, list[dict[str, str]]]:
         url = self.search_engine.format(query=quote_plus(query))
@@ -236,6 +391,7 @@ class BrowserSession:
 
     async def click_locator(self, locator, *, timeout: float = 10_000) -> None:
         """DOM click with optional visible UNI cursor (OS mouse not moved)."""
+        self.invalidate_operator_snapshot()
         page = await self.active_page()
         if self.agent_cursor_enabled and not self.headless:
             from uni.agent_cursor import click_with_cursor
@@ -252,6 +408,7 @@ class BrowserSession:
 
     async def fill_locator(self, locator, text: str, *, timeout: float = 10_000) -> None:
         """Focus + fill with optional UNI cursor overlay."""
+        self.invalidate_operator_snapshot()
         page = await self.active_page()
         if self.agent_cursor_enabled and not self.headless:
             from uni.agent_cursor import fill_with_cursor

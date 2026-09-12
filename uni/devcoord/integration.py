@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from uni.devcoord.lease_rules import resources_overlap
+from uni.devcoord.lease_rules import access_mode_can_write, resources_overlap
 from uni.devcoord.leases import ResourceLeaseManager
 from uni.devcoord.models import utc_now
 from uni.devcoord.workspace_models import (
     AccessMode,
+    LeaseState,
+    ResourceLease,
     ResourceType,
     SessionState,
     WorkTaskState,
@@ -57,6 +60,10 @@ class IntegrationManager:
         self.verification_timeout = verification_timeout
         self.session_ttl_seconds = session_ttl_seconds
 
+    def dispatch_base_ref(self) -> str:
+        self._ensure_integration_worktree()
+        return self.integration_branch
+
     def _git(
         self,
         cwd: Path,
@@ -90,7 +97,7 @@ class IntegrationManager:
             for lease in ResourceLeaseManager(self.store).list_active()
             if lease.task_id == task_id
             and lease.agent_session_id == session_id
-            and lease.access_mode is AccessMode.WRITE
+            and access_mode_can_write(lease.access_mode)
             and lease.resource_type in {ResourceType.FILE, ResourceType.TREE}
         ]
         unowned: list[str] = []
@@ -198,6 +205,21 @@ class IntegrationManager:
         )
         return candidate
 
+    def _discard_candidate(self, candidate: Path) -> None:
+        self._git(
+            self.repo_root,
+            "worktree",
+            "remove",
+            "--force",
+            str(candidate),
+            check=False,
+        )
+        if not candidate.exists():
+            try:
+                candidate.parent.rmdir()
+            except OSError:
+                pass
+
     def _verify_candidate(self, task, candidate: Path) -> tuple[bool, str]:
         if not task.verification_argv:
             return False, "no verification commands configured"
@@ -224,12 +246,9 @@ class IntegrationManager:
                 return False, detail[:4000]
         return True, f"{len(task.verification_argv)} integration verification command(s) passed"
 
-    def _release_session(self, task, session) -> None:
-        for lease in ResourceLeaseManager(self.store).list_active():
-            if lease.task_id == task.id and lease.agent_session_id == session.session_id:
-                ResourceLeaseManager(self.store).release(lease.lease_id)
-
+    def _complete_merge(self, task, session, integration_commit: str) -> None:
         now = datetime.now(timezone.utc)
+        released_at = now.isoformat()
         freed = session.model_copy(
             update={
                 "state": SessionState.ACTIVE,
@@ -238,12 +257,33 @@ class IntegrationManager:
                 "worktree_path": None,
                 "stdout_log_path": None,
                 "stderr_log_path": None,
-                "heartbeat_at": now.isoformat(),
+                "heartbeat_at": released_at,
                 "expires_at": (now + timedelta(seconds=self.session_ttl_seconds)).isoformat(),
                 "last_observation": f"merged task {task.id}",
             }
         )
-        self.store.save_session(freed)
+        with self.store.transaction(immediate=True) as conn:
+            rows = conn.execute(
+                "SELECT payload_json FROM resource_leases "
+                "WHERE task_id=? AND agent_session_id=? AND state!=?",
+                (task.id, session.session_id, LeaseState.RELEASED.value),
+            ).fetchall()
+            for row in rows:
+                lease = ResourceLease.model_validate(json.loads(row[0])).model_copy(
+                    update={"state": LeaseState.RELEASED, "released_at": released_at}
+                )
+                self.store.save_resource_lease(lease, conn=conn)
+            self.store.save_workspace_task(task, conn=conn)
+            self.store.save_session(freed, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="integration.merged",
+                    task_id=task.id,
+                    session_id=session.session_id,
+                    detail=f"integration_commit={integration_commit}",
+                ),
+                conn=conn,
+            )
 
     def integrate(self, task_id: str) -> IntegrationOutcome:
         task = self.store.get_workspace_task(task_id)
@@ -270,67 +310,61 @@ class IntegrationManager:
         self._assert_owned(task.id, session.session_id, branch_paths)
 
         candidate = self._create_candidate(task.id)
-        merge = self._git(
-            candidate,
-            "merge",
-            "--no-ff",
-            "--no-edit",
-            task_branch,
-            check=False,
-        )
-        if merge.returncode != 0:
-            detail = (merge.stderr or merge.stdout).strip()[:4000]
-            self.store.append_event(
-                WorkspaceEvent(
-                    event="integration.merge_failed",
-                    task_id=task.id,
-                    session_id=session.session_id,
-                    detail=detail,
-                )
+        try:
+            merge = self._git(
+                candidate,
+                "merge",
+                "--no-ff",
+                "--no-edit",
+                task_branch,
+                check=False,
             )
-            raise RuntimeError(f"integration merge failed: {detail}")
-
-        passed, detail = self._verify_candidate(task, candidate)
-        if not passed:
-            self.store.append_event(
-                WorkspaceEvent(
-                    event="integration.verification_failed",
-                    task_id=task.id,
-                    session_id=session.session_id,
-                    detail=detail,
+            if merge.returncode != 0:
+                detail = (merge.stderr or merge.stdout).strip()[:4000]
+                self.store.append_event(
+                    WorkspaceEvent(
+                        event="integration.merge_failed",
+                        task_id=task.id,
+                        session_id=session.session_id,
+                        detail=detail,
+                    )
                 )
+                raise RuntimeError(f"integration merge failed: {detail}")
+
+            passed, detail = self._verify_candidate(task, candidate)
+            if not passed:
+                self.store.append_event(
+                    WorkspaceEvent(
+                        event="integration.verification_failed",
+                        task_id=task.id,
+                        session_id=session.session_id,
+                        detail=detail,
+                    )
+                )
+                raise IntegrationVerificationError(detail)
+
+            integration_commit = self._git(candidate, "rev-parse", "HEAD").stdout.strip()
+            if self._git(
+                self.integration_path, "status", "--porcelain"
+            ).stdout.strip():
+                raise RuntimeError("integration worktree became dirty")
+            self._git(
+                self.integration_path,
+                "merge",
+                "--ff-only",
+                integration_commit,
             )
-            raise IntegrationVerificationError(detail)
 
-        integration_commit = self._git(candidate, "rev-parse", "HEAD").stdout.strip()
-        if self._git(
-            self.integration_path, "status", "--porcelain"
-        ).stdout.strip():
-            raise RuntimeError("integration worktree became dirty")
-        self._git(
-            self.integration_path,
-            "merge",
-            "--ff-only",
-            integration_commit,
-        )
-
-        merged_task = task.model_copy(
-            update={"state": WorkTaskState.MERGED, "updated_at": utc_now()}
-        )
-        self.store.save_workspace_task(merged_task)
-        self._release_session(merged_task, session)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="integration.merged",
+            merged_task = task.model_copy(
+                update={"state": WorkTaskState.MERGED, "updated_at": utc_now()}
+            )
+            self._complete_merge(merged_task, session, integration_commit)
+            return IntegrationOutcome(
                 task_id=task.id,
-                session_id=session.session_id,
-                detail=f"integration_commit={integration_commit}",
+                merged=True,
+                task_commit=task_commit,
+                integration_commit=integration_commit,
+                candidate_path=candidate,
             )
-        )
-        return IntegrationOutcome(
-            task_id=task.id,
-            merged=True,
-            task_commit=task_commit,
-            integration_commit=integration_commit,
-            candidate_path=candidate,
-        )
+        finally:
+            self._discard_candidate(candidate)

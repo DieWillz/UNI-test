@@ -53,6 +53,7 @@ class RemoteSession:
     last_heartbeat: float = 0.0
     sequence: int = 0
     connected: bool = False
+    uni_in_chat: str = "suggest"
 
     def is_expired(self) -> bool:
         return time.time() - self.created_at > self.ttl
@@ -76,6 +77,26 @@ class ToyControlCoordinator:
         self.remote_session: Optional[RemoteSession] = None
         self._last_send: float = 0.0
         self._on_change: Optional[Callable[[dict], None]] = None
+        self._autonomous_allowed: Callable[[], bool] = lambda: False
+        self._autonomous_session = False
+        self.stop_generation = 0
+
+    def configure_autonomous(self, allowed: Callable[[], bool]) -> None:
+        """Live config + owner acknowledgement gate, supplied by the agent."""
+        self._autonomous_allowed = allowed
+
+    def autonomous_allowed(self) -> bool:
+        try:
+            return bool(self._autonomous_allowed()) and not self.emergency_stopped
+        except Exception:
+            return False
+
+    def _autonomous_preemption(self, source: str, preempt: bool = False) -> bool:
+        return (
+            source == AUTONOMOUS and self.autonomous_allowed()
+            and (preempt or self._autonomous_session)
+            and self.active_source in {None, AUTONOMOUS, MANUAL, PATTERN, MOTION}
+        )
 
     # ---- публичные настройки ----
     def set_change_callback(self, cb: Callable[[dict], None]) -> None:
@@ -85,30 +106,24 @@ class ToyControlCoordinator:
         self.max_intensity = max(0.0, min(100.0, float(value)))
 
     # ---- низкоуровневая отправка в устройство ----
-    def _send(self, value: float) -> None:
-        """Отправляет значение в IntifaceBridge. Потокобезопасно."""
+    async def _send(self, value: float) -> bool:
+        """Send and wait for the Intiface result."""
         value = max(0.0, min(self.max_intensity, float(value)))
-        self.current_value = value
-        self._last_send = time.time()
+        if value > 0 and self.emergency_stopped:
+            return False
+        if value > 0 and self.active_source == AUTONOMOUS and not self.autonomous_allowed():
+            return False
         if self._bridge is None:
-            return
-        if self._loop is None or self._loop.is_closed():
-            self._loop = getattr(self._bridge, "_loop", None)
-        if self._loop is not None and not self._loop.is_closed():
-            try:
-                asyncio.run_coroutine_threadsafe(
-                    self._bridge.oscillate(int(round(value))), self._loop
-                )
-                return
-            except Exception:
-                pass
-        # Фолбэк: синхронно (если bridge умеет) — не для buttplug, но для совместимости.
+            return False
         try:
-            fn = getattr(self._bridge, "oscillate_sync", None)
-            if fn:
-                fn(int(round(value)))
+            result = await self._bridge.oscillate(int(round(value)))
         except Exception:
-            pass
+            return False
+        if not isinstance(result, dict) or not result.get("ok"):
+            return False
+        self.current_value = float(int(round(value)))
+        self._last_send = time.time()
+        return True
 
     def _notify(self) -> None:
         if self._on_change:
@@ -118,76 +133,116 @@ class ToyControlCoordinator:
                 pass
 
     # ---- управление источниками ----
-    async def acquire(self, source: str) -> bool:
+    async def acquire(self, source: str, *, preempt: bool = False) -> bool:
         async with self._lock:
+            if self.emergency_stopped:
+                return False
+            if source == AUTONOMOUS and not self.autonomous_allowed():
+                return False
+            takeover = self._autonomous_preemption(source, preempt)
             if self.active_source == source:
+                if takeover:
+                    self._autonomous_session = True
                 return True
             # Приоритет: новый источник не может вытеснить более приоритетный
             # (кроме ручного, который может забрать управление у любого).
             if self.active_source is not None:
                 cur_prio = _SOURCE_PRIORITY.get(self.active_source, 99)
                 new_prio = _SOURCE_PRIORITY.get(source, 99)
-                if new_prio > cur_prio and source != MANUAL:
+                if new_prio > cur_prio and source != MANUAL and not takeover:
                     return False
             # Переключение источника: сначала 0%.
             if self.active_source is not None and self.active_source != source:
-                self._send(0.0)
+                if not await self._send(0.0):
+                    return False
             self.active_source = source
+            if takeover:
+                self._autonomous_session = True
             self._notify()
             return True
 
     async def release(self, source: str) -> None:
         async with self._lock:
+            if source == AUTONOMOUS:
+                self._autonomous_session = False
             if self.active_source == source:
-                self._send(0.0)
+                await self._send(0.0)
                 self.active_source = None
                 self._notify()
 
     async def set_intensity(self, source: str, value: float) -> bool:
         async with self._lock:
+            # Emergency stop latches: nothing may move the device until the
+            # owner explicitly resets it (safety requirement).
+            if self.emergency_stopped:
+                return False
+            if source == AUTONOMOUS and value > 0 and not self.autonomous_allowed():
+                if self.active_source == AUTONOMOUS:
+                    await self._send(0.0)
+                return False
+            takeover = self._autonomous_preemption(source)
             # Только активный (или явно захватывающий) источник управляет.
             if self.active_source is not None and self.active_source != source:
                 # Более приоритетный источник уже владеет — отказ.
-                if _SOURCE_PRIORITY.get(self.active_source, 99) <= _SOURCE_PRIORITY.get(source, 99) and source != MANUAL:
+                if _SOURCE_PRIORITY.get(self.active_source, 99) <= _SOURCE_PRIORITY.get(source, 99) and source != MANUAL and not takeover:
                     return False
             if self.active_source != source:
                 # Автозахват (например, remote/motion сами не вызывали acquire).
+                # Но соблюдаем правило приоритета: если уже есть владелец с
+                # БОЛЬШИМ приоритетом (меньше число), не перехватываем.
+                if self.active_source is not None:
+                    cur_prio = _SOURCE_PRIORITY.get(self.active_source, 99)
+                    new_prio = _SOURCE_PRIORITY.get(source, 99)
+                    if new_prio > cur_prio and source != MANUAL and not takeover:
+                        return False
+                    if not await self._send(0.0):
+                        return False
                 self.active_source = source
             # Rate-limit: объединяем частые команды.
             now = time.time()
-            if now - self.last_command_at < _MIN_COMMAND_INTERVAL:
-                # Все равно обновляем целевое значение, но не шлём каждый раз.
-                self.current_value = max(0.0, min(self.max_intensity, float(value)))
-                self.last_command_at = now
-                return True
+            if value > 0 and source not in {AUTONOMOUS, MANUAL} and now - self.last_command_at < _MIN_COMMAND_INTERVAL:
+                # DEPRECATED by Codex: an unsent value must not appear as applied.
+                # self.current_value = max(0.0, min(self.max_intensity, float(value)))
+                # self.last_command_at = now
+                # return True
+                return False
             self.last_command_at = now
-            self._send(value)
+            if not await self._send(value):
+                return False
             self._notify()
             return True
 
     async def stop(self, source: Optional[str] = None) -> None:
         async with self._lock:
+            if source in {None, AUTONOMOUS}:
+                self._autonomous_session = False
             if source is None or self.active_source == source:
-                self._send(0.0)
+                await self._send(0.0)
                 self.active_source = None
                 self._notify()
 
-    async def emergency_stop(self) -> None:
+    async def emergency_stop(self) -> bool:
+        # Latch before waiting for a command already in flight. Zero bypasses limits.
+        self.emergency_stopped = True
+        self.stop_generation += 1
+        self._autonomous_session = False
         async with self._lock:
-            # One-shot zero command; it does not latch future control.
-            self.emergency_stopped = False
-            self._send(0.0)
+            # Latched: stays True until reset_emergency() is called by the owner.
+            # No source may move the device while latched.
+            self.emergency_stopped = True
+            sent = await self._send(0.0)
             self.active_source = None
-            self.remote_session = None
             self._notify()
+            return sent
 
     def reset_emergency(self) -> None:
-        """Compatibility no-op: software stop is not latched."""
+        """Owner-only unlatch. Caller must be the human owner (e.g. via the
+        hardware stop button / admin panel). Does NOT auto-move the device."""
         self.emergency_stopped = False
         self._notify()
 
     # ---- удалённая сессия ----
-    def create_remote_session(self, max_intensity: float, ttl: float = 1800.0) -> RemoteSession:
+    def create_remote_session(self, max_intensity: float, ttl: float = 1800.0, uni_in_chat: str = "suggest") -> RemoteSession:
         import secrets
         token = secrets.token_hex(16)  # 128 бит
         self.remote_session = RemoteSession(
@@ -195,15 +250,21 @@ class ToyControlCoordinator:
             max_intensity=max(0.0, min(100.0, float(max_intensity))),
             created_at=time.time(),
             ttl=float(ttl),
+            uni_in_chat=uni_in_chat if uni_in_chat in {"off", "suggest", "assist"} else "suggest",
         )
         return self.remote_session
 
     def end_remote_session(self) -> None:
         if self.remote_session is not None:
+            was_active = self.active_source == REMOTE
             self.remote_session = None
-            # Сессия завершилась — отправляем 0% (если remote был активен).
-            if self.active_source == REMOTE:
-                self._send(0.0)
+            # Сессия завершилась — обязательно отправляем 0%, если remote был
+            # активен (устройство не должно оставаться на последнем значении).
+            if was_active:
+                import asyncio
+                loop = self._loop
+                if loop is not None and not loop.is_closed():
+                    asyncio.run_coroutine_threadsafe(self._send(0.0), loop)
                 self.active_source = None
             self._notify()
 
@@ -222,6 +283,7 @@ class ToyControlCoordinator:
                     "max_intensity": round(rs.max_intensity, 2) if rs else 0.0,
                     "seconds_left": round(rs.seconds_left(), 1) if rs else 0.0,
                     "expired": rs.is_expired() if rs else True,
+                    "uni_in_chat": rs.uni_in_chat if rs else "off",
                 }
                 if rs is not None
                 else None

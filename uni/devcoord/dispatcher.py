@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from uni.devcoord.direction_gate import MawcDirectionCoordinator
 from uni.devcoord.leases import ResourceLeaseManager
 from uni.devcoord.models import utc_now
 from uni.devcoord.scheduler import DispatchAssignment, TaskScheduler
@@ -27,10 +28,16 @@ class PreparedDispatch:
 class TaskDispatcher:
     """Bind a scheduler reservation to an isolated task worktree and session."""
 
-    def __init__(self, store: WorkspaceStore, worktrees: WorktreeManager) -> None:
+    def __init__(
+        self,
+        store: WorkspaceStore,
+        worktrees: WorktreeManager,
+        *,
+        direction_sync: MawcDirectionCoordinator | None = None,
+    ) -> None:
         self.store = store
         self.worktrees = worktrees
-        self.scheduler = TaskScheduler(store)
+        self.scheduler = TaskScheduler(store, direction_sync=direction_sync)
         self.leases = ResourceLeaseManager(store)
 
     def prepare(
@@ -61,21 +68,37 @@ class TaskDispatcher:
                 "worktree_path": str(worktree.path),
             }
         )
-        self.store.save_session(bound)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="dispatch.prepared",
-                task_id=assignment.task.id,
-                session_id=session_id,
-                detail=f"worktree={worktree.path}",
-            )
-        )
+        try:
+            with self.store.transaction(immediate=True) as conn:
+                self.store.save_session(bound, conn=conn)
+                self.store.append_event(
+                    WorkspaceEvent(
+                        event="dispatch.prepared",
+                        task_id=assignment.task.id,
+                        session_id=session_id,
+                        detail=f"worktree={worktree.path}",
+                    ),
+                    conn=conn,
+                )
+        except Exception as exc:
+            cleanup_error = self._discard_worktree(worktree)
+            self._rollback_reservation(assignment, session_id, exc)
+            if cleanup_error is not None:
+                exc.add_note(f"worktree cleanup failed: {cleanup_error}")
+            raise
         return PreparedDispatch(
             task=assignment.task,
             leases=assignment.leases,
             worktree=worktree,
             session=bound,
         )
+
+    def _discard_worktree(self, worktree: WorktreeRef) -> Exception | None:
+        try:
+            self.worktrees.discard(worktree)
+        except Exception as exc:
+            return exc
+        return None
 
     def _rollback_reservation(
         self,

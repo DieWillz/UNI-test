@@ -10,6 +10,7 @@ from uni.devcoord.workspace_models import (
     AgentSession,
     ResourceRequest,
     ResourceType,
+    SessionState,
     WorkTaskState,
     WorkspaceTask,
 )
@@ -184,3 +185,168 @@ Path(result_path).write_text(result, encoding="utf-8")
         if lease.resource_type is ResourceType.GLOBAL and lease.resource_key == "task:only"
     ]
     assert len(task_leases) == 1
+
+
+def test_reserve_next_rolls_back_task_when_claimed_event_write_fails(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="ATOMIC", title="Atomic claim", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+    with store.transaction(immediate=True) as conn:
+        conn.execute(
+            "CREATE TRIGGER fail_task_claimed BEFORE INSERT ON workspace_events "
+            "WHEN NEW.event='task.claimed' BEGIN SELECT RAISE(ABORT, 'boom'); END"
+        )
+
+    try:
+        TaskScheduler(store).reserve_next("worker", ttl_seconds=600)
+        assert False, "claim event failure must propagate"
+    except Exception as exc:
+        assert "boom" in str(exc)
+
+    task = store.get_workspace_task("ATOMIC")
+    assert task.state is WorkTaskState.READY
+    assert task.assigned_session_id is None
+    assert ResourceLeaseManager(store).list_active() == []
+
+
+def test_reserve_next_does_not_depend_on_compensating_release(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="ATOMIC-LEASE", title="Atomic lease", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+    with store.transaction(immediate=True) as conn:
+        conn.execute(
+            "CREATE TRIGGER fail_task_claimed_again BEFORE INSERT ON workspace_events "
+            "WHEN NEW.event='task.claimed' BEGIN SELECT RAISE(ABORT, 'claim-event-boom'); END"
+        )
+        conn.execute(
+            "CREATE TRIGGER fail_compensating_release BEFORE UPDATE ON resource_leases "
+            "WHEN NEW.state='released' BEGIN SELECT RAISE(ABORT, 'release-boom'); END"
+        )
+
+    try:
+        TaskScheduler(store).reserve_next("worker", ttl_seconds=600)
+        assert False, "claim event failure must propagate"
+    except Exception as exc:
+        assert "claim-event-boom" in str(exc)
+
+    task = store.get_workspace_task("ATOMIC-LEASE")
+    assert task.state is WorkTaskState.READY
+    assert task.assigned_session_id is None
+    assert ResourceLeaseManager(store).list_active() == []
+
+def test_reserve_next_rechecks_session_state_inside_reservation(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="RACE", title="Session race", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+    scheduler = TaskScheduler(store)
+    original_ready = scheduler.ready_tasks
+
+    def ready_then_stop(session_id: str):
+        candidates = original_ready(session_id)
+        current = store.get_session(session_id)
+        store.save_session(current.model_copy(update={"state": SessionState.STOPPED}))
+        return candidates
+
+    scheduler.ready_tasks = ready_then_stop
+    assignment = scheduler.reserve_next("worker", ttl_seconds=600)
+
+    assert assignment is None
+    assert store.get_workspace_task("RACE").state is WorkTaskState.READY
+    assert ResourceLeaseManager(store).list_active() == []
+
+def test_reserve_next_rechecks_session_capabilities_inside_reservation(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="CAP-RACE", title="Capability race", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+    scheduler = TaskScheduler(store)
+    original_ready = scheduler.ready_tasks
+
+    def ready_then_drop_capabilities(session_id: str):
+        candidates = original_ready(session_id)
+        current = store.get_session(session_id)
+        store.save_session(current.model_copy(update={"capabilities": []}))
+        return candidates
+
+    scheduler.ready_tasks = ready_then_drop_capabilities
+    assignment = scheduler.reserve_next("worker", ttl_seconds=600)
+
+    assert assignment is None
+    assert store.get_workspace_task("CAP-RACE").state is WorkTaskState.READY
+    assert ResourceLeaseManager(store).list_active() == []
+
+def test_reserve_next_claims_resources_from_fresh_task_snapshot(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="RESOURCE-RACE", title="Resource race", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+        requested_resources=[
+            ResourceRequest(resource_type=ResourceType.LOGIC, resource_key="old-resource")
+        ],
+    ))
+    scheduler = TaskScheduler(store)
+    original_ready = scheduler.ready_tasks
+
+    def ready_then_change_resources(session_id: str):
+        candidates = original_ready(session_id)
+        current = store.get_workspace_task("RESOURCE-RACE")
+        store.save_workspace_task(current.model_copy(update={
+            "requested_resources": [
+                ResourceRequest(resource_type=ResourceType.LOGIC, resource_key="new-resource")
+            ]
+        }))
+        return candidates
+
+    scheduler.ready_tasks = ready_then_change_resources
+    assignment = scheduler.reserve_next("worker", ttl_seconds=600)
+
+    assert assignment is not None
+    assert {lease.resource_key for lease in assignment.leases} == {
+        "task:resource-race", "new-resource"
+    }
+
+
+def test_busy_session_cannot_reserve_second_task(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(AgentSession(
+        session_id="worker", agent_id="hermes", display_name="Hermes",
+        task_id="ALREADY-BOUND", capabilities=["python"],
+    ))
+    store.save_workspace_task(WorkspaceTask(
+        id="SECOND", title="Second task", priority=100,
+        required_capabilities=["python"], state=WorkTaskState.READY,
+    ))
+
+    scheduler = TaskScheduler(store)
+
+    assert scheduler.ready_tasks("worker") == []
+    assert scheduler.reserve_next("worker", ttl_seconds=600) is None
+    assert store.get_workspace_task("SECOND").state is WorkTaskState.READY
+    assert ResourceLeaseManager(store).list_active() == []

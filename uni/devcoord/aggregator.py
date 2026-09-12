@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from .models import ProviderResult
+from uni.utils.file_lock import acquire_lock, release_lock
 
 
 class AggregatedResult(BaseModel):
@@ -29,6 +31,8 @@ class AggregatedResult(BaseModel):
 class ResponseCache:
     """JSON file cache for provider responses (kept out of SQLite by design)."""
 
+    LOCK_TIMEOUT_SECONDS = 5.0
+
     def __init__(self, cache_dir: Path):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -39,7 +43,8 @@ class ResponseCache:
     def _load(self) -> None:
         if self.cache_file.exists():
             try:
-                self._data = json.loads(self.cache_file.read_text(encoding="utf-8"))
+                loaded = json.loads(self.cache_file.read_text(encoding="utf-8"))
+                self._data = loaded if isinstance(loaded, dict) else {}
             except (OSError, ValueError):
                 self._data = {}
 
@@ -48,12 +53,26 @@ class ResponseCache:
             json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
+    @contextmanager
+    def _file_guard(self):
+        target = str(self.cache_file)
+        if not acquire_lock(target, timeout=self.LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError(f"response cache lock timeout: {self.cache_file}")
+        try:
+            yield
+        finally:
+            release_lock(target)
+
     def get(self, task_id: str, provider: str) -> Optional[str]:
-        return self._data.get(f"{task_id}:{provider}")
+        with self._file_guard():
+            self._load()
+            return self._data.get(f"{task_id}:{provider}")
 
     def set(self, task_id: str, provider: str, response: str) -> None:
-        self._data[f"{task_id}:{provider}"] = response
-        self._save()
+        with self._file_guard():
+            self._load()
+            self._data[f"{task_id}:{provider}"] = response
+            self._save()
 
 
 class Aggregator:
@@ -79,12 +98,13 @@ class Aggregator:
 
         cached_results: list[ProviderResult] = []
         for result in results:
-            cached = self.cache.get(task_id, result.provider_id)
+            working = result.model_copy(deep=True)
+            cached = self.cache.get(task_id, working.provider_id)
             if cached:
-                result.content = cached
+                working.content = cached
             else:
-                self.cache.set(task_id, result.provider_id, result.content)
-            cached_results.append(result)
+                self.cache.set(task_id, working.provider_id, working.content)
+            cached_results.append(working)
 
         if successful_providers:
             for result in cached_results:
@@ -175,6 +195,8 @@ class Aggregator:
             )
             scored.append((result, score))
 
+        if not scored:
+            raise ValueError("No valid responses to aggregate")
         scored.sort(key=lambda x: x[1], reverse=True)
         best_result, best_score = scored[0]
         return AggregatedResult(

@@ -22,6 +22,9 @@ class ExplorationExecutor:
         self.calls = []
         self.screenshot_dir = screenshot_dir
 
+    def canonical_name(self, name):
+        return name
+
     async def execute(self, name, args=None):
         args = args or {}
         self.calls.append((name, args))

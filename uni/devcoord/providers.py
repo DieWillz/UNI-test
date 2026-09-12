@@ -33,10 +33,18 @@ class DevelopmentProvider(ABC):
 class OpenAICompatibleProvider(DevelopmentProvider):
     async def request(self, handoff: HandoffPackage) -> ProviderResult:
         prompt = render_handoff(handoff)
-        return await asyncio.wait_for(
-            asyncio.to_thread(self._request_sync, prompt),
-            timeout=self.config.timeout_seconds,
-        )
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._request_sync, prompt),
+                timeout=self.config.timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            return ProviderResult(
+                provider_id=self.config.id,
+                transport="api",
+                content="",
+                error=f"timeout after {self.config.timeout_seconds:g}s",
+            )
 
     def _request_sync(self, prompt: str) -> ProviderResult:
         try:

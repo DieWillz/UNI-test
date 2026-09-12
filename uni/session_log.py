@@ -19,7 +19,17 @@ class SessionLogger:
         self.enabled = enabled
         self.root = Path(root).resolve()
         session_id = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.session_dir = self.root / session_id
+        session_dir = self.root / session_id
+        if self.enabled:
+            counter = 0
+            while True:
+                try:
+                    session_dir.mkdir(parents=True, exist_ok=False)
+                    break
+                except FileExistsError:
+                    counter += 1
+                    session_dir = self.root / f"{session_id}-{counter}"
+        self.session_dir = session_dir
         self.screenshot_dir = self.session_dir / "screenshots"
         self.log_path = self.session_dir / "session.log"
         self._lock = threading.Lock()

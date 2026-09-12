@@ -155,3 +155,7 @@ STOP.txt*
 *.consumed
 .hb.json
 state.json
+# Local cleanup / accidental workspace artifacts
+/backups/
+/_resolve_*.py
+/NVIDIA Corporation/

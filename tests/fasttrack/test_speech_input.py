@@ -121,3 +121,17 @@ class SpeechInputTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_adaptive_gain_boosts_whisper_level_without_clipping():
+    speech = SpeechCapability(microphone_gain=10.0)
+    quiet = np.array([-0.0002, 0.0002] * 400, dtype=np.float32)
+    prepared = speech._prepare_input_audio(quiet)
+    assert float(np.sqrt(np.mean(prepared * prepared))) >= 0.019
+    assert float(np.max(np.abs(prepared))) <= 1.0
+
+
+def test_voice_detector_does_not_use_adaptive_gain_on_background_noise():
+    speech = SpeechCapability(microphone_gain=10.0, voice_activation_threshold=0.0015)
+    background = np.array([-0.00009, 0.00009] * 400, dtype=np.float32)
+    assert speech._chunk_has_voice(background) is False

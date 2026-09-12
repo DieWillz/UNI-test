@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from uni.devcoord.worktrees import WorktreeCollisionError, WorktreeManager
+from uni.devcoord.worktrees import WorktreeCollisionError, WorktreeManager, WorktreeRef
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -71,3 +71,31 @@ def test_snapshot_is_read_only_and_captures_task_state(tmp_path: Path) -> None:
     assert "-committed" in snapshot.diff_text
     assert "+task-change" in snapshot.diff_text
     assert _git(repo, "status", "--porcelain") == canonical_before
+
+
+def test_discard_removes_created_worktree_and_branch(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    manager = WorktreeManager(repo, worktrees_root=tmp_path / "worktrees")
+    ref = manager.create("hermes", "UNI-203")
+
+    manager.discard(ref)
+
+    assert not ref.path.exists()
+    assert _git(repo, "branch", "--list", ref.branch) == ""
+
+
+def test_discard_rejects_mismatched_ref_without_deleting_branch(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    manager = WorktreeManager(repo, worktrees_root=tmp_path / "worktrees")
+    _git(repo, "branch", "keep-me")
+    forged = WorktreeRef(
+        agent_id="hermes",
+        task_id="UNI-204",
+        branch="keep-me",
+        path=(tmp_path / "worktrees" / "hermes" / "UNI-204").resolve(),
+    )
+
+    with pytest.raises(ValueError, match="worktree ref mismatch"):
+        manager.discard(forged)
+
+    assert _git(repo, "branch", "--list", "keep-me") != ""

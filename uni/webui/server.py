@@ -44,6 +44,7 @@ from uni.webui.ui_contract import (
 )
 from uni.xtoys_control_coordinator import ToyControlCoordinator, MANUAL, MOTION, REMOTE, PATTERN, AUTONOMOUS
 from uni.xtoys_motion import MotionToyController, MotionSettings
+from uni.webui.remote_session import RemoteRoomStore
 
 # 🤖 P-03 (2026-08-17): аддитивный реестр модульных handlers (health, mission,
 # memory_facts, plugins, events). Новые endpoints живут в uni/webui/handlers/,
@@ -51,6 +52,7 @@ from uni.xtoys_motion import MotionToyController, MotionSettings
 # нетронутым как fallback — поведение не меняется. Миграция существующих
 # endpoints — отдельная итерация (MODULAR-02).
 from uni.webui import handlers as _modular_handlers  # noqa: F401
+from uni.webui.handlers.app_status import _app_status  # noqa: F401  — Hermes: GET /api/app
 from uni.webui.handlers.events import publish_event as _publish_event
 
 _HERE = Path(__file__).resolve().parent
@@ -144,10 +146,15 @@ _REMOTE_TIMER: threading.Timer | None = None
 _REMOTE_ROOM_LOCK = threading.RLock()
 _REMOTE_ROOM_EVENTS: list[dict[str, Any]] = []
 _REMOTE_ROOM_NEXT_ID = 1
+_REMOTE_ROOM = RemoteRoomStore(Path(__file__).resolve().parents[2] / "runtime")
 _REMOTE_GATEWAY = None
 _REMOTE_GATEWAY_THREAD = None
 _PUBLIC_TUNNEL_PROCESS: subprocess.Popen | None = None
 _PUBLIC_TUNNEL_URL = ""
+# 🤖 Hermes (2026-08-17): второй провайдер публичного туннеля на всякий случай.
+_NGROK_TUNNEL_PROCESS: subprocess.Popen | None = None
+_NGROK_TUNNEL_URL = ""
+_NGROK_API_URL = "http://127.0.0.1:4040/api/tunnels"
 
 
 def _ensure_remote_gateway() -> None:
@@ -216,6 +223,81 @@ def _stop_public_tunnel() -> None:
     _PUBLIC_TUNNEL_URL = ""
     if process is not None and process.poll() is None:
         process.terminate()
+
+
+def _read_ngrok_url_from_api() -> str:
+    """Читаем публичный URL у локального ngrok-агента (он не печатает в stdout)."""
+    global _NGROK_TUNNEL_URL
+    import json as _json
+    import urllib.request as _ureq
+    try:
+        req = _ureq.Request(_NGROK_API_URL, headers={"Accept": "application/json"})
+        with _ureq.urlopen(req, timeout=4) as resp:
+            data = _json.loads(resp.read().decode("utf-8", "replace"))
+        for t in data.get("tunnels", []):
+            if str(t.get("proto", "")).startswith("https") or t.get("public_url", "").startswith("https"):
+                _NGROK_TUNNEL_URL = str(t["public_url"]).rstrip("/")
+                return _NGROK_TUNNEL_URL
+    except Exception:
+        pass
+    return _NGROK_TUNNEL_URL
+
+
+def _start_ngrok_tunnel() -> str:
+    """Поднимает ngrok.exe и ждёт, пока он зарегистрирует туннель (URL читаем из локального API :4040)."""
+    global _NGROK_TUNNEL_PROCESS, _NGROK_TUNNEL_URL
+    if _NGROK_TUNNEL_PROCESS is not None and _NGROK_TUNNEL_PROCESS.poll() is None and _NGROK_TUNNEL_URL:
+        return _NGROK_TUNNEL_URL
+    _ensure_remote_gateway()
+    binary = _HERE / "bin" / "ngrok.exe"
+    if not binary.is_file():
+        raise RuntimeError("ngrok.exe не установлен (положи в uni/webui/bin/ngrok.exe и выполни ngrok config add-authtoken)")
+    process = subprocess.Popen(
+        [str(binary), "http", "--log=stdout", "8788"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    _NGROK_TUNNEL_PROCESS = process
+    deadline = time.time() + 25.0
+    while time.time() < deadline:
+        if process.poll() is not None:
+            break
+        url = _read_ngrok_url_from_api()
+        if url:
+            return url
+        time.sleep(0.7)
+    if process.poll() is None:
+        process.terminate()
+    _NGROK_TUNNEL_PROCESS = None
+    raise RuntimeError("ngrok не выдал публичный адрес (проверь authtoken и доступ к 127.0.0.1:4040)")
+
+
+def _stop_ngrok_tunnel() -> None:
+    global _NGROK_TUNNEL_PROCESS, _NGROK_TUNNEL_URL
+    process = _NGROK_TUNNEL_PROCESS
+    _NGROK_TUNNEL_PROCESS = None
+    _NGROK_TUNNEL_URL = ""
+    if process is not None and process.poll() is None:
+        process.terminate()
+
+
+def _start_public_tunnels() -> dict:
+    """Поднимает ОБА туннеля параллельно. Падение одного не валит другой — честно возвращаем ошибки по каждому."""
+    result: dict = {"cloudflare_url": "", "ngrok_url": "", "errors": {}}
+    try:
+        result["cloudflare_url"] = _start_public_tunnel()
+    except Exception as exc:
+        result["errors"]["cloudflare"] = f"{type(exc).__name__}: {exc}"
+    try:
+        result["ngrok_url"] = _start_ngrok_tunnel()
+    except Exception as exc:
+        result["errors"]["ngrok"] = f"{type(exc).__name__}: {exc}"
+    return result
+
+
+def _stop_public_tunnels() -> None:
+    _stop_public_tunnel()
+    _stop_ngrok_tunnel()
 
 
 def _remote_timeout_stop() -> None:
@@ -923,6 +1005,15 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
 
+        # 🤖 Hermes 2026-09-11: GET /api/app — runtime-статус UNI (Hermes)
+        if parsed.path == "/api/app":
+            from uni.webui.handlers.app_status import _app_status as _app_status_handler
+            try:
+                _app_status_handler(self)
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+
         # 🤖 P-03: модульные handlers (registry-first). Если путь зарегистрирован
         # в uni.webui.handlers.registry — вызываем его и return. Иначе legacy-код.
         _h = _modular_handlers.registry.match("GET", parsed.path)
@@ -1084,6 +1175,13 @@ class _Handler(BaseHTTPRequestHandler):
             if head.startswith("/api/admin/reports/"):
                 name = head[len("/api/admin/reports/"):]
                 self._json(200, admin_report_content(name)); return
+            if head == "/api/admin/config":
+                try:
+                    from uni.webui.config_admin import build_admin_config_snapshot
+                    self._json(200, build_admin_config_snapshot(_ROOT / "config.yaml"))
+                except Exception as exc:
+                    self._json(500, {"error": f"config read failed: {type(exc).__name__}: {exc}"})
+                return
             self._json(404, {"error": "unknown admin endpoint"})
             return
 
@@ -1166,7 +1264,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._redirect("/", code=301)
             return
         if parsed.path in ("/remote-control", "/remote-control.html"):
-            page = _HERE / "remote-control.html"
+            page = _HERE / "remote.html"
             if page.is_file():
                 self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
             else:
@@ -1179,25 +1277,11 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, b"camera preview missing", "text/plain")
             return
-        # 🤖 Qwen (2026-08-16): редирект /v3 → /v3/ и /v4 → /v4/.
-        # Без слэша относительные пути в index.html (href="style.css")
-        # резолвятся в /style.css (404). Со слэшем — в /v4/style.css (200).
-        # Это стандартное поведение nginx/Apache; здесь эмулируем 301 редиректом.
-        if parsed.path in {"/v3", "/v3/"}:
-            self._redirect("/v4/", code=302)
-            return
-        if parsed.path == "/v4":
-            self._redirect("/v4/", code=301)
-            return
-        if parsed.path == "/v4/":
-            # 🤖 Hermes (2026-08-14): админка v4 — новый SPA в uni/webui/v4/.
-            # Добавлено аддитивно, не трогает v3. Полноценный интерфейс с
-            # честными бейджами статуса (нерабочие места видны сразу).
-            page = _HERE / "v4" / "index.html"
-            if page.is_file():
-                self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
-            else:
-                self._send(404, b"admin v4 missing", "text/plain")
+        # Legacy admin routes now point at the single canonical root SPA.
+        # The former v4 frontend was merged into index.html and its duplicate
+        # directory removed, so keeping /v4/ as a file-backed route causes 404s.
+        if parsed.path in {"/v3", "/v3/", "/v4", "/v4/"}:
+            self._redirect("/", code=302)
             return
 
         if parsed.path in ("/api/context/feed", "/api/context/feed/"):
@@ -1285,16 +1369,24 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             text = p.read_text(encoding="utf-8", errors="replace")
             tasks = []
+            section = "TASK"
+            counters: dict[str, int] = {}
             for line in text.splitlines():
+                heading = re.match(r"^\s*##\s+(P\d+(?:/P\d+)?)\b", line)
+                if heading:
+                    section = heading.group(1).replace("/", "-")
+                    continue
                 m = re.match(r"^\s*##\s+(B-\d+|T-\d+)\s+(.*?)(\[V\]|\[ \]|\[solo\]|\[X\])?\s*$", line)
                 if m:
                     tasks.append({"id": m.group(1), "title": m.group(2).strip(),
                                   "status": (m.group(3) or "").strip() or "open"})
-                else:
-                    m2 = re.match(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$", line)
-                    if m2:
-                        tasks.append({"id": "", "title": m2.group(2).strip(),
-                                      "status": "done" if m2.group(1).lower() == "x" else "open"})
+                    continue
+                m2 = re.match(r"^\s*[-*]\s+\[( |x|X)\]\s+(.*)$", line)
+                if m2:
+                    counters[section] = counters.get(section, 0) + 1
+                    tasks.append({"id": f"{section}-{counters[section]:03d}",
+                                  "title": m2.group(2).strip(),
+                                  "status": "done" if m2.group(1).lower() == "x" else "open"})
             self._json(200, {"file": "UNI_BACKLOG.md", "tasks": tasks})
             return
         if parsed.path == "/api/heartbeats":
@@ -1460,7 +1552,17 @@ class _Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if parsed.path == "/api/safety":
-            agent = self._get_chat_agent()
+            # Не инициализируем агент ради статуса (это вешает UI при
+            # отсутствии LLM-стека). Агент поднимается лениво только при
+            # реальном чате. Если уже жив — берём актуальный guard.cfg.
+            agent = _CHAT_AGENT
+            if agent is None or getattr(agent, "_closed", False):
+                self._json(200, {
+                    "autonomy_level": "unknown",
+                    "autonomy_active": False,
+                    "agent_ready": False,
+                })
+                return
             guard = getattr(agent, "guard", None)
             if guard is None:
                 self._json(503, {"error": "guard недоступен (агент не инициализирован)"})
@@ -1469,6 +1571,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {
                 "autonomy_level": cfg.autonomy_level,
                 "autonomy_active": bool(getattr(getattr(agent, "autonomous", None), "_tasks", set())),
+                "agent_ready": True,
             })
             return
         if parsed.path == "/api/roles":
@@ -1480,6 +1583,9 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
                 return
             self._json(200, {"roles": roles, "current": get_current_role()})
+            return
+        if parsed.path == "/api/chat/status":
+            self._handle_chat_status()
             return
         if parsed.path == "/api/role/prompt":
             # Просмотр system-prompt выбранной роли (для админ-панели).
@@ -1506,9 +1612,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/xtoys/session/status":
             try:
-                agent = self._get_chat_agent()
-                session = self._xt_session(agent)
-                self._json(200, {"active": session.active, "status": session.status_text()})
+                # Passive UI polling must not create an agent or connect devices.
+                agent = _CHAT_AGENT
+                if agent is None or getattr(agent, "_closed", False):
+                    self._json(503, {"error": "Агент не запущен", "status": "not_verified"})
+                    return
+                self._json(200, self._dorch_session_status(agent))
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -1920,6 +2029,26 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(500, {"error": f"act error: {exc}"})
             return
+        if self.path == "/api/stt/listen":
+            try:
+                body = self._read_json_body() if self.headers.get("Content-Length") else {}
+                wait_seconds = max(0.5, min(20.0, float(body.get("wait_seconds", 8.0))))
+                agent = self._get_chat_agent()
+                speech = getattr(agent, "speech", None) or agent.capabilities.get("speech")
+                if speech is None:
+                    self._json(503, {"error": "STT capability unavailable", "available": False})
+                    return
+                text = self._xt_run(speech.listen(wait_seconds), timeout=max(45.0, wait_seconds + 30.0))
+                self._json(200, {
+                    "text": text or "",
+                    "engine": "faster-whisper",
+                    "language": "ru",
+                    "model": getattr(speech, "stt_model", "unknown"),
+                    "empty": not bool(text),
+                })
+            except Exception as exc:
+                self._json(503, {"error": f"STT listen failed: {type(exc).__name__}: {exc}", "available": False})
+            return
         if self.path == "/api/stt":
             # 🤖 DC-02: POST — речь→текст (опциональный Whisper)
             try:
@@ -2028,6 +2157,28 @@ class _Handler(BaseHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError):
                 pass
             return
+        if self.path == "/api/admin/config":
+            if self.client_address[0] not in ("127.0.0.1", "::1"):
+                self._json(403, {"error": "admin config is localhost-only"})
+                return
+            try:
+                from uni.webui.config_admin import apply_admin_config_updates, build_admin_config_snapshot
+                body = self._read_json_body()
+                updates = body.get("updates", {}) if isinstance(body, dict) else {}
+                result = apply_admin_config_updates(_ROOT / "config.yaml", updates)
+                agent = _CHAT_AGENT
+                if agent is not None and "capabilities.xtoys.max_intensity" in result["changed"]:
+                    max_intensity = load_config().capabilities.xtoys.max_intensity
+                    agent.toy_coordinator.set_max_intensity(max_intensity)
+                    agent.control_queue.max_intensity = int(max_intensity)
+                result["ok"] = True
+                result["config"] = build_admin_config_snapshot(_ROOT / "config.yaml")
+                self._json(200, result)
+            except ValueError as exc:
+                self._json(400, {"error": str(exc)})
+            except Exception as exc:
+                self._json(500, {"error": f"config save failed: {type(exc).__name__}: {exc}"})
+            return
         if self.path == "/api/config":
             try:
                 self._save_config(_read_body(self))
@@ -2089,7 +2240,12 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_camera_start(self._read_json_body())
             return
         if self.path == "/api/camera/stop":
+            self._read_json_body()  # Drain {} before reusing the HTTP/1.1 connection.
             self._handle_camera_stop()
+            return
+        if self.path == "/api/camera/frame":
+            self._read_json_body()
+            self._handle_camera_frame()
             return
         if self.path == "/api/vision/capture":
             self._handle_vision_capture(self._read_json_body())
@@ -2221,7 +2377,9 @@ class _Handler(BaseHTTPRequestHandler):
                 if getattr(ctrl, "_running", False):
                     self._json(200, {"ok": True, "already_running": True})
                     return
-                ctrl.start()  # launches a background thread with its own asyncio loop
+                if _XT_SESSION is not None and _XT_SESSION.active:
+                    self._xt_run(_XT_SESSION.stop(reason="handover"))
+                ctrl.start()  # shares the live Intiface runtime loop
                 self._json(200, {"ok": True, "running": True})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -2233,7 +2391,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if ctrl is None:
                     self._json(503, {"error": "автономный контроллер недоступен"})
                     return
-                asyncio.run(ctrl.stop())
+                self._xt_run(self._stop_dorch())
                 self._json(200, {"ok": True, "running": False})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -2252,14 +2410,16 @@ class _Handler(BaseHTTPRequestHandler):
                 if _MOTION is not None and _MOTION.status().get("running"):
                     self._xt_run(_MOTION.stop(), timeout=8)
                 coordinator = self._toy_coordinator()
-                self._xt_run(coordinator.stop(), timeout=5)
-                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
-                    self._json(409, {"error": "аварийный стоп активен"})
+                if not coordinator.autonomous_allowed():
+                    self._json(409, {"error": "Автономный Dorch отключён конфигурацией или активен аварийный STOP", "status": "not_verified"})
                     return
-                # fire-and-forget: session.start() opens the browser/xtoys and may
-                # take a while; the UI polls /status instead of blocking here.
-                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
-                self._json(200, {"ok": True, "running": True, "message": "запуск сессии…"})
+                # 🤖 Единый контур: запускаем autonomous (крутит ControlQueue через
+                # единый runner). Модель/пользователь добавляют шаги операциями.
+                # Старый AutonomousSession НЕ запускаем (он legacy-адаптер).
+                ctrl = getattr(agent, "autonomous", None)
+                if ctrl is not None and not getattr(ctrl, "_running", False):
+                    ctrl.start()
+                self._json(200, {"ok": True, "accepted": True, "status": "not_verified", "message": "автономный режим запущен; план задаёт Юни через чат/инициативу"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2276,13 +2436,40 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        if self.path == "/api/xtoys/autonomous/stop":
+            try:
+                if self.headers.get("Content-Length"):
+                    self._read_json_body()
+                agent = self._get_chat_agent()
+                cq = getattr(agent, "control_queue", None)
+                if cq is not None:
+                    self._xt_run(cq.pause(), timeout=10)
+                ctrl = getattr(agent, "autonomous", None)
+                if ctrl is not None and getattr(ctrl, "_running", False):
+                    self._xt_run(ctrl.stop(emergency=False), timeout=15)
+                self._json(200, {
+                    "ok": True,
+                    "running": False,
+                    "emergency_stop": bool(self._toy_coordinator().emergency_stopped),
+                    "message": "Autonomous Dorch stopped gracefully",
+                })
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         if self.path == "/api/xtoys/session/stop":
             try:
                 agent = self._get_chat_agent()
-                session = self._xt_session(agent)
-                msg = self._xt_run(session.stop())
-                self._xt_run(self._toy_coordinator().release(AUTONOMOUS), timeout=5)
-                self._json(200, {"ok": True, "running": False, "message": msg})
+                cq = getattr(agent, "control_queue", None)
+                if cq is not None:
+                    # 🤖 Единый контур: STOP через очередь (control_epoch++, отмена, ноль)
+                    loop = getattr(agent, "_loop", None)
+                    if loop is not None and loop.is_running():
+                        asyncio.run_coroutine_threadsafe(
+                            cq.apply(__import__("uni.control_queue", fromlist=["QueueOperation"]).QueueOperation(operation="stop")), loop).result(timeout=8)
+                    else:
+                        _run_async(cq.apply(__import__("uni.control_queue", fromlist=["QueueOperation"]).QueueOperation(operation="stop")))
+                self._xt_run(self._stop_dorch())
+                self._json(200, {"ok": True, "running": False, "status": "not_verified", "message": "STOP отправлен; проверьте физическую остановку"})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2291,6 +2478,17 @@ class _Handler(BaseHTTPRequestHandler):
                 body = self._read_json_body()
                 value = _dorch_limit(body.get("value", 0))
                 agent = self._get_chat_agent()
+                cq = getattr(agent, "control_queue", None)
+                if cq is not None:
+                    # 🤖 Ручной ползунок = передача управления владельцу (ТЗ §8)
+                    loop = getattr(agent, "_loop", None)
+                    if loop is not None and loop.is_running():
+                        asyncio.run_coroutine_threadsafe(cq.manual_override(int(value)), loop).result(timeout=5)
+                    else:
+                        _run_async(cq.manual_override(int(value)))
+                    self._json(200, {"ok": True, "value": value, "mode": "manual",
+                                     "message": "Ручной режим: управление передано владельцу."})
+                    return
                 session = self._xt_session(agent)
                 if session.active:
                     msg = session.set_manual_override(value)
@@ -2305,8 +2503,7 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/xtoys/session/status":
             try:
                 agent = self._get_chat_agent()
-                session = self._xt_session(agent)
-                self._json(200, {"active": session.active, "status": session.status_text()})
+                self._json(200, self._dorch_session_status(agent))
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2349,7 +2546,7 @@ class _Handler(BaseHTTPRequestHandler):
                     _XTOYS_PATTERN = None
                 session = self._xt_session(self._get_chat_agent())
                 if session.active:
-                    self._xt_run(session.stop(), timeout=10)
+                    self._xt_run(session.stop(reason="handover"), timeout=10)
                 self._xt_run(coordinator.stop(), timeout=5)
                 if not self._xt_run(coordinator.acquire(MOTION), timeout=5):
                     self._json(409, {"error": "машинка занята другим режимом"})
@@ -2375,24 +2572,23 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
         # ===== Local, owner-approved remote control =====
-        if self.path == "/api/xtoys/remote/session/start":
+        if self.path in {"/api/xtoys/remote/session/start", "/api/xtoys/remote/start"}:
             try:
                 body = self._read_json_body()
                 coordinator = self._toy_coordinator()
-                self._xt_run(coordinator.stop(), timeout=5)
-                session = coordinator.create_remote_session(
-                    max_intensity=max(0, min(100, float(body.get("max_intensity", 40)))),
-                    ttl=max(60, min(3600, float(body.get("ttl", 1800)))),
-                )
-                with _REMOTE_ROOM_LOCK:
-                    _REMOTE_ROOM_EVENTS = []
-                    _REMOTE_ROOM_NEXT_ID = 1
+                if _INTIFACE is not None and _INTIFACE.connected:
+                    self._xt_run(coordinator.stop(), timeout=5)
+                requested_ttl = body.get("ttl")
+                if requested_ttl is None and body.get("minutes") is not None:
+                    requested_ttl = float(body["minutes"]) * 60
+                session = coordinator.create_remote_session(max_intensity=max(0, min(100, float(body.get("max_intensity", 100)))),ttl=max(60, min(86400, float(requested_ttl if requested_ttl is not None else 9000))),uni_in_chat=str(body.get("uni_in_chat", "suggest")))
+                _REMOTE_ROOM.reset()
                 host = self.headers.get("Host", "127.0.0.1:8787")
                 self._json(200, {"ok": True, "url": f"http://{host}/remote-control#token={session.token}", "expires_in": session.ttl})
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
-        if self.path == "/api/xtoys/remote/session/stop":
+        if self.path in {"/api/xtoys/remote/session/stop", "/api/xtoys/remote/stop"}:
             try:
                 if self.headers.get("Content-Length"):
                     self._read_json_body()
@@ -2402,9 +2598,7 @@ class _Handler(BaseHTTPRequestHandler):
                 coordinator = self._toy_coordinator()
                 coordinator.end_remote_session()
                 _stop_public_tunnel()
-                with _REMOTE_ROOM_LOCK:
-                    _REMOTE_ROOM_EVENTS = []
-                    _REMOTE_ROOM_NEXT_ID = 1
+                _REMOTE_ROOM.reset()
                 self._xt_run(coordinator.release(REMOTE), timeout=5)
                 self._json(200, {"ok": True})
             except Exception as exc:
@@ -2419,22 +2613,35 @@ class _Handler(BaseHTTPRequestHandler):
                 if session is None or session.is_expired():
                     self._json(409, {"error": "сначала создайте Remote-сессию"})
                     return
-                public_base = _start_public_tunnel()
-                self._json(200, {"ok": True, "url": f"{public_base}/remote-control#token={session.token}"})
+                # 🤖 Hermes (2026-08-17): поднимаем оба туннеля сразу на всякий случай.
+                tunnels = _start_public_tunnels()
+                cf = tunnels.get("cloudflare_url") or ""
+                ng = tunnels.get("ngrok_url") or ""
+                errs = tunnels.get("errors") or {}
+                out = {
+                    "ok": True,
+                    "cloudflare_url": f"{cf}/remote-control#token={session.token}" if cf else "",
+                    "ngrok_url": f"{ng}/remote-control#token={session.token}" if ng else "",
+                    "errors": errs,
+                }
+                self._json(200, out)
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
         if self.path == "/api/xtoys/remote/public/stop":
             if self.headers.get("Content-Length"):
                 self._read_json_body()
-            _stop_public_tunnel()
+            _stop_public_tunnels()
             self._json(200, {"ok": True})
             return
         if self.path == "/api/xtoys/remote/public/status":
             if self.headers.get("Content-Length"):
                 self._read_json_body()
-            running = _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None
-            self._json(200, {"ok": True, "running": running, "base_url": _PUBLIC_TUNNEL_URL if running else ""})
+            cf_running = _PUBLIC_TUNNEL_PROCESS is not None and _PUBLIC_TUNNEL_PROCESS.poll() is None
+            ng_running = _NGROK_TUNNEL_PROCESS is not None and _NGROK_TUNNEL_PROCESS.poll() is None
+            self._json(200, {"ok": True, "running": cf_running or ng_running,
+                             "cloudflare": {"running": cf_running, "base_url": _PUBLIC_TUNNEL_URL if cf_running else ""},
+                             "ngrok": {"running": ng_running, "base_url": _NGROK_TUNNEL_URL if ng_running else ""}})
             return
         if self.path == "/api/xtoys/remote/room":
             try:
@@ -2460,18 +2667,11 @@ class _Handler(BaseHTTPRequestHandler):
                     if len(encoded.encode("utf-8")) > 131072:
                         self._json(413, {"error": "room event too large"})
                         return
-                    target = "controller" if role == "owner" else "owner"
-                    with _REMOTE_ROOM_LOCK:
-                        event = {"id": _REMOTE_ROOM_NEXT_ID, "kind": kind, "from": role, "target": target, "payload": payload, "time": time.time()}
-                        _REMOTE_ROOM_NEXT_ID += 1
-                        _REMOTE_ROOM_EVENTS.append(event)
-                        del _REMOTE_ROOM_EVENTS[:-500]
+                    event = _REMOTE_ROOM.send(role, kind, payload)
                     self._json(200, {"ok": True, "id": event["id"]})
                     return
                 after = max(0, int(body.get("after", 0)))
-                with _REMOTE_ROOM_LOCK:
-                    events = [event for event in _REMOTE_ROOM_EVENTS if event["id"] > after and event["target"] == role]
-                self._json(200, {"ok": True, "events": events[-100:]})
+                self._json(200, {"ok": True, "events": _REMOTE_ROOM.poll(role, after)})
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
@@ -2510,16 +2710,59 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 self._json(400, {"error": f"{type(exc).__name__}: {exc}"})
             return
+        # 🤖 Единый контур: управление очередью через ControlQueue.
+        if self.path == "/api/xtoys/queue/clear":
+            try:
+                agent = self._get_chat_agent()
+                cq = getattr(agent, "control_queue", None)
+                if cq is None:
+                    self._json(503, {"error": "очередь недоступна", "status": "not_verified"})
+                    return
+                loop = getattr(agent, "_loop", None)
+                if loop is not None and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(cq.apply(__import__("uni.control_queue", fromlist=["QueueOperation"]).QueueOperation(operation="clear_pending")), loop).result(timeout=8)
+                else:
+                    _run_async(cq.apply(__import__("uni.control_queue", fromlist=["QueueOperation"]).QueueOperation(operation="clear_pending")))
+                self._json(200, {"ok": True, "queue_revision": cq.queue_revision})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        if self.path == "/api/xtoys/queue/remove":
+            try:
+                body = self._read_json_body()
+                step_id = str(body.get("step_id") or "")
+                if not step_id:
+                    self._json(400, {"error": "нужен step_id"})
+                    return
+                agent = self._get_chat_agent()
+                cq = getattr(agent, "control_queue", None)
+                if cq is None:
+                    self._json(503, {"error": "очередь недоступна", "status": "not_verified"})
+                    return
+                loop = getattr(agent, "_loop", None)
+                op = __import__("uni.control_queue", fromlist=["QueueOperation"]).QueueOperation(operation="remove_pending", items=[{"step_id": step_id}])
+                if loop is not None and loop.is_running():
+                    res = asyncio.run_coroutine_threadsafe(cq.apply(op), loop).result(timeout=8)
+                else:
+                    res = _run_async(cq.apply(op))
+                if not res.get("accepted"):
+                    self._json(404, {"error": res.get("error"), "status": "not_verified"})
+                    return
+                self._json(200, {"ok": True, "queue_revision": cq.queue_revision})
+            except Exception as exc:
+                self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            return
         if self.path == "/api/xtoys/emergency-stop":
             try:
                 if self.headers.get("Content-Length"):
                     self._read_json_body()
+                self._xt_run(self._stop_dorch(), timeout=8)
                 if _MOTION is not None:
                     self._xt_run(_MOTION.stop(), timeout=8)
                 if _XTOYS_PATTERN is not None:
                     _XTOYS_PATTERN.stop()
                     _XTOYS_PATTERN = None
-                self._xt_run(self._toy_coordinator().emergency_stop(), timeout=8)
+                # Zero and the emergency latch are applied before producer cleanup.
                 self._json(200, {"ok": True})
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -2531,6 +2774,14 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"ok": True})
             return
         # ===== Intiface (Buttplug) direct bridge =====
+        if self.path == "/api/intiface/confirm-physical":
+            # Backward-compatible no-op. Dorch authorization now comes from
+            # persistent autonomous configuration; this endpoint is not a gate.
+            if self.headers.get("Content-Length"):
+                self._read_json_body()
+            self._json(200, {"ok": True, "deprecated": True,
+                             "message": "Дополнительное подтверждение Dorch больше не требуется"})
+            return
         if self.path == "/api/intiface/connect":
             try:
                 url = (self._read_json_body().get("url") or "ws://127.0.0.1:12345") if self.headers.get("Content-Length") else "ws://127.0.0.1:12345"
@@ -2568,12 +2819,8 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/intiface/stop":
             try:
-                if _INTIFACE is not None:
-                    coordinator = self._toy_coordinator()
-                    self._xt_run(coordinator.stop(), timeout=10)
-                    res = {"ok": True}
-                else:
-                    res = {"ok": True}
+                self._xt_run(self._stop_dorch(), timeout=10)
+                res = {"ok": True, "status": "not_verified"}
                 self._json(200, res)
             except Exception as exc:
                 self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
@@ -2665,7 +2912,7 @@ class _Handler(BaseHTTPRequestHandler):
                     self._xt_run(_MOTION.stop(), timeout=8)
                 session = self._xt_session(self._get_chat_agent())
                 if session.active:
-                    self._xt_run(session.stop(), timeout=10)
+                    self._xt_run(session.stop(reason="handover"), timeout=10)
                 self._xt_run(coordinator.stop(), timeout=5)
                 if not self._xt_run(coordinator.acquire(PATTERN), timeout=5):
                     self._json(409, {"error": "аварийный стоп активен"})
@@ -2777,7 +3024,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _xt_session(self, agent):
         """Create/cache the XToys autonomous session bound to this agent.
 
-        Drives the device through the xtoys capability (xtoys.app → Intiface) and
+        Drives the device through the shared coordinator and Intiface and
         speaks via the speech capability — no raw browser socket involved.
         """
         global _XT_SESSION
@@ -2812,18 +3059,125 @@ class _Handler(BaseHTTPRequestHandler):
             max_intensity=max_int,
             require_connect=True,
             log=_session_log,
+            coordinator=self._toy_coordinator(),
         )
         return _XT_SESSION
 
+    def _dorch_session_status(self, agent) -> dict:
+        """🤖 Единый источник истины — ControlQueue. UI и модель видят одно состояние."""
+        coordinator = self._toy_coordinator()
+        cq = getattr(agent, "control_queue", None)
+        if cq is not None:
+            snap = cq.status()
+            live = coordinator._bridge.status()
+            cur = snap.get("current_step") or {}
+            devices = list(live.get("devices") or [])
+            intiface_connected = bool(live.get("connected"))
+            device_connected = bool(intiface_connected and devices)
+            if intiface_connected and not device_connected:
+                status_text = "Intiface подключён; устройство не найдено"
+            elif not intiface_connected:
+                status_text = "Intiface не подключён"
+            else:
+                status_text = (
+                    f"режим {snap.get('mode')}, цель {cur.get('intensity_percent')}%, "
+                    f"сейчас {coordinator.current_value:g}%, шагов {len(snap.get('steps', []))}"
+                )
+            return {
+                "active": not snap.get("stopped", True),
+                "autonomous_running": bool(getattr(getattr(agent, "autonomous", None), "_running", False)),
+                "autonomous_enabled": bool(getattr(getattr(agent, "config", None), "autonomous", None) and agent.config.autonomous.enabled),
+                "mode": snap.get("mode", "stopped"),
+                "phase": cur.get("pattern_id") or cur.get("kind") or (cur.get("id") and "hold") or "выключена",
+                "target_intensity": cur.get("intensity_percent"),
+                "current_intensity": coordinator.current_value,
+                "current_step": snap.get("current_step"),
+                "pending_steps": snap.get("pending_steps", []),
+                "steps": snap.get("steps", []),
+                "total_remaining_seconds": snap.get("total_remaining_seconds"),
+                "connected": intiface_connected,
+                "intiface_connected": intiface_connected,
+                "device_connected": device_connected,
+                "devices": devices,
+                "intiface_url": live.get("url"),
+                "emergency_stop": bool(snap.get("emergency_stop") or coordinator.emergency_stopped),
+                "control_epoch": snap.get("control_epoch"),
+                "queue_revision": snap.get("queue_revision"),
+                "last_error": snap.get("last_error") or live.get("last_error") or "",
+                "verification": {"status": "not_verified" if not cur.get("verified") else "observed"},
+                "status": status_text,
+            }
+        # запасной старый путь
+        session = _XT_SESSION
+        ctrl = agent.autonomous
+        active = bool(session and session.active)
+        phase = session.state.phase if active else (ctrl.state.phase if ctrl._running else "выключена")
+        target = session.state.target_intensity if active else ctrl.target_intensity
+        count = session.state.monologue_count if active else ctrl.state.phrase_count
+        error = session.state.last_error if session is not None and not ctrl._running else ctrl.last_error
+        value = coordinator.current_value
+        live = coordinator._bridge.status()
+        return {
+            "active": active or ctrl._running, "phase": phase,
+            "target_intensity": target, "current_intensity": value,
+            "phrase_count": count, "connected": bool(live.get("connected") and live.get("devices")),
+            "emergency_stop": coordinator.emergency_stopped, "last_error": error,
+            "verification": {"status": "not_verified"},
+            "status": f"фаза {phase}, цель {target}%, сейчас {value:g}%, реплик {count}",
+        }
+
+    async def _start_dorch_session(self, agent) -> str:
+        global _XTOYS_PATTERN, _XTOYS_PLAYLIST_ACTIVE
+        coordinator = self._toy_coordinator()
+        generation = coordinator.stop_generation
+        if not coordinator.autonomous_allowed():
+            raise RuntimeError("Автономный Dorch отключён конфигурацией или активен аварийный STOP")
+        # Only one autonomous timeline may own the shared AUTONOMOUS source.
+        if agent.autonomous._running:
+            await agent.autonomous.stop(emergency=False)
+        _XTOYS_PLAYLIST_ACTIVE = False
+        if _XTOYS_PATTERN is not None:
+            _XTOYS_PATTERN.stop()
+            _XTOYS_PATTERN = None
+        if _MOTION is not None and _MOTION.status().get("running"):
+            await _MOTION.stop()
+        if generation != coordinator.stop_generation:
+            raise RuntimeError("Запрос запуска отменён аварийной остановкой")
+        session = self._xt_session(agent)
+        message = await session.start(open_xtoys=False, confirm_ready=False)
+        if not session.active:
+            session.state.last_error = message
+        return message
+
+    async def _stop_dorch(self) -> None:
+        global _XTOYS_PATTERN, _XTOYS_PLAYLIST_ACTIVE
+        coordinator = self._toy_coordinator()
+        agent = self._get_chat_agent()
+        agent.autonomous._request_stop()
+        if _XT_SESSION is not None:
+            _XT_SESSION._stop_event.set()
+            _XT_SESSION.state.active = False
+        # Zero first, before waiting for speech, model or other producers.
+        sent = await coordinator.emergency_stop()
+        _XTOYS_PLAYLIST_ACTIVE = False
+        if _XTOYS_PATTERN is not None:
+            _XTOYS_PATTERN.stop()
+            _XTOYS_PATTERN = None
+        await agent.autonomous.stop(emergency=False)
+        if _XT_SESSION is not None:
+            await _XT_SESSION.emergency_stop()
+        if _MOTION is not None and _MOTION.status().get("running"):
+            await _MOTION.stop()
+        if not sent:
+            raise RuntimeError("Intiface не подтвердил команду нуля. Используйте физический пульт; STOP остаётся активен")
+
     def _toy_coordinator(self) -> ToyControlCoordinator:
         global _INTIFACE, _TOY_COORDINATOR
-        if _INTIFACE is None:
-            _INTIFACE = IntifaceBridge("ws://127.0.0.1:12345")
         agent = self._get_chat_agent()
         loop = getattr(agent, "_loop", None)
-        if _TOY_COORDINATOR is None or getattr(_TOY_COORDINATOR, "_bridge", None) is not _INTIFACE:
-            _TOY_COORDINATOR = ToyControlCoordinator(_INTIFACE, loop=loop)
-        elif loop is not None:
+        _TOY_COORDINATOR = agent.toy_coordinator
+        _INTIFACE = _TOY_COORDINATOR._bridge
+        if loop is not None:
             _TOY_COORDINATOR._loop = loop
         return _TOY_COORDINATOR
 
@@ -2865,10 +3219,8 @@ class _Handler(BaseHTTPRequestHandler):
         if action in {"set_intensity", "ramp_intensity"}:
             value = int(args.get("value", 0))
             ok = await coordinator.set_intensity(source, value)
-            if not ok and source == AUTONOMOUS:
-                await coordinator.stop()
-                await coordinator.acquire(AUTONOMOUS)
-                ok = await coordinator.set_intensity(AUTONOMOUS, value)
+            # DEPRECATED by Codex: stop-and-reacquire bypassed arbitration.
+            # Autonomous preemption is now checked inside the coordinator.
             result = {"ok": ok, "value": coordinator.current_value, "error": None if ok else "источник управления занят или аварийно остановлен"}
         elif action == "read_intensity":
             result = {"ok": True, "value": coordinator.current_value}
@@ -2912,8 +3264,9 @@ class _Handler(BaseHTTPRequestHandler):
         asyncio.run_coroutine_threadsafe(coro, loop)
         return None
 
-    def _get_chat_agent(self):
-        global _CHAT_AGENT
+    @classmethod
+    def _get_chat_agent(cls):
+        global _CHAT_AGENT, _INTIFACE, _TOY_COORDINATOR
         if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):
             with _CHAT_AGENT_LOCK:
                 if _CHAT_AGENT is None or getattr(_CHAT_AGENT, "_closed", False):
@@ -2921,12 +3274,17 @@ class _Handler(BaseHTTPRequestHandler):
 
                     cfg = load_config()
                     agent = Agent(cfg)
+                    if _INTIFACE is not None:
+                        agent.toy_coordinator._bridge = _INTIFACE
+                    _INTIFACE = agent.toy_coordinator._bridge
+                    _TOY_COORDINATOR = agent.toy_coordinator
                     # Один процесс WebUI должен иметь ровно один Agent и один loop.
-                    self._start_agent_runtime(agent, cfg)
+                    cls._start_agent_runtime(agent, cfg)
                     _CHAT_AGENT = agent
         return _CHAT_AGENT
 
-    def _start_agent_runtime(self, agent, cfg) -> None:
+    @staticmethod
+    def _start_agent_runtime(agent, cfg) -> None:
         """Запускает initialize() агента в фоновом потоке с живым loop.
 
         loop сохраняется в agent._loop и переиспользуется всеми HTTP-
@@ -2942,6 +3300,7 @@ class _Handler(BaseHTTPRequestHandler):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             agent._loop = loop
+            agent.toy_coordinator._loop = loop
             try:
                 loop.run_until_complete(
                     asyncio.wait_for(agent.initialize(), timeout=20.0)
@@ -2956,6 +3315,8 @@ class _Handler(BaseHTTPRequestHandler):
             # Keep processing run_coroutine_threadsafe() calls from HTTP handlers.
             # Previously the thread returned here, leaving a valid-looking but
             # stopped loop; XToys/Intiface commands were queued forever.
+            if cfg.autonomous.enabled and cfg.autonomous.auto_start_session:
+                loop.call_soon(agent.autonomous.start)
             loop.run_forever()
 
         t = threading.Thread(target=_bootstrap, name="uni-agent-loop", daemon=True)
@@ -2977,7 +3338,17 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _handle_chat(self, body: dict) -> None:
         # Принимаем text ИЛИ message (обратно совместимо с фронтендом панели)
-        text = (body.get("text") or body.get("message") or "").strip()
+        from uni.webui.chat_support import explicit_power, power_request, unverified_reply, validated_image
+        try:
+            image = validated_image(body.get("image"))
+        except ValueError as exc:
+            self._json(400, {"error": str(exc)})
+            return
+        text = body.get("text") or body.get("message") or ""
+        if not isinstance(text, str):
+            self._json(400, {"error": "text must be a string"})
+            return
+        text = text.strip() or ("Опиши изображение по-русски." if image else "")
         if not text:
             self._json(400, {"error": "empty text"})
             return
@@ -2988,21 +3359,141 @@ class _Handler(BaseHTTPRequestHandler):
             return
         agent = self._get_chat_agent()
         cfg = load_config()
+        from uni.loops.command_parser import is_stop_command
+        if not image and not files and (is_stop_command(text) or any(
+            key in text.casefold() for key in ("останови сессию", "останови дорч", "стоп машинку")
+        )):
+            try:
+                self._xt_run(self._stop_dorch(), timeout=10)
+                self._json(200, unverified_reply(text, "STOP отправлен через Intiface. Проверьте остановку; повторный запуск требует ручного сброса STOP."))
+            except Exception as exc:
+                self._json(503, {"error": f"STOP не подтверждён: {exc}", "status": "not_verified"})
+            return
         init_error = getattr(agent, "_init_error", None)
         if init_error:
             self._json(503, {"error": "agent init failed", "detail": init_error})
             return
+        # 🤖 Единый контур: структурированная операция управления устройством.
+        # Юни/LLM формирует operation (append/replace_all/...) — сервер проверяет
+        # схему и параметры, назначает id поколения, возвращает фактически
+        # принятую очередь. Обычный текст НЕ является исполнительным каналом.
+        control_op = body.get("control") or body.get("operation")
+        if isinstance(control_op, dict) and control_op.get("operation"):
+            cq = getattr(agent, "control_queue", None)
+            if cq is None:
+                self._json(503, {"error": "очередь управления недоступна", "status": "not_verified"})
+                return
+            from uni.control_queue import QueueOperation
+            try:
+                op = QueueOperation(
+                    operation=str(control_op.get("operation")),
+                    items=control_op.get("items", []) or [],
+                    idempotency_key=str(control_op.get("idempotency_key") or "")[:128],
+                    reason=str(control_op.get("reason") or ""),
+                )
+                result = _run_async(cq.apply(op))
+                if not result.get("accepted"):
+                    self._json(409, {"error": result.get("error"), "status": "not_verified",
+                                      "queue": result.get("steps"), "queue_revision": result.get("queue_revision")})
+                    return
+                snap = cq.status()
+                cur = snap.get("current_step") or {}
+                total = snap.get("total_remaining_seconds", 0)
+                msg = (f"Принято: {op.operation}. "
+                       f"Текущий шаг: {cur.get('pattern_id') or cur.get('kind') or 'hold'} "
+                       f"{cur.get('intensity_percent')}%. Всего осталось: {int(total)} c. "
+                       f"Физическое движение не подтверждено.")
+                self._json(200, unverified_reply(text, msg, outcome_status="not_verified",
+                                                 accepted=result.get("accepted"),
+                                                 queue_revision=result.get("queue_revision"),
+                                                 steps=result.get("steps")))
+            except Exception as exc:
+                self._json(409, {"error": f"операция отклонена: {exc}", "status": "not_verified"})
+            return
+        # Images are data, never device commands. Validate before any side effects.
+        if image:
+            try:
+                desc = _run_async(agent.brain.vision(image, text))
+                if not desc:
+                    raise RuntimeError("Модель не вернула описание изображения")
+                result = unverified_reply(text, desc)
+                result["image_analyzed"] = True
+                self._json(200, result)
+            except Exception as exc:
+                self._json(502, {"error": f"Анализ изображения недоступен: {exc}", "status": "not_verified"})
+            return
+        timed_power = power_request(text)
+        if timed_power is not None and timed_power.get("duration_seconds") is not None and not files:
+            value = int(timed_power["value"])
+            duration = float(timed_power["duration_seconds"])
+            limit = cfg.capabilities.xtoys.max_intensity
+            if not 0 <= value <= limit:
+                self._json(400, {"error": f"\u0414\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u0430\u044f \u043c\u043e\u0449\u043d\u043e\u0441\u0442\u044c: 0\u2013{limit}%", "status": "not_verified"})
+                return
+            if not 0 < duration <= 3600:
+                self._json(400, {"error": "\u0414\u043b\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0434\u043e\u043b\u0436\u043d\u0430 \u0431\u044b\u0442\u044c \u043e\u0442 0 \u0434\u043e 3600 \u0441\u0435\u043a\u0443\u043d\u0434", "status": "not_verified"})
+                return
+            if (_ROOT / "STOP.txt").exists():
+                self._json(409, {"error": "\u0410\u043a\u0442\u0438\u0432\u0435\u043d \u0430\u0432\u0430\u0440\u0438\u0439\u043d\u044b\u0439 STOP", "status": "not_verified"})
+                return
+            cq = getattr(agent, "control_queue", None)
+            if cq is None:
+                self._json(503, {"error": "\u041e\u0447\u0435\u0440\u0435\u0434\u044c Dorch \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430", "status": "not_verified"})
+                return
+            result = _run_async(cq.manual_hold(value, duration))
+            if not result.get("accepted") or not result.get("transport_acknowledged"):
+                self._json(503, {"error": result.get("error") or "Intiface \u043d\u0435 \u043f\u0440\u0438\u043d\u044f\u043b \u043a\u043e\u043c\u0430\u043d\u0434\u0443", "status": "not_verified"})
+                return
+            seconds = int(duration) if duration.is_integer() else duration
+            message = f"\u0412\u043a\u043b\u044e\u0447\u0438\u043b\u0430 {value}% \u043d\u0430 {seconds} \u0441\u0435\u043a\u0443\u043d\u0434. \u0427\u0435\u0440\u0435\u0437 {seconds} \u0441\u0435\u043a\u0443\u043d\u0434 \u0441\u0431\u0440\u043e\u0448\u0443 \u043c\u043e\u0449\u043d\u043e\u0441\u0442\u044c \u0432 0%."
+            reply = unverified_reply(text, message)
+            reply.update({
+                "transport_acknowledged": True,
+                "transport_status": "intiface_acknowledged",
+                "requested_value": value,
+                "duration_seconds": duration,
+            })
+            self._json(200, reply)
+            return
+
+        value = explicit_power(text)
+        if value is not None and not files:
+            limit = cfg.capabilities.xtoys.max_intensity
+            if not 0 <= value <= limit:
+                self._json(400, {"error": f"Допустимая мощность: 0–{limit}%", "status": "not_verified"})
+                return
+            if (_ROOT / "STOP.txt").exists():
+                self._json(409, {"error": "Активен STOP.txt. Сначала снимите аварийную остановку в панели.", "status": "not_verified"})
+                return
+            try:
+                from uni.contracts import ActionResult
+                res = _run_async(self._run_xtoys_device_tool("xtoys.set_intensity", {"value": value}, MANUAL))
+                message = (
+                    f"Включила {value}%. Intiface принял команду."
+                    if res.success else f"Команда мощности отклонена: {res.message}"
+                )
+                result = unverified_reply(text, message, [ActionResult.from_tool_result(res, "xtoys.set_intensity", {"value": value})])
+                if res.success:
+                    result["transport_acknowledged"] = True
+                    result["transport_status"] = "intiface_acknowledged"
+                self._json(200 if res.success else 409, result)
+            except Exception as exc:
+                self._json(503, {"error": f"Intiface недоступен: {exc}", "status": "not_verified"})
+            return
         lowered = text.casefold()
-        session = self._xt_session(agent)
+        # No session initialization for ordinary chat/images/explicit manual control.
+        session = self._xt_session(agent) if any(key in lowered for key in (
+            "начни сессию", "запусти дорч", "включи машинку",
+            "останови сессию", "останови дорч", "стоп машинку",
+        )) else None
         if any(key in lowered for key in ("\u043d\u0430\u0447\u043d\u0438 \u0441\u0435\u0441\u0441\u0438\u044e", "\u0437\u0430\u043f\u0443\u0441\u0442\u0438 \u0434\u043e\u0440\u0447", "\u0432\u043a\u043b\u044e\u0447\u0438 \u043c\u0430\u0448\u0438\u043d\u043a\u0443")):
             try:
                 coordinator = self._toy_coordinator()
-                self._xt_run(coordinator.stop(), timeout=5)
-                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
-                    self._json(409, {"text": "Устройство уже занято другим режимом.", "audio_url": None})
+                if not coordinator.autonomous_allowed():
+                    self._json(409, {"text": "Автономный Dorch отключён конфигурацией или активен аварийный STOP.", "status": "not_verified", "audio_url": None})
                     return
-                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
-                self._json(200, {"text": "Запускаю Dorch-сессию и проверяю подключение устройства.", "audio_url": None})
+                self._xt_fire(self._start_dorch_session(agent))
+                self._json(200, {"text": "Запуск Dorch-сессии запрошен; статус появится в шапке чата.", "status": "not_verified", "audio_url": None})
             except Exception as exc:
                 self._json(500, {"error": f"Dorch start: {type(exc).__name__}: {exc}"})
             return
@@ -3017,12 +3508,11 @@ class _Handler(BaseHTTPRequestHandler):
         if any(key in lowered for key in ("начни сессию", "запусти дорч", "включи машинку")):
             try:
                 coordinator = self._toy_coordinator()
-                self._xt_run(coordinator.stop(), timeout=5)
-                if not self._xt_run(coordinator.acquire(AUTONOMOUS), timeout=5):
-                    self._json(409, {"text": "Устройство уже занято другим режимом.", "audio_url": None})
+                if not coordinator.autonomous_allowed():
+                    self._json(409, {"text": "Автономный Dorch отключён конфигурацией или активен аварийный STOP.", "status": "not_verified", "audio_url": None})
                     return
-                self._xt_fire(session.start(open_xtoys=False, confirm_ready=False))
-                self._json(200, {"text": "Запускаю Dorch-сессию и проверяю подключение устройства.", "audio_url": None})
+                self._xt_fire(self._start_dorch_session(agent))
+                self._json(200, {"text": "Запуск Dorch-сессии запрошен; статус появится в шапке чата.", "status": "not_verified", "audio_url": None})
             except Exception as exc:
                 self._json(500, {"error": f"Dorch start: {type(exc).__name__}: {exc}"})
             return
@@ -3037,6 +3527,27 @@ class _Handler(BaseHTTPRequestHandler):
         if init_error:
             self._json(503, {"error": "agent init failed", "detail": init_error,
                              "hint": "проверь config.yaml (модель/браузер) на машине запуска"})
+            return
+        # 🤖 Картинка/кадр из чата: шлём в VLM и возвращаем описание.
+        # Позволяет пользователю «показать Юни» фото или кадр камеры прямо в чате.
+        image_b64 = body.get("image")
+        if image_b64:
+            try:
+                from uni.brain import Brain
+                brain = getattr(agent, "brain", None)
+                if brain is None:
+                    brain = Brain(cfg.brain, vision_model=cfg.capabilities.vision.model)
+                if not image_b64.startswith("data:"):
+                    image_b64 = "data:image/png;base64," + image_b64
+                desc = _run_async(
+                    brain.vision(image_b64, text or "Опиши, что ты видишь, по-русски, кратко.")
+                )
+                self._json(200, {
+                    "text": desc or "(Юни ничего не распознала на изображении)",
+                    "audio_url": None, "image_analyzed": True,
+                })
+            except Exception as exc:
+                self._json(500, {"error": f"vision: {type(exc).__name__}: {exc}"})
             return
         # подстановка роли, если фронтенд передал role и агент её поддерживает
         role = (body.get("role") or "").strip()
@@ -3073,9 +3584,21 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             # run_cycle сам озвучивает ответ через Silero (внутренний _speak),
             # поэтому двойного проговаривания не делаем; audio_url не формируем.
-            reply = _run_async(
-                asyncio.wait_for(agent.event_loop.run_cycle(effective_input), timeout=90.0)
-            )
+            async def chat_cycle():
+                from uni.event_loop import RESPONSE_SPEECH_ENABLED
+                token = RESPONSE_SPEECH_ENABLED.set(body.get("use_voice") is not False)
+                try:
+                    lock = getattr(agent, "_web_chat_lock", None)
+                    if lock is None:
+                        lock = agent._web_chat_lock = asyncio.Lock()
+                    async with lock:
+                        previous = getattr(agent.event_loop, "last_outcome", None)
+                        answer = await asyncio.wait_for(agent.event_loop.run_cycle(effective_input), timeout=90.0)
+                        current = getattr(agent.event_loop, "last_outcome", None)
+                        return answer, current if current is not previous else None
+                finally:
+                    RESPONSE_SPEECH_ENABLED.reset(token)
+            reply, outcome = _run_async(chat_cycle())
             if reply is None:
                 reply = ""
         except Exception as exc:
@@ -3085,8 +3608,7 @@ class _Handler(BaseHTTPRequestHandler):
         # Классификация ТОЛЬКО на бэкенде (фронт не решает по ключевым словам — ADR/Директива).
         from uni.contracts import TaskOutcome
 
-        outcome = getattr(agent.event_loop, "last_outcome", None)
-        if not isinstance(outcome, TaskOutcome):
+        if not isinstance(outcome, TaskOutcome) or outcome.command != effective_input:
             outcome = TaskOutcome.finalize(command=text, message=reply)
         task_id = outcome.task_id
         terminal_status = outcome.status.value
@@ -3136,6 +3658,9 @@ class _Handler(BaseHTTPRequestHandler):
         })
 
     def _handle_camera_start(self, body: dict) -> None:
+        if body.get("notice_ack") is not True:
+            self._json(400, {"error": "Включите камеру явной кнопкой с подтверждением notice_ack"})
+            return
         agent = self._get_chat_agent()
         camera = agent.capabilities.get("camera")
         if camera is None:
@@ -3163,6 +3688,44 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
             return
         self._json(200, {"ok": True})
+
+    def _handle_camera_frame(self) -> None:
+        """Return one camera frame as a base64 JPEG data URL for the chat UI."""
+        agent = self._get_chat_agent()
+        camera = agent.capabilities.get("camera")
+        if camera is None:
+            self._json(404, {"error": "camera capability unavailable"})
+            return
+        try:
+            # frame_base64() is synchronous; use the existing async capture API.
+            result = _run_async(camera.capture_base64_frame())
+            if not result.success or not result.data or not result.data.get("image_b64"):
+                self._json(409, {"error": result.message or "Кадр недоступен"})
+                return
+            data_url = result.data["image_b64"]
+        except Exception as exc:
+            self._json(409, {"error": f"{type(exc).__name__}: {exc}"})
+            return
+        self._json(200, {"ok": True, "image_b64": data_url})
+
+    def _handle_chat_status(self) -> None:
+        """Passive snapshot. Cached commands are NOT observed device movement."""
+        bridge = _INTIFACE.status() if _INTIFACE is not None else {}
+        control = _TOY_COORDINATOR.status() if _TOY_COORDINATOR is not None else {}
+        self._json(200, {
+            "observed_at": time.time(),
+            "connected": bool(bridge.get("connected")),
+            "devices": bridge.get("devices", []),
+            "commanded_value": bridge.get("value") if bridge.get("connected") else None,
+            "target_value": control.get("current_value"),
+            "observed_value": None,
+            "verification": "not_verified",
+            "source": control.get("active_source"),
+            "emergency_stop": bool(control.get("emergency_stop")) or (_ROOT / "STOP.txt").exists(),
+            "session_active": bool(_XT_SESSION and _XT_SESSION.active),
+            "phase": _XT_SESSION.status_text() if _XT_SESSION is not None else "Сессия не запущена",
+            "error": bridge.get("last_error") or None,
+        })
 
     def _handle_vision_capture(self, body: dict | None = None) -> None:
         """Capture a screen frame for the LLM/vision pipeline.
@@ -3468,7 +4031,7 @@ class _RemoteGatewayHandler(_Handler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/remote-control", "/remote-control.html"):
-            page = _HERE / "remote-control.html"
+            page = _HERE / "remote.html"
             if page.is_file():
                 self._send_file_with_cache(page, "text/html; charset=utf-8", no_cache=True)
             else:
@@ -3490,6 +4053,10 @@ class _RemoteGatewayHandler(_Handler):
 
 def run_webui(host: str = "127.0.0.1", port: int = _DEFAULT_PORT) -> None:
     server = ThreadingHTTPServer((host, port), _Handler)
+    # Start only the configured controller; its device gate remains fail closed.
+    cfg = load_config()
+    if cfg.autonomous.enabled and cfg.autonomous.auto_start_session:
+        threading.Thread(target=_Handler._get_chat_agent, name="uni-autostart", daemon=True).start()
     url = f"http://{host}:{port}/"
     print("=" * 64)
     print("  UNI · консоль разработки (WebUI)")
@@ -3501,6 +4068,15 @@ def run_webui(host: str = "127.0.0.1", port: int = _DEFAULT_PORT) -> None:
     except KeyboardInterrupt:
         print("\n[webui] остановлена.")
     finally:
+        agent = _CHAT_AGENT
+        if agent is not None:
+            agent.autonomous.emergency_stop()
+            loop = getattr(agent, "_loop", None)
+            if loop is not None and loop.is_running():
+                try:
+                    asyncio.run_coroutine_threadsafe(agent.toy_coordinator.emergency_stop(), loop).result(timeout=5)
+                except Exception as exc:
+                    print(f"[webui] STOP not_verified: {exc}")
         server.server_close()
 
 

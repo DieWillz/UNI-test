@@ -30,7 +30,7 @@ async def maybe_autonomous_override(
     if is_stop_command(user_input):
         controller.emergency_stop()
         return True
-    m = re.search(r"(?:интенсивность|скорость|speed)\s*{0,3}(\d{1,3})", user_input.casefold())
+    m = re.search(r"(?:интенсивность|скорость|speed)\s*(\d{1,3})", user_input.casefold())
     if m:
         value = max(0, min(100, int(m.group(1))))
         res = await run_tool("xtoys.ramp_intensity", {"value": value, "steps": 3})

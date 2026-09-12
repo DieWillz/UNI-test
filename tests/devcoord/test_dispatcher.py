@@ -140,3 +140,42 @@ def test_worktree_failure_rolls_back_only_its_reservation(tmp_path: Path) -> Non
     assert unchanged.worktree_path is None
     assert [item.lease_id for item in active] == [unrelated.lease_id]
     assert store.list_events(limit=1)[0].event == "dispatch.failed"
+
+
+def test_prepare_db_failure_removes_worktree_and_rolls_back_reservation(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    session = _register(store, "session-hermes")
+    store.save_workspace_task(
+        WorkspaceTask(
+            id="UNI-302",
+            title="Atomic dispatch",
+            priority=100,
+            required_capabilities=["python"],
+            requested_resources=[
+                ResourceRequest(resource_type=ResourceType.LOGIC, resource_key="dispatcher")
+            ],
+            state=WorkTaskState.READY,
+        )
+    )
+    worktrees_root = tmp_path / "worktrees"
+    dispatcher = TaskDispatcher(store, WorktreeManager(repo, worktrees_root=worktrees_root))
+    with store.connection() as conn:
+        conn.execute(
+            "CREATE TRIGGER fail_dispatch_prepared BEFORE INSERT ON workspace_events "
+            "WHEN NEW.event='dispatch.prepared' BEGIN SELECT RAISE(ABORT, 'boom'); END"
+        )
+
+    with pytest.raises(Exception, match="boom"):
+        dispatcher.prepare(session.session_id)
+
+    task = store.get_workspace_task("UNI-302")
+    unchanged = store.get_session(session.session_id)
+    assert task.state is WorkTaskState.READY
+    assert task.assigned_session_id is None
+    assert unchanged.task_id is None
+    assert unchanged.worktree_path is None
+    assert ResourceLeaseManager(store).list_active() == []
+    assert not (worktrees_root / "hermes" / "UNI-302").exists()
+    assert _git(repo, "branch", "--list", "mawc/hermes/UNI-302") == ""
+    assert store.list_events(limit=1)[0].event == "dispatch.failed"

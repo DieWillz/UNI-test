@@ -7,6 +7,7 @@ from uni.devcoord.models import (
     CoordinatorEvent,
     DevelopmentTask,
     HandoffPackage,
+    ProviderResult,
     TaskStatus,
     utc_now,
 )
@@ -145,7 +146,15 @@ class DevelopmentCoordinator:
         self.store.append_event(
             CoordinatorEvent(event="provider.started", task_id=task.id, provider_id=provider_id)
         )
-        result = await provider.request(handoff)
+        try:
+            result = await provider.request(handoff)
+        except Exception as exc:
+            result = ProviderResult(
+                provider_id=provider_id,
+                transport=provider.config.transport,
+                content="",
+                error=f"{type(exc).__name__}: {exc}",
+            )
         if verify_claim and self.verifier is not None:
             result.verified = self.verifier.verify_claim(verify_claim)
         task.results.append(result)

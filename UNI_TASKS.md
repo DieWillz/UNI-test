@@ -1,30 +1,34 @@
 # UNI — актуальные задачи
 
-Обновлено: 2026-08-13 (Hermes). Таблица отражает реально ведущиеся работы после фикс-шага.
-Каждый факт со датой проверки. Статусы: `В РАБОТЕ`, `СДЕЛАНО`, `ЗАБЛОКИРОВАНО`, `ОЖИДАЕТ`.
+Обновлено: **2026-09-10**. Это рабочий список от текущего состояния, а не исторический перечень августа.
+Статусы: `СДЕЛАНО`, `В РАБОТЕ`, `ОЖИДАЕТ`, `BLOCKER`.
 
-## Таблица задач
+| ID | Статус | Задача | Критерий приёмки |
+|---|---|---|---|
+| CFG-ADMIN | СДЕЛАНО | Управление `config.yaml` из WebUI | schema-driven UI + localhost API + validation + secret masking + targeted tests |
+| VISION-ARCH | СДЕЛАНО | Зафиксировать восприятие DOM/UIA → OCR → visual diff → VLM fallback | отражено в коде/админке/roadmap; VLM не является первым слоем |
+| WEBUI-IMPORT | СДЕЛАНО | Устранить circular import handlers registry | `import uni.webui.server` выполняется |
+| WEBUI-LAYOUT | СДЕЛАНО | Устранить перекрытие контента sidebar | Playwright chat/camera suite проходит |
+| P0-TESTS | В РАБОТЕ | Получить чистый полный pytest | полный suite должен завершаться exit 0 без failures/crash |
+| P0-QUEUE | BLOCKER | Исправить ControlQueue manual takeover и STOP/reset coordinator latch | integration tests real Coordinator + fake Intiface bridge проходят |
+| P0-PIPELINE | В РАБОТЕ | Сделать Operator единым side-effect execution path | side effects имеют fresh observation + Verification + TaskOutcome |
+| P1-REMOVE | ОЖИДАЕТ | Проверить/fix `remove_pending` | production-path regression test |
+| P1-TELEGRAM | ОЖИДАЕТ | Определить retry/backoff owner и закончить Telegram runtime | 429 retry test + real transport layer |
+| P1-WIN-E2E | ОЖИДАЕТ | 10–20 реальных Windows Operator сценариев | Notepad/Calculator/Explorer/browser/multi-app с независимой проверкой |
+| P1-BROWSER | ОЖИДАЕТ | Production hardening Browser Operator | SPA/modal/popup/new-tab/upload/download/redirect/stale refs |
+| P1-AUTO | ОЖИДАЕТ | Universal Autonomous Runtime поверх Operator | OBSERVE → PLAN → ACT → VERIFY → RECOVER → CONTINUE |
+| P1-SCREEN | ОЖИДАЕТ | Screen Intelligence | ROI + perceptual diff + debounce + semantic events + VLM fallback |
+| P1-VOICE | ОЖИДАЕТ | Voice E2E на реальном железе | whisper → STT → Operator → Windows → Verify → TTS |
+| P1-DORCH | ОЖИДАЕТ | Консолидация Dorch lifecycle | один ControlQueue/Coordinator, единый STOP/RESET/manual/remote/autonomous |
+| P2-REMOTE | ОЖИДАЕТ | Remote/mobile E2E | phone → auth/session → action → verification → reconnect |
+| P2-MEMORY | ОЖИДАЕТ | AgentContext как canonical runtime state | goal/mission/observations/events/recovery history без бесконечного transcript |
+| P2-WEBUI | ОЖИДАЕТ | Модуляризация `webui/server.py` | handlers по подсистемам после стабилизации поведения |
+| P2-PACK | ОЖИДАЕТ | Installer/portable | воспроизводимая установка runtime/models/voices/WebUI/Desktop/first-run checks |
 
-| ID | Владелец | Статус | Цель | Критерий приёмки |
-|---|---|---|---|---|
-| T-FIX | Hermes | СДЕЛАНО (2026-08-13) | Исправить 6 падений pytest + создать `uni.check_architecture` | 264 passed / 0 failed; `check_architecture --strict` → 0/0 |
-| T-FIX-STT | Hermes | СДЕЛАНО | Убрать загрузку Whisper на JSON-пробе `/api/stt` | реальный HTTP: JSON → 400 за 0.002 с, без загрузки модели |
-| T-FIX-TESTS | Hermes | СДЕЛАНО | Исправить ошибочные тесты (hermes case) и patch-points (sd) | тесты проходят; детектят реальную регрессию, не ослаблены |
-| T-FIX-PIPER | Hermes | СДЕЛАНО | Добавить Piper-голос и cwd-независимый поиск | ассет загружен (63 МБ); тест генерирует реальный аудио 22050 Гц |
-| T-DESK | Hermes | СДЕЛАНО (код + live E2E) | Desktop Companion: 336×660, PNG avatar, STOP (нейтральная), tray «Выход»/«Стоп», пустой чат+чипы | `node --check` OK; живой Electron: 1 окно visible, позиция над треем (fixed), chat ответ; скрин outbox/HERMES_UI_IDLE.png |
-| T-PACK | Hermes/координатор | ОЖИДАЕТ | One-click Windows-инсталлятор + встроенный runtime | см. `UNI_PROJECT_BRIEF.md`; бинарники llama.cpp уже в `downloads/` |
-| T-LAUNCH | Hermes | СДЕЛАНО | Единый лаунчер: одно нажатие (ЮНИ.lnk→UNI.bat→launcher.js) поднимает llama:1235+webui:8787+electron; выход (tray «Выход») убивает ВЕСЬ стек по pids.json | `/api/launcher/stop` → порты free, pids.json удалён; дедуп (живой PID=reuse); коммит 6b682a8 |
-| T-PUSH | Hermes | СДЕЛАНО | Запушить ВЕСЬ актуальный код в GitHub для анализа другими ИИ | ветка `clean/august-2026` запушена в `DieWillz/UNI-test` (НЕ main); рантайм-мусор в .gitignore |
-| T-PRE-1 | Hermes | СДЕЛАНО | Воспроизвести и классифицировать актуальные падения | 6 падений → классы: 2 ошибочный тест, 2 patch-point, 1 prod-дефект, 1 внеш. зависимость |
-| T-PRE-2 | Hermes | СДЕЛАНО | Проверить тесты на избыточный mock; добавить integration | сохранены unit-тесты; добавлены реальные HTTP-пруфы vision/admin/roles |
-| T-PREP | Hermes | В РАБОТЕ | Подготовить артефакты для Codex (outbox) | `HERMES_PYTEST.xml` готов; `REPORT_HERMES_FINAL.md`, `CAPTURE.png`, `CODEX_SHOT_1.png` — в работе |
-| T-POS | Hermes | СДЕЛАНО | Исправить позицию окна — ровно над треем (правый нижний, над панелью задач) | DIP-корректный `placeAtBottomRight` (workArea без sf, getSize); лог final y≈142 @DPI1.25; было y:0 (вверху) |
-| T-AUDIT | Hermes | СДЕЛАНО | Создать `uni.check_architecture` (ADR-0005) | AST-скан capabilities; детектит violation (доказано инъекцией); `--strict` → 0/0 |
-| T-VLM | Hermes | ОЖИДАЕТ | Встроить torch-free VLM для vision (упаковка) | вне scope фикс-шага; цель упаковки |
+## Правила выполнения
 
-## Правила работы с задачами
-
-1. Перед работой назначить себе задачу (ID из таблицы).
-2. После — обновить только затронутые строки и дату проверки.
-3. Не заявлять `СДЕЛАНО` без свежего наблюдаемого результата (ACTION→RESULT→OBSERVATION).
-4. Mock/unit-тест ≠ E2E-доказательство.
+1. Сначала P0: тестовый baseline, ControlQueue lifecycle, единый execution/verification path.
+2. Не добавлять параллельную новую архитектуру, если существующий Operator может решить задачу.
+3. Не заявлять `СДЕЛАНО` без свежей проверки observable result.
+4. Unit/mock подтверждает контракт, но не заменяет hardware/live E2E.
+5. При параллельной работе агентов перед изменением файла: `git status` + diff файла; неизвестные dirty changes не откатывать.

@@ -1,5 +1,6 @@
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -72,6 +73,71 @@ class WorkingMemoryTests(unittest.TestCase):
             self.assertEqual(memory.get("preferred_name"), "DieWill")
             self.assertIsNone(memory.get("last_browser.navigate"))
             self.assertEqual(len(list(Path(directory).glob("working.legacy-*.json"))), 1)
+
+    def test_get_context_serializes_with_fact_updates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            memory = WorkingMemory(Path(directory) / "working.json")
+            memory.set("first", "value")
+            reading = threading.Event()
+            release_reader = threading.Event()
+            writer_done = threading.Event()
+
+            class BlockingFacts(dict):
+                def items(self):
+                    iterator = super().items()
+                    reading.set()
+                    release_reader.wait(timeout=2)
+                    return iterator
+
+            memory.data["facts"] = BlockingFacts(memory.data["facts"])
+            memory.persist = lambda: None
+            reader = threading.Thread(target=memory.get_context)
+            reader.start()
+            self.assertTrue(reading.wait(timeout=1))
+
+            writer = threading.Thread(
+                target=lambda: (memory.set("second", "value"), writer_done.set())
+            )
+            writer.start()
+            self.assertFalse(writer_done.wait(timeout=0.2))
+            release_reader.set()
+            reader.join(timeout=1)
+            writer.join(timeout=1)
+            self.assertTrue(writer_done.is_set())
+
+    def test_list_keys_serializes_with_fact_updates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            memory = WorkingMemory(Path(directory) / "working.json")
+            memory.set("first", "value")
+            reading = threading.Event()
+            release_reader = threading.Event()
+            writer_done = threading.Event()
+
+            class BlockingKeys:
+                def __iter__(self):
+                    reading.set()
+                    release_reader.wait(timeout=2)
+                    return iter(("first",))
+
+            class BlockingFacts(dict):
+                def keys(self):
+                    return BlockingKeys()
+
+            memory.data["facts"] = BlockingFacts(memory.data["facts"])
+            memory.persist = lambda: None
+            reader = threading.Thread(target=memory.list_keys)
+            reader.start()
+            self.assertTrue(reading.wait(timeout=1))
+
+            writer = threading.Thread(
+                target=lambda: (memory.set("second", "value"), writer_done.set())
+            )
+            writer.start()
+            self.assertFalse(writer_done.wait(timeout=0.2))
+            release_reader.set()
+            reader.join(timeout=1)
+            writer.join(timeout=1)
+            self.assertTrue(writer_done.is_set())
 
     def test_dialogue_is_bounded_by_complete_turns(self):
         with tempfile.TemporaryDirectory() as directory:

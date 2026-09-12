@@ -1,36 +1,173 @@
 'use strict';
 /* UNI Admin · Unified (v3.3 + v4) · one JS file · all features, no stubs */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const API='http://127.0.0.1:8787', H8K='http://127.0.0.1:8000';
-const MOONS=['http://127.0.0.1:7861','http://localhost:7861'];
+const IS_LOCAL_ADMIN=['127.0.0.1','localhost','::1'].includes(location.hostname);
+const API=/^https?:$/.test(location.protocol)?location.origin:'http://127.0.0.1:8787';
+const H8K=IS_LOCAL_ADMIN?'http://127.0.0.1:8000':null;
+const MOONS=IS_LOCAL_ADMIN?['http://127.0.0.1:7861','http://localhost:7861']:[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const TO=(ms)=>AbortSignal.timeout(ms);
 function toast(t){const d=document.createElement('div');d.className='tst';d.textContent=t;$('#toast').appendChild(d);setTimeout(()=>d.remove(),4000);}
-async function api(p,o){try{return await fetch(API+p,o);}catch(e){return null;}}
+async function api(p,o){try{return await fetch(API+p,{...((o?.method||'GET').toUpperCase()==='GET'?{signal:TO(8000)}:{}),...o});}catch(e){return null;}}
 async function j(p,o){const r=await api(p,o);if(!r)return null;try{return await r.json();}catch(e){return null;}}
-async function api8k(p,o){try{return await fetch(H8K+p,o);}catch(e){return null;}}
+async function api8k(p,o){if(!H8K)return null;try{return await fetch(H8K+p,o);}catch(e){return null;}}
 async function j8k(p,o){const r=await api8k(p,o);if(!r)return null;try{return await r.json();}catch(e){return null;}}
 const PJ=o=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)});
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const kv=(k,v)=>'<div class="kv"><b>'+k+'</b><span>'+v+'</span></div>';
 function copyVal(sel){const v=$(sel).value;if(v&&navigator.clipboard)navigator.clipboard.writeText(v).then(()=>toast('скопировано'));}
+// Функция копирования в буфер обмена (для современных браузеров)
+function copyToClipboard(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input || !input.value) {
+    toast("⚠ Сначала создайте сессию!");
+    return;
+  }
+  input.select();
+  try {
+    navigator.clipboard.writeText(input.value)
+      .then(() => toast("✅ Ссылка скопирована!"))
+      .catch(() => toast("⚠ Не удалось скопировать (используйте Ctrl+C)"));
+  } catch (e) {
+    toast("⚠ Не поддерживается, используйте Ctrl+C");
+  }
+}
+// === PATTERNS ===
+// Группы паттернов (для каталога)
+const PATGROUPS = [
+  ["Базовые", ["ramp", "hold", "pulse", "wave", "climb", "cooldown"]],
+  ["Ритмичные", ["sine_wave", "square_wave", "sawtooth", "triangle", "bounce"]],
+  ["Случайные", ["random", "noise", "chaos", "flicker"]],
+  ["Пользовательские", ["custom_1", "custom_2", "custom_3"]]
+];
 
+// Все доступные паттерны
+function allPats() {
+  return PATGROUPS.flatMap(group => group[1]);
+}
+
+// Метаданные паттерна (длительность, пик)
+function curveMeta(name) {
+  const c = window.CURVES?.[name];
+  if (c) {
+    const duration = Math.round(c.reduce((a, x) => a + x[0], 0) * 10) / 10;
+    const peak = Math.round(Math.max(...c.map(x => x[1])) * 100);
+    return { duration, peak };
+  }
+  return { duration: 20, peak: 100 };
+}
+
+// Рендеринг паттернов
+function renderDorchPatterns() {
+  const root = document.getElementById('patBtns');
+  const sel = document.getElementById('plPat');
+  if (!root || !window.PATGROUPS) return;
+
+  const search = (document.getElementById('patSearch')?.value || '').toLowerCase();
+  let html = '';
+  let options = '<option value="">— выберите паттерн —</option>';
+
+  for (const [group, names] of PATGROUPS) {
+    const visible = names.filter(n => allPats().includes(n) && n.toLowerCase().includes(search));
+    if (!visible.length) continue;
+
+    html += '<div class="pattern-group">' + esc(group) + '</div>';
+    for (const name of visible) {
+      const m = curveMeta(name);
+      html += `
+        <button class="pattern-tile" data-pattern="${esc(name)}" onclick="dPattern('${name}')">
+          <b>${esc(name.replaceAll('_', ' '))}</b>
+          <small>${m.duration} сек · пик ${m.peak}%</small>
+        </button>
+      `;
+      options += `<option value="${esc(name)}">${esc(name.replaceAll('_', ' '))}</option>`;
+    }
+  }
+
+  root.innerHTML = html || '<div class="note">Паттерны не найдены</div>';
+  if (sel) sel.innerHTML = options;
+}
+
+// Запуск паттерна
+function dPattern(name) {
+  patStop(true);
+  Dorch.stopped = false;
+  Dorch.source = 'pattern';
+  const pow = Math.min(Dorch.limit, +$('#pPow').value || 70);
+  const scale = Math.max(0.1, +$('#pScale').value || 1);
+
+  // Подсветка активного паттерна
+  $$('.pattern-tile').forEach(b => b.classList.toggle('on', b.dataset.pattern === name));
+
+  Dorch.patAbort = new AbortController();
+  runCurve(name, pow, scale, Dorch.patAbort.signal, async v => dSend(v, 'pattern'))
+    .then(() => {
+      patStop(true);
+      dSend(0, 'pattern');
+    });
+}
+
+// Остановка паттерна
+function patStop(s) {
+  Dorch.patAbort?.abort();
+  Dorch.patAbort = null;
+  $$('.pattern-tile').forEach(b => b.classList.remove('on'));
+  if (!s) bpLog('паттерн стоп');
+}
+
+// Инициализация паттернов
+renderDorchPatterns();
+// Обновление статуса сессии
+function updateRemoteStatus(status, isActive) {
+  const statusBlock = document.getElementById("remoteStatusBlock");
+  const statusDot = document.getElementById("remoteStatusDot");
+  const statusText = document.getElementById("remoteStatusText");
+
+  if (statusBlock) {
+    statusBlock.style.display = "block";
+    statusText.textContent = status;
+    statusDot.style.background = isActive ? "var(--lime)" : "var(--mute)";
+  }
+}
 /* ── навигация ── */
 let ageCb=null;
 $$('.nav[data-page]').forEach(b=>b.onclick=()=>{const p=b.dataset.page,t=b.dataset.tab;
   if(p==='dorch'&&!localStorage.getItem('dorch_ok')){ageCb=()=>go(p,t);$('#ageGate').classList.add('open');return;}
   go(p,t);});
-$$('.tab').forEach(b=>b.onclick=()=>{const t=b.dataset.t;$$('.tab').forEach(x=>x.classList.toggle('act',x.dataset.t===t));$$('.pane').forEach(x=>x.classList.toggle('act',x.dataset.t===t));if(t==='logs'){buildLogs();LOGKEYS.forEach(loadLog);}else if(t==='qwn'){}else if(t==='bridge'){}});
-function go(p,tab){$$('.nav[data-page]').forEach(b=>{const act=b.dataset.page===p&&(!b.dataset.tab||b.dataset.tab===tab);b.classList.toggle('act',act);});
+function selectPageTab(page,tab){
+  page.querySelectorAll('.tab[data-t]').forEach(x=>{const active=x.dataset.t===tab;x.classList.toggle('act',active);x.setAttribute('aria-pressed',String(active));});
+  page.querySelectorAll('.pane[data-t]').forEach(x=>x.classList.toggle('act',x.dataset.t===tab));
+}
+$$('.tab[data-t]').forEach(b=>b.onclick=()=>{const page=b.closest('.page');if(!page)return;const t=b.dataset.t;selectPageTab(page,t);if(t==='logs'){buildLogs();LOGKEYS.forEach(loadLog);}});
+function setNavigationOpen(open){document.body.classList.toggle('sb',open);$('#burger').setAttribute('aria-expanded',String(open));$('#navBackdrop').hidden=!open;}
+function go(p,tab){const page=$$('.page').find(s=>s.dataset.page===p);if(!page)return;
+  if(p==='transfer'&&!tab)tab='logs';
+  if(p==='dorch'&&!localStorage.getItem('dorch_ok')){ageCb=()=>go(p,tab);$('#ageGate').classList.add('open');return;}
+  const changed=!page.classList.contains('act');
+  $$('.nav[data-page]').forEach(b=>{const act=b.dataset.page===p&&(!b.dataset.tab||b.dataset.tab===tab);b.classList.toggle('act',act);if(act)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $$('.page').forEach(s=>s.classList.toggle('act',s.dataset.page===p));
-  if(tab){$$('.tab').forEach(x=>x.classList.toggle('act',x.dataset.t===tab));$$('.pane').forEach(x=>x.classList.toggle('act',x.dataset.t===tab));}
-  (INIT[p]||(()=>{}))();if(innerWidth<900)document.body.classList.remove('sb');}
-$('#burger').onclick=()=>document.body.classList.toggle('sb');
+  if(tab)selectPageTab(page,tab);
+  const label=$$('.nav[data-page]').find(b=>b.dataset.page===p)?.childNodes[0]?.textContent?.trim()||p;
+  $('#currentSection').textContent=label;document.title='Юни — '+label;
+  (INIT[p]||(()=>{}))();if(innerWidth<=900)setNavigationOpen(false);
+  if(changed)window.scrollTo({top:0,behavior:'instant'});
+  const heading=page.querySelector('h1');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}}
+$('#burger').onclick=()=>setNavigationOpen(!document.body.classList.contains('sb'));
+$('#navBackdrop').onclick=()=>{setNavigationOpen(false);$('#burger').focus();};
+$('#navSearch').addEventListener('input',event=>{
+  const query=event.target.value.trim().toLocaleLowerCase('ru');let count=0;
+  $$('#adminNavigation .nav').forEach(button=>{button.hidden=!(button.textContent+' '+(button.dataset.keywords||'')).toLocaleLowerCase('ru').includes(query);if(!button.hidden)count++;});
+  $$('#adminNavigation .sec').forEach(section=>{let next=section.nextElementSibling,visible=false;while(next&&!next.classList.contains('sec')){if(next.classList.contains('nav')&&!next.hidden)visible=true;next=next.nextElementSibling;}section.hidden=!visible;});
+  $('#navEmpty').hidden=count>0;
+});
+$('#navSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){const match=$$('#adminNavigation .nav').find(button=>!button.hidden);if(match){event.preventDefault();match.click();}}});
+document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#navSearch').focus();}});
 function ageOk(){if(!$('#ageChk').checked){toast('нужно 18+');return;}localStorage.setItem('dorch_ok','1');$('#ageGate').classList.remove('open');if(ageCb)ageCb();}
 function ageNo(){$('#ageGate').classList.remove('open');ageCb=null;}
 
 /* ── честные пробы ── */
 async function probeLLM(){
+  if(!IS_LOCAL_ADMIN)return null;
   for(const port of [1235,1234]){
     try{const r=await fetch('http://127.0.0.1:'+port+'/v1/models',{signal:TO(1500)});
       if(r.ok){const d=await r.json().catch(()=>null);
@@ -38,43 +175,61 @@ async function probeLLM(){
         return{port,model:m||('порт '+port)};}}catch(e){}}
   return null;}
 async function probeMoon(){
-  for(const M of MOONS)for(const p of ['/config','/gradio_api/config','/']){
-    try{const r=await fetch(M+p,{signal:TO(1500)});if(r.ok)return true;}catch(e){}}return false;}
+  if(!IS_LOCAL_ADMIN)return null;
+  // Probe the supported paths in parallel with one shared deadline.
+  const signal=TO(1500);
+  const results=await Promise.all(MOONS.flatMap(M=>['/config','/gradio_api/config','/'].map(async p=>{
+    try{const r=await fetch(M+p,{signal});return r.ok;}catch(e){return false;}
+  })));
+  return results.some(Boolean);}
 
 /* ── статус ── */
+let statusRefreshPending=false;
 async function refreshStatus(){
-  const d=await j('/api/admin/stack')||{};
-  const hw=await j('/api/admin/hw')||{};
-  const gt=await j('/api/admin/git')||{};
-  const llm=await probeLLM();const moon=await probeMoon();
-  $('#cLlm').className='dot '+(llm?'ok':'bad');
-  $('#cLlmLabel').textContent='LLM :'+(llm?llm.port:'1235');
-  $('#cWeb').className='dot '+((d.webui||{}).running?'ok':'bad');
-  $('#cDesk').className='dot '+((d.electron||{}).running?'ok':'bad');
-  $('#cMoon').className='dot '+(moon?'ok':'bad');
-  $('#cBp').className='dot '+((BP.ws&&BP.ws.readyState===1)?'ok':'bad');
-  $('#cModel').textContent='LM: '+(llm?llm.model:(d.llama&&d.llama.model)||'—');
+  if(statusRefreshPending)return;statusRefreshPending=true;
+  const refresh=$('#overviewRefresh');if(refresh){refresh.disabled=true;refresh.textContent='Обновляем…';}
+  try{
+  const readStatus=async path=>{const response=await api(path,{signal:TO(3000)});if(!response?.ok)return null;return response.json().catch(()=>null);};
+  const [stack,hardware,git,llm,moon]=await Promise.all([readStatus('/api/admin/stack'),readStatus('/api/admin/hw'),readStatus('/api/admin/git'),probeLLM(),probeMoon()]);
+  const d=stack&&typeof stack==='object'&&!Array.isArray(stack)?stack:{};
+  const hw=hardware||{},gt=git||{};
+  const received=Object.keys(d).length>0;
+  $('#adminConnection').classList.toggle('offline',!received);
+  $('#adminConnection .dot').className='dot '+(received?'ok':'bad');
+  $('#adminConnectionText').textContent=received?'Сервер отвечает':'Нет данных сервера';
+  $('#adminUpdated').textContent=received?'Обновлено '+new Date().toLocaleTimeString('ru-RU'):'Проверьте, запущен ли сервер Юни';
+  // Header badges are optional in the unified layout; missing ones must not abort refresh.
+  for(const [id,ok] of [['cLlm',llm],['cWeb',d.webui?.running],['cDesk',d.electron?.running],['cMoon',moon],['cBp',BP.ready]]){
+    const badge=$('#'+id);if(badge)badge.className='dot '+(ok?'ok':'bad');}
+  if($('#cLlmLabel'))$('#cLlmLabel').textContent='LLM :'+(llm?llm.port:'1235');
+  if($('#cModel'))$('#cModel').textContent='LM: '+(llm?llm.model:(d.llama&&d.llama.model)||'—');
   renderOverview(d,hw,gt,llm);
   if($('#ctxStatus'))$('#ctxStatus').innerHTML=
     kv('LLM :'+(llm?llm.port:'1235'),llm?'✅ '+llm.model:'❌')+
     kv('WebUI :8787',(d.webui||{}).running?'✅':'❌')+
     kv('Desktop',(d.electron||{}).running?'✅':'❌')+
-    kv('Moondream',moon?'✅':'❌');}
+    kv('Moondream',moon?'✅':'❌');
+  }catch(error){$('#adminConnectionText').textContent='Не удалось обновить данные';$('#adminConnection .dot').className='dot bad';$('#adminUpdated').textContent='Обновите статус или откройте логи';}
+  finally{statusRefreshPending=false;if(refresh){refresh.disabled=false;refresh.textContent='Обновить статус';}}}
 function renderOverview(d,hw,gt,llm){
-  const pid=x=>(x&&typeof x==='object')?(x.pid||'—'):'—';
-  const card=(t,st,ex)=>'<div class="card"><h3>'+t+'<span class="tag '+(st?'':'amb')+'">'+(st?'работает':'остановлен')+'</span></h3>'+ex+'</div>';
+  const pid=x=>(x&&typeof x==='object')?(x.pid??'—'):'—';
+  const shown=v=>(v===0||v)?v:'—';
+  const llmRunning=llm?true:(typeof d.llama?.running==='boolean'?d.llama.running:null);
+  const llmPort=llm?.port||d.llama?.port||1235;
+  const llmModel=llm?.model||d.llama?.model||'—';
+  const card=(t,st,ex)=>'<div class="card"><h3>'+t+'<span class="tag '+(st===true?'':st===false?'amb':'g')+'">'+(st===true?'Доступен':st===false?'Не отвечает':'Нет данных')+'</span></h3>'+ex+'</div>';
   $('#ovStack').innerHTML=
-    card('LLM :'+(llm?llm.port:'1235'),!!llm,kv('PID',pid(d.llama))+kv('модель',llm?esc(llm.model):'—'))+
+    card('LLM :'+llmPort,llmRunning,kv('PID',pid(d.llama))+kv('модель',esc(llmModel)))+
     card('WebUI :8787',(d.webui||{}).running,kv('PID',pid(d.webui)))+
     card('Launcher',(d.launcher||{}).running,kv('PID',pid(d.launcher)))+
     card('Desktop',(d.electron||{}).running,kv('PID',pid(d.electron)));
   const g=hw.gpu||{};
   $('#ovHw').innerHTML=
-    kv('GPU VRAM (своб.)',g.vram_free||'—')+
-    kv('GPU VRAM (исп.)',g.vram_used||'—')+
-    kv('GPU load',g.utilization||'—')+
-    kv('RAM',hw.ram||'—')+kv('CPU',hw.cpu||'—');
-  $('#hwTag').textContent=(g.vram_free&&g.vram_free!=='—')?'nvidia-smi':'нет данных';
+    kv('GPU VRAM (своб.)',shown(g.vram_free))+
+    kv('GPU VRAM (исп.)',shown(g.vram_used))+
+    kv('GPU load',shown(g.utilization))+
+    kv('RAM',shown(hw.ram))+kv('CPU',shown(hw.cpu));
+  $('#hwTag').textContent=g.vram_free!=null&&g.vram_free!=='—'?'nvidia-smi':'нет данных GPU';
   $('#ovGit').innerHTML=kv('Ветка',gt.branch||'—')+kv('Коммит',gt.commit||'—')+kv('Сообщение',esc(gt.message||'—'))+kv('Время',gt.time||'—');
   $('#gitTag').textContent=gt.branch&&gt.branch!=='—'?'есть':'—';
   $('#ovRaw').textContent=JSON.stringify(d,null,1).slice(0,2000);}
@@ -107,6 +262,7 @@ async function qwnStatus(){const d=await j('/api/uni/status');$('#qwnStatus').in
 /* ── файловый мост 8000 ── */
 let FB_ENDPOINT=null;
 async function fbProbe(){const candidates=['/api/files','/api/file','/files','/bridge','/api/bridge','/api/fs'];
+  if(!IS_LOCAL_ADMIN){FB_ENDPOINT=null;$('#fbOut').textContent='Порт 8000 не проверяется из удалённой админки: localhost относится к компьютеру посетителя.';$('#fbState').textContent='Нужен серверный proxy на стороне UNI; прямой loopback отключён.';return;}
   const out=[];
   for(const c of candidates){const r=await api8k(c);
     const alive=r&&r.status!==404&&r.status!==405;
@@ -123,7 +279,7 @@ async function fbExec(){const op=$('#fbOp').value,path=$('#fbPath').value,conten
 
 /* ── логи: grid, filter, highlight, download ── */
 const LOGKEYS=['llama','webui','desktop','electron','llama.err','webui.err','uni_bat','server'];
-const LOGDATA={};let logLevel='ALL';
+const LOGDATA={},LOGERROR={},LOGPENDING=new Set();let logLevel='ALL';
 function buildLogs(){const g=$('#logsGrid');if(g.children.length)return;
   g.innerHTML=LOGKEYS.map(k=>'<div class="card"><h3>'+k+'<span class="tag g" id="lg_'+k+'">—</span><button class="btn ghost" style="margin-left:4px;padding:3px 8px" onclick="dlLog(\''+k+'\')">⬇</button></h3><pre class="log" id="log_'+k+'"></pre></div>').join('');}
 function logText(d){if(!d)return '⚠ эндпоинт недоступен';
@@ -139,25 +295,35 @@ function fmtLine(l){const e=esc(l);
   if(/INFO/i.test(l))return '<span class="inf">'+e+'</span>';return e;}
 function renderLog(k){const arr=LOGDATA[k]||[];
   const f=logLevel==='ALL'?arr:arr.filter(l=>logLevel==='ERROR'?/ERROR|CRITICAL|Traceback|Exception/i.test(l):logLevel==='WARN'?/WARN/i.test(l):/INFO/i.test(l));
-  const el=$('#log_'+k);if(el){el.innerHTML=f.map(fmtLine).join('\n');el.scrollTop=el.scrollHeight;}}
+  const el=document.getElementById('log_'+k);if(el){const follow=el.scrollHeight-el.scrollTop-el.clientHeight<40;el.innerHTML=LOGERROR[k]?esc(LOGERROR[k]):f.length?f.map(fmtLine).join('\n'):'Нет строк для выбранного фильтра.';if(follow)el.scrollTop=el.scrollHeight;}}
 function setLogLevel(v){logLevel=v;LOGKEYS.forEach(renderLog);}
 function dlLog(k){const blob=new Blob([(LOGDATA[k]||[]).join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='uni_'+k+'.log';a.click();}
 function countErrors(){let n=0;for(const k of LOGKEYS)(LOGDATA[k]||[]).forEach(l=>{if(/ERROR|CRITICAL|Traceback/i.test(l))n++;});
-  const b=$('#logBadge');b.style.display=n?'':'none';b.textContent=n;
-  $('#logSummary').textContent=n?('ошибок: '+n):'ошибок нет';}
-async function loadLog(k){const d=await j('/api/uni/logs?name='+encodeURIComponent(k)+'&tail=200');
-  LOGDATA[k]=logText(d).split('\n');renderLog(k);
-  const t=$('#lg_'+k);if(t)t.textContent=new Date().toLocaleTimeString().slice(0,8);
-  countErrors();}
+  const b=$('#logBadge');if(b){b.style.display=n?'':'none';b.textContent=n;}
+  const unavailable=LOGKEYS.filter(k=>LOGERROR[k]||!Object.hasOwn(LOGDATA,k)).length;
+  $('#logSummary').textContent=(n?('Строк с ошибками: '+n):'В загруженных строках ошибок нет')+(unavailable?' · журналов без данных: '+unavailable:'');}
+async function loadLog(k){
+  if(LOGPENDING.has(k))return;LOGPENDING.add(k);
+  try{
+    const response=await api('/api/uni/logs?name='+encodeURIComponent(k)+'&tail=200');
+    if(!response?.ok)throw new Error(response?'HTTP '+response.status:'Нет связи с сервером');
+    const data=await response.json();if(data.error)throw new Error(data.error);
+    LOGDATA[k]=logText(data).split('\n');delete LOGERROR[k];
+    const t=document.getElementById('lg_'+k);if(t)t.textContent=new Date().toLocaleTimeString('ru-RU');
+  }catch(error){LOGERROR[k]='Журнал недоступен: '+error.message;const t=document.getElementById('lg_'+k);if(t)t.textContent='Нет данных';}
+  finally{LOGPENDING.delete(k);renderLog(k);countErrors();}}
 setInterval(()=>{if(!document.hidden&&$('.page[data-page="transfer"]').classList.contains('act')&&$('.pane[data-t="logs"]').classList.contains('act'))LOGKEYS.forEach(loadLog);},5000);
 
 /* ── браузер ── */
 async function browserProbe(){
-  $('#browserLog').textContent='проверка CDP 9222 и /api/browser/status…';
-  const cdp=await api('http://127.0.0.1:9222/json/version').catch(()=>null);
+  $('#browserLog').textContent='Проверяю /api/browser/status…';
   const api1=await j('/api/browser/status').catch(()=>null);
-  $('#browserLog').textContent='CDP 9222: '+(cdp?'OK — '+(cdp.ok?JSON.stringify(cdp).slice(0,200):'HTTP '+(cdp.status||'?')):'недоступен')+'\n/api/browser/status: '+(api1?JSON.stringify(api1,null,1):'нет такого эндпоинта')+'\n\nЕсли CDP недоступен — запусти Chrome с --remote-debugging-port=9222 или используй Playwright внутри UNI.';}
-async function browserTabs(){const r=await fetch('http://127.0.0.1:9222/json/list').catch(()=>null);
+  let cdpText='не проверяется из удалённой админки (нужен backend proxy)';
+  if(IS_LOCAL_ADMIN){const cdp=await fetch('http://127.0.0.1:9222/json/version',{signal:TO(1500)}).catch(()=>null);cdpText=cdp?(cdp.ok?'доступен':'HTTP '+cdp.status):'недоступен';}
+  $('#browserLog').textContent='CDP 9222: '+cdpText+'\n/api/browser/status: '+(api1?JSON.stringify(api1,null,1):'нет ответа')+'\n\nОсновной статус браузера идёт через origin админки; прямой CDP доступен только локально.';}
+async function browserTabs(){
+  if(!IS_LOCAL_ADMIN){$('#browserLog').textContent+='\nПрямой CDP не читается удалённо без серверного proxy.';return;}
+  const r=await fetch('http://127.0.0.1:9222/json/list',{signal:TO(1500)}).catch(()=>null);
   if(!r){$('#browserLog').textContent+='⚠ CDP не отвечает\n';return;}
   const list=await r.json().catch(()=>[]);
   $('#browserLog').textContent+='вкладки:\n'+list.map(x=>'• '+x.title+'  '+(x.url||'')).join('\n')+'\n';}
@@ -220,11 +386,11 @@ const BP={ws:null,wrap:m=>m,ready:false,devices:[],id:10,
   const to=setTimeout(()=>{ws.close();rej(new Error('таймаут — Intiface не запущен?'));},9000);
   let got=false,stage=0;
   const hs=()=>({RequestServerInfo:{Id:this.id++,ClientName:'UNI Admin',MessageVersion:3}});
-  $('#bpDiag').textContent='WS open → хендшейк (объект v3)';
-  ws.onopen=()=>ws.send(JSON.stringify(hs()));
+  $('#bpDiag').textContent='WS open → хендшейк (массив v3)';
+  ws.onopen=()=>ws.send(JSON.stringify([hs()]));
   const retry=()=>{if(got||ws.readyState!==1)return;stage++;
-    if(stage===1){$('#bpDiag').textContent='нет ответа → пробую массив';ws.send(JSON.stringify([hs()]));}
-    else if(stage===2){$('#bpDiag').textContent='пробую объект v2';ws.send(JSON.stringify({RequestServerInfo:{Id:this.id++,ClientName:'UNI Admin',MessageVersion:2}}));}
+    if(stage===1){$('#bpDiag').textContent='нет ответа → пробую объект';ws.send(JSON.stringify(hs()));}
+    else if(stage===2){$('#bpDiag').textContent='пробую массив v2';ws.send(JSON.stringify([{RequestServerInfo:{Id:this.id++,ClientName:'UNI Admin',MessageVersion:2}}]));}
     else{$('#bpDiag').textContent='хендшейк не прошёл (см. лог Intiface)';}};
   setTimeout(retry,2500);setTimeout(retry,5000);setTimeout(retry,7000);
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(err){return;}
@@ -273,8 +439,17 @@ async function remoteCreate(){const r=await xtCall(['/api/xtoys/remote/start','/
   if(d&&(d.url||d.link||d.token)){$('#rLink').value=d.url||d.link||(location.origin+'/remote#'+d.token);$('#rTag').textContent='активна';$('#dSes').textContent='активна';bpLog('remote создана');}
   else{$('#rTag').textContent='нет эндпоинта';bpLog('remote: живого эндпоинта нет');}}
 async function remoteEnd(){await xtCall(['/api/xtoys/remote/stop'],{});$('#rTag').textContent='выкл';$('#dSes').textContent='выкл';}
-async function remotePublic(open){const r=await xtCall([open?'/api/xtoys/public/open':'/api/xtoys/public/close'],{});
-  const d=r?await r.json().catch(()=>null):null;if(d&&(d.url||d.link))$('#rPub').value=d.url||d.link;}
+async function remotePublic(open){
+  const r=await j(open?'/api/xtoys/remote/public/start':'/api/xtoys/remote/public/stop',PJ({}));
+  const d=r?await r.json().catch(()=>null):null;
+  if(d){
+    if(d.cloudflare_url)$('#rPub').value=d.cloudflare_url;
+    if(d.ngrok_url)$('#rNgrok').value=d.ngrok_url;
+    if(d.errors&&Object.keys(d.errors).length){
+      const e=Object.entries(d.errors).map(([k,v])=>k+': '+v).join(' | ');
+      bpLog('public: '+e);$('#rPubNote').textContent=e;
+    } else if(open){$('#rPubNote').textContent='оба туннеля подняты';}
+  }}
 async function streamToggle(on){const r=await xtCall([on?'/api/xtoys/stream/start':'/api/xtoys/stream/stop'],{});$('#stTag').textContent=(r&&r.ok)?(on?'вкл':'выкл'):'нет эндпоинта';}
 async function streamMsg(){const r=await xtCall(['/api/xtoys/message'],{text:$('#stMsg').value});bpLog('сообщение: '+(r?r.status:'нет'));}
 async function camStart(){const d=await j('/api/camera/start',PJ({}));$('#camState')&&($('#camState').textContent=d&&d.ok?'включена':'backend: '+(d?d.status||'':'нет'));camFrame();}
@@ -283,10 +458,11 @@ async function camStop(){await api('/api/camera/stop',PJ({}));}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')dStop();});
 
 /* ── настройки ── */
-async function loadSettings(){const roles=await j('/api/roles');const list=(roles&&(roles.roles||roles))||[];
-  const opts=list.map(r=>'<option value="'+(r.id||r)+'">'+esc(r.name||r.id||r)+'</option>').join('')||'<option value="assistant">assistant</option>';
-  if($('#roleSel'))$('#roleSel').innerHTML=opts;if($('#setRole'))$('#setRole').innerHTML=opts;
-  const eng=await j('/api/tts/engines');let vo='';(eng&&eng.engines||[]).forEach(e=>(e.voices||[]).forEach(v=>{vo+='<option value="'+v.id+'">'+e.id+' / '+esc(v.name)+'</option>';}));
+async function loadSettings(){
+  // DEPRECATED 2026-08-28: filling options without current/readback left a false role.
+  // const roles=await j('/api/roles'); roleSel.innerHTML=options;
+  try{await ChatControls.loadRoles();}catch(e){toast('Роли недоступны: '+e.message);}
+  const eng=await j('/api/tts/engines');let vo='';(eng&&eng.engines||[]).forEach(e=>(e.voices||[]).forEach(v=>{vo+='<option value="'+v.id+'">'+e.id+' / '+esc(v.label||v.name||v.id)+'</option>';}));
   if($('#setVoice'))$('#setVoice').innerHTML=vo||'<option>default</option>';
   if($('#ttsVoice'))$('#ttsVoice').innerHTML=vo||'<option value="ru_RU-irina-medium.onnx">Piper Irina</option>';
   loadTtsVoices();
@@ -295,12 +471,12 @@ async function loadSettings(){const roles=await j('/api/roles');const list=(role
   const intList=[['LM Studio',()=>probeLLM().then(x=>!!x)],['WebUI 8787',()=>api('').then(x=>!!x)],['Hermes 8000',()=>api8k('/').then(x=>!!x)],['Intiface',()=>BP.ws&&BP.ws.readyState===1]];
   let html='';for(const[name,chk]of intList){const ok=await Promise.resolve(chk());html+=kv(name,ok?'✅':'❌');}
   $('#intStatus').innerHTML=html;}
-async function saveSettings(){await api('/api/role/switch',PJ({role:$('#setRole').value}));toast('сохранено');}
+async function saveSettings(){await applyRole($('#setRole').value);}
 async function loadTtsVoices(){
   const p=$('#ttsProvider')?.value||'silero'; const d=await j('/api/tts/engines');
   const voices=(d?.engines||[]).find(x=>x.id===p)?.voices||[];
   const el=$('#ttsVoice'); if(!el)return;
-  el.innerHTML=(voices.length?voices.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name||v.id)+'</option>').join():'<option value="ru_RU-irina-medium.onnx">Piper Irina</option>');
+  el.innerHTML=(voices.length?voices.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.label||v.name||v.id)+'</option>').join(''):'<option value="ru_RU-irina-medium.onnx">Piper Irina</option>');
   const saved=JSON.parse(localStorage.getItem('uni_tts')||'{}'); if(saved.voice)el.value=saved.voice;
 }
 async function saveTtsSettings(){
@@ -334,10 +510,13 @@ async function loadConsensus(){
 /* ── документы ── */
 async function loadDocs(){const d=await j('/api/admin/reports');
   if(!d||!d.reports){$('#docsList').innerHTML='<div class="note">⚠ /api/admin/reports недоступен</div>';return;}
-  $('#docsList').innerHTML=d.reports.map(r=>'<div class="card" style="cursor:pointer" onclick="loadDoc(\''+esc(r.name)+'\')"><h3>'+esc(r.name)+'</h3><span class="tag g">'+r.kind+'</span></div>').join('');}
+  const list=$('#docsList');list.replaceChildren();
+  if(!d.reports.length){list.textContent='Документов пока нет.';return;}
+  for(const report of d.reports){const button=document.createElement('button');button.className='card document-link';button.type='button';button.textContent=report.name;button.addEventListener('click',()=>loadDoc(report.name));list.appendChild(button);}}
 async function loadDoc(name){$('#docName').textContent=name;
   const d=await j('/api/admin/reports/'+encodeURIComponent(name));
-  $('#docBody').textContent=d&&d.content?d.content:JSON.stringify(d,null,1);}
+  if($('#docName').textContent!==name)return;
+  $('#docBody').textContent=d?.error?'Не удалось открыть документ: '+d.error:d?.content??'Документ пуст или недоступен.';}
 
 /* ── статистика ── */
 async function loadStats(){const d=await j('/api/admin/stats');
@@ -363,53 +542,44 @@ function ruleSave(){const r=[];$$('.rule').forEach(d=>r.push(d.textContent.trim(
 /* ── компьютер ── */
 function feedAdd(t){const el=$('#compFeed');el.textContent+='['+new Date().toLocaleTimeString().slice(0,8)+'] '+t+'\n';el.scrollTop=el.scrollHeight;}
 async function runGoal(){const goal=$('#goal').value.trim();if(!goal)return;
+  if($('#compState').getAttribute('aria-busy')==='true')return;
+  $('#compState').setAttribute('aria-busy','true');
+  try{
   feedAdd('▶ цель: '+goal);$('#compState').textContent='работает';$('#compState').className='tag amb';
   const d=await j('/api/computer/act',PJ({goal}));
   feedAdd(d?(d.message||d.status||JSON.stringify(d)):'⚠ /api/computer/act недоступен');
   await sleep(2500);const after=Screen.frame(720);if(after){$('#afterShot').src=after;$('#afterShot').style.display='block';}
-  if($('#verifyChk').checked&&after){try{feedAdd('✔ '+String(await gradioAsk(after,'Цель: '+goal+'. Достигнута? Одним предложением.')));}
-    catch(e){const v=await j('/api/chat',PJ({message:'Цель: '+goal+'. Достигнута? Одним предложением.'}));if(v&&(v.text||v.reply))feedAdd('✔ backend: '+(v.text||v.reply));}}
-  $('#compState').textContent='готово';$('#compState').className='tag';}
+  if($('#verifyChk').checked&&after){try{feedAdd('Визуальный комментарий (не решение проверяющего): '+String(await gradioAsk(after,'Цель: '+goal+'. Что изменилось на экране?')));}
+    catch(e){feedAdd('Визуальный анализ недоступен: '+e.message);}}
+  }catch(error){feedAdd('Ошибка выполнения: '+error.message);}
+  finally{
+    // A returned tool call or model narration is not independent verification.
+    $('#compState').textContent='Не подтверждено (not_verified)';$('#compState').className='tag amb';
+    $('#compState').setAttribute('aria-busy','false');
+  }}
 (function(){try{const es=new EventSource(API+'/api/uni/events');
   es.onopen=()=>{$('#sseState').textContent='SSE подключено';};
-  es.onmessage=e=>{try{const ev=JSON.parse(e.data);feedAdd('⚡ '+(ev.type||'')+': '+(ev.text||ev.message||''));}catch(err){}};
+  es.onmessage=e=>{try{const ev=JSON.parse(e.data);feedAdd('⚡ '+(ev.type||'')+': '+(ev.text||ev.message||''));ChatControls.onEvent(ev);}catch(err){}};
   es.onerror=()=>{$('#sseState').textContent='SSE: переподключение…';};}catch(e){}})();
 
 /* ── чат ── */
 let msgs=[];
-function addMsg(role,text){msgs.push({role,text,t:new Date().toLocaleTimeString().slice(0,5)});renderMsgs();}
-function renderMsgs(){const html=msgs.map(m=>'<div class="msg '+m.role+'"><small>'+(m.role==='user'?'Вы':m.role==='uni'?'ЮНИ':'система')+' · '+m.t+'</small>'+esc(m.text)+'</div>').join('');
-  const b=$('#chatBox');if(b){b.innerHTML=html;b.scrollTop=b.scrollHeight;}const d=$('#dwLog');if(d){d.innerHTML=html;d.scrollTop=d.scrollHeight;}}
+function addMsg(role,text,image){msgs.push({role,text,image,t:new Date().toLocaleTimeString().slice(0,5)});renderMsgs();}
+function renderMsgs(){const html=msgs.map(m=>'<div class="msg '+m.role+'"><small>'+(m.role==='user'?'Вы':m.role==='uni'?'ЮНИ':'система')+' · '+m.t+'</small>'+esc(m.text)+(m.image&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(m.image)?'<br><img alt="Отправленное изображение" src="'+m.image+'" style="max-width:100%;max-height:220px">':'')+'</div>').join('');
+  const empty='<div class="chat-empty"><b>С чего начнём?</b><p>Напишите задачу или вопрос Юни. Ответ и состояние запроса появятся здесь.</p></div>';
+  const b=$('#chatBox');if(b){b.innerHTML=html||empty;b.scrollTop=b.scrollHeight;}const d=$('#dwLog');if(d){d.innerHTML=html||empty;d.scrollTop=d.scrollHeight;}}
 function clearChat(){msgs=[];renderMsgs();}
-async function sendChat(text){text=(text||'').trim();if(!text)return;addMsg('user',text);
-  const d=await j('/api/chat',PJ({message:text,text}));
-  if(!d){addMsg('sys','⚠ агент недоступен');return;}
-  const reply=d.text||d.reply||d.response||d.message||(d.error?('⚠ '+d.error):'');
-  addMsg('uni',reply||JSON.stringify(d));
-  if($('#speakChk').checked&&reply)speak(reply);}
-function sendFromInput(){sendChat($('#chatIn').value);$('#chatIn').value='';}
-function dwSend(){sendChat($('#dwIn').value);$('#dwIn').value='';}
-function toggleDrawer(){$('#drawer').classList.toggle('open');}
-function speak(t){api('/api/tts',PJ({text:t}));}
+// DEPRECATED 2026-08-28: j('/api/chat') ignored HTTP errors; speak() duplicated backend TTS.
+async function sendChat(text){return ChatControls.send(text);}
+async function sendFromInput(){const text=$('#chatIn').value;if(await sendChat(text)&&$('#chatIn').value===text)$('#chatIn').value='';}
+async function dwSend(){const text=$('#dwIn').value;if(await sendChat(text)&&$('#dwIn').value===text)$('#dwIn').value='';}
+function toggleDrawer(){const open=$('#drawer').classList.toggle('open');$('#chatFab').setAttribute('aria-expanded',String(open));if(open)$('#dwIn').focus();else $('#chatFab').focus();}
+// DEPRECATED: api('/api/tts',PJ({text:t})); // response audio_url was never played.
+function speak(t){return ChatControls.playSpeech(t);}
 function speakTest(){speak('Привет! Это Юни. Проверка голоса.');}
 $('#chatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFromInput();}});
 $('#dwIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();dwSend();}});
-let rec=null,recChunks=[];
-function micWire(btn){btn.addEventListener('click',async()=>{
-  if(rec){rec.stop();return;}
-  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});
-    rec=new MediaRecorder(st);recChunks=[];
-    rec.ondataavailable=e=>recChunks.push(e.data);
-    rec.onstop=async()=>{btn.classList.remove('rec');st.getTracks().forEach(t=>t.stop());
-      const blob=new Blob(recChunks,{type:'audio/webm'});
-      const r=await fetch(API+'/api/stt',{method:'POST',headers:{'Content-Type':'audio/webm'},body:blob});
-      const d=await r.json().catch(()=>null);rec=null;
-      if(d&&d.text){if($('#micMode').value==='chat')sendChat(d.text);else{$('#chatIn').value=d.text;$('#dwIn').value=d.text;}}
-      else toast('STT: нет текста');};
-    rec.start();btn.classList.add('rec');}catch(e){toast('микрофон: '+e.message);}});}
-micWire($('#micBtn'));micWire($('#dwMic'));
-
-/* ── экран ── */
+// Microphone input is owned by ChatControls and local /api/stt/listen.
 const Screen={track:null,video:null,timer:null,_rc:null,
  async enable(){if(this.track)return true;
   try{const st=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:4}});
@@ -478,15 +648,18 @@ async function loadMemory(){const tries=['/api/memory','/api/memory/facts','/api
 
 /* тестер */
 async function apiTest(){const m=$('#tMethod').value,p=$('#tPath').value,b=$('#tBody').value;
-  const o=m==='POST'?PJ(b?JSON.parse(b):{}):undefined;const r=await api(p,o);
+  let payload={};
+  if(m==='POST'&&b.trim()){try{payload=JSON.parse(b);}catch(error){$('#tOut').textContent='Некорректный JSON: '+error.message;return;}}
+  const o=m==='POST'?PJ(payload):undefined;const r=await api(p,o);
   if(!r){$('#tOut').textContent='⚠ сервер недоступен';return;}
   $('#tOut').textContent='HTTP '+r.status+'\n\n'+(await r.text()).slice(0,4000);}
 
-/* карта эндпоинтов */
+/* Карта эндпоинтов: каталог безопасен, автопроба только для GET */
 const PROBES=[['GET','/api/admin/stack'],['GET','/api/admin/hw'],['GET','/api/admin/git'],['GET','/api/admin/dev'],['GET','/api/admin/agents'],['GET','/api/admin/stats'],['GET','/api/admin/reports'],['POST','/api/admin/actions'],['GET','/api/uni/status'],['GET','/api/heartbeats'],['GET','/api/participants'],['GET','/api/roles'],['GET','/api/tts/engines'],['GET','/api/safety'],['GET','/api/desktop/consent'],['POST','/api/vision/capture'],['POST','/api/chat'],['GET','/api/uni/logs?name=llama&tail=5'],['GET','/v3'],['GET','/v4/'],['POST','/api/computer/act'],['GET','/api/config'],['POST','/api/xtoys/remote/control']];
-async function probeAll(){const t=$('#probeTbl');t.innerHTML='<tr><th>Метод</th><th>Путь</th><th>Статус</th></tr>';
-  for(const[m,p]of PROBES){const r=m==='POST'?await api(p,PJ({})):await api(p);
-    t.innerHTML+='<tr><td>'+m+'</td><td><code>'+p+'</code></td><td>'+(r?('<span class="tag '+(r.ok?'':'red')+'">'+r.status+'</span>'):'<span class="tag red">net</span>')+'</td></tr>';}}
+function renderProbeCatalog(results={}){const t=$('#probeTbl');if(!t)return;t.innerHTML='<tr><th>Метод</th><th>Путь</th><th>Статус</th></tr>'+PROBES.map(([m,p])=>{const key=m+' '+p,r=results[key];let status;if(m!=='GET')status='<span class="tag g">только вручную</span>';else if(!r)status='<span class="tag g">не проверен</span>';else status=r.network?'<span class="tag red">net</span>':'<span class="tag '+(r.ok?'':'red')+'">'+r.status+'</span>';return '<tr><td>'+m+'</td><td><code>'+esc(p)+'</code></td><td>'+status+'</td></tr>';}).join('');}
+async function probeAll(){const results={};renderProbeCatalog(results);
+  for(const[m,p]of PROBES){if(m!=='GET')continue;const r=await api(p);results[m+' '+p]=r?{ok:r.ok,status:r.status}:{network:true};renderProbeCatalog(results);}
+}
 function filterProbe(q){q=(q||'').toLowerCase();$$('#probeTbl tr').forEach((tr,i)=>{if(i===0)return;tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none';});}
 
 /* admin/actions (белый список) */
@@ -503,7 +676,7 @@ const INIT={
   transfer:()=>{buildLogs();LOGKEYS.forEach(loadLog);qwnStatus();},
   browser:browserProbe,
   dorch:()=>{$('#dLimit').value=Dorch.limit;dUi();plRender();xtDiscover();},
-  settings:loadSettings,
+  settings:()=>{loadSettings();loadConfigSettings();},
   tasks:loadTasks,
   consensus:loadConsensus,
   docs:loadDocs,
@@ -516,9 +689,58 @@ const INIT={
   vision:()=>{j('/api/desktop/consent').then(d=>{$('#vConsent').textContent=d?('enabled='+d.observation_enabled+', level='+(d.level||'—')):'—';});},
   auto:()=>{j('/api/safety').then(d=>{if(d){safetyLevel=d.level||null;$('#safetyNow').textContent=safetyLevel||'—';}});},
   memory:loadMemory,
-  plugins:probeAll};
+  plugins:renderProbeCatalog};
 
 $('#dLimit').value=Dorch.limit;
-refreshStatus();setInterval(refreshStatus,5000);
+refreshStatus();setInterval(()=>{if(!document.hidden)refreshStatus();},15000);
 loadSettings();renderMsgs();dUi();ruleRender();
-addMsg('sys','Unified admin · v3.3 + v4 + Dorch fix + logs/chat/vision.');
+// Technical build labels belong in diagnostics, not in the conversation.
+
+/* Restored unified theme and Dorch workspace. Later declarations override legacy handlers. */
+function applyTheme(theme){document.body.classList.toggle('light',theme==='light');const b=$('#themeBtn');if(b)b.textContent=theme==='light'?'☀':'☾';localStorage.setItem('uni_theme',theme);}
+applyTheme(localStorage.getItem('uni_theme')||'dark');
+$('#themeBtn')?.addEventListener('click',()=>applyTheme(document.body.classList.contains('light')?'dark':'light'));
+$('#settingsBtn')?.addEventListener('click',()=>go('settings'));
+$$('.dorch-tabs .tab').forEach(b=>b.addEventListener('click',()=>{const name=b.dataset.dt;$$('.dorch-tabs .tab').forEach(x=>x.classList.toggle('act',x===b));$$('.dorch-pane').forEach(x=>x.classList.toggle('act',x.dataset.dt===name));}));
+function dArmManual(){Dorch.stopped=false;Dorch.source='manual';dUi();}
+function dSetManual(v){dArmManual();$('#dMan').value=Math.min(v,Dorch.limit);dManual($('#dMan').value);}
+function curveMeta(name){const c=window.CURVES?.[name];return c?{duration:Math.round(c.reduce((a,x)=>a+x[0],0)),peak:Math.max(...c.map(x=>x[1]))}:{duration:20,peak:100};}
+function renderDorchPatterns(){const root=$('#patBtns'),sel=$('#plPat');if(!root||!window.PATGROUPS)return;const q=($('#patSearch')?.value||'').toLowerCase();let html='',options='';for(const [group,names] of PATGROUPS){const visible=names.filter(n=>allPats().includes(n)&&n.toLowerCase().includes(q));if(!visible.length)continue;html+='<div class="pattern-group">'+esc(group)+'</div>';for(const name of visible){const m=curveMeta(name);html+='<button class="pattern-tile" data-pattern="'+esc(name)+'" onclick="dPattern(\''+name+'\')"><b>'+esc(name.replaceAll('_',' '))+'</b><small>'+m.duration+' сек · пик '+m.peak+'%</small></button>';options+='<option value="'+esc(name)+'">'+esc(name.replaceAll('_',' '))+'</option>';}}root.innerHTML=html;if(sel)sel.innerHTML=options;}
+function dPattern(name){patStop(true);Dorch.stopped=false;Dorch.source='pattern';const pow=Math.min(Dorch.limit,+$('#pPow').value||70),scale=Math.max(.1,+$('#pScale').value||1);Dorch.patAbort=new AbortController();$$('.pattern-tile').forEach(b=>b.classList.toggle('on',b.dataset.pattern===name));runCurve(name,pow,scale,Dorch.patAbort.signal,async v=>dSend(v,'pattern')).then(()=>{patStop(true);dSend(0,'pattern');});}
+function patStop(s){Dorch.patAbort?.abort();Dorch.patAbort=null;$$('.pattern-tile').forEach(b=>b.classList.remove('on'));}
+function plAdd(){Dorch.pl.push({p:$('#plPat').value,s:Math.max(1,+$('#plSec').value||20),w:Math.min(Dorch.limit,+$('#plPow').value||70),repeat:Math.max(1,+$('#plRepeat').value||1)});plRender();}
+function plRemove(i){Dorch.pl.splice(i,1);plRender();}
+function plRender(){$('#plCount').textContent=Dorch.pl.length;$('#plDuration').textContent=Dorch.pl.reduce((a,x)=>a+x.s*x.repeat,0)+' сек';$('#plList').innerHTML=Dorch.pl.length?Dorch.pl.map((x,i)=>'<div class="playlist-step"><b>'+(i+1)+'</b><span>'+esc(x.p.replaceAll('_',' '))+'</span><input value="'+x.s+'" type="number"><input value="'+x.w+'" type="number"><input value="'+x.repeat+'" type="number"><button class="icon-btn" onclick="plRemove('+i+')">×</button></div>').join(''):'Плейлист пуст';}
+async function plRun(){if(!Dorch.pl.length)return toast('Плейлист пуст');plStop(true);Dorch.stopped=false;Dorch.plAbort=new AbortController();for(const step of Dorch.pl)for(let n=0;n<step.repeat;n++){if(Dorch.plAbort.signal.aborted)return;await runCurve(step.p,step.w,Math.max(.1,step.s/curveMeta(step.p).duration),Dorch.plAbort.signal,async v=>dSend(v,'playlist'));}await dSend(0,'playlist');}
+function plStop(s){Dorch.plAbort?.abort();Dorch.plAbort=null;patStop(true);dSend(0,'playlist');}
+function plSave(){localStorage.setItem('dorch_playlist',JSON.stringify(Dorch.pl));toast('Preset сохранен локально');}
+try{Dorch.pl=JSON.parse(localStorage.getItem('dorch_playlist')||'[]');}catch(e){Dorch.pl=[];}
+
+let remoteToken='',remoteAfter=0,ownerPc=null,ownerStream=null;
+function tokenFromUrl(url){try{return new URL(url,location.href).hash.match(/(?:token=)?([^&]+)/)?.[1]||'';}catch(e){return '';}}
+async function remoteCreate(){const r=await api('/api/xtoys/remote/session/start',PJ({max_intensity:+$('#rMax').value,ttl:(+$('#rMin').value||150)*60,uni_in_chat:$('#rUniMode').value}));const d=r?await r.json().catch(()=>null):null;if(!r?.ok||!d?.url){$('#rTag').textContent='ошибка';return;}remoteToken=tokenFromUrl(d.url);$('#rLink').value=d.url;$('#rTag').textContent='активна';$('#dSes').textContent='активна';$('#remoteChatFeed').textContent='Сессия создана. Ожидание гостя…';remotePoll();}
+async function remoteEnd(){await api('/api/xtoys/remote/session/stop',PJ({}));await stopOwnerBroadcast();remoteToken='';$('#rTag').textContent='выкл';$('#dSes').textContent='выкл';$('#rLink').value='';$('#rPub').value='';}
+async function remotePublic(open){const r=await api(open?'/api/xtoys/remote/public/start':'/api/xtoys/remote/public/stop',PJ({}));const d=r?await r.json().catch(()=>null):null;if(open){const cf=d?.cloudflare_url||d?.url||'';const ng=d?.ngrok_url||'';$('#rPub').value=cf;$('#rNgrok').value=ng;if(!cf&&!ng)toast('Публичная ссылка не создана');else if(d?.errors&&Object.keys(d.errors).length){const e=Object.entries(d.errors).map(([k,v])=>k+': '+v).join(' | ');bpLog('public: '+e);$('#rPubNote').textContent=e;}else $('#rPubNote').textContent='оба туннеля подняты (на всякий случай)';}else{$('#rPub').value='';$('#rNgrok').value='';$('#rPubNote').textContent='публичные ссылки закрыты';}}
+async function remoteRoom(action,kind,payload){if(!remoteToken)return null;return j('/api/xtoys/remote/room',PJ({token:remoteToken,role:'owner',action,kind,payload,after:remoteAfter}));}
+function remoteAdd(who,text){const f=$('#remoteChatFeed');if(f.textContent.startsWith('Сессия'))f.textContent='';f.textContent+='\n'+who+': '+text;f.scrollTop=f.scrollHeight;}
+async function streamMsg(){const text=$('#stMsg').value.trim();if(!text||!remoteToken)return;const d=await remoteRoom('send','chat',text);if(d?.ok){remoteAdd('Вы',text);$('#stMsg').value='';}}
+async function remotePoll(){if(!remoteToken)return;const d=await remoteRoom('poll');for(const e of d?.events||[]){remoteAfter=Math.max(remoteAfter,e.id||0);if(e.kind==='chat')remoteAdd('Гость',String(e.payload||''));else if(e.kind==='answer'&&ownerPc)await ownerPc.setRemoteDescription(e.payload);else if(e.kind==='ice'&&ownerPc)await ownerPc.addIceCandidate(e.payload).catch(()=>{});else if(e.kind==='hangup')stopOwnerBroadcast();}setTimeout(remotePoll,800);}
+async function startOwnerBroadcast(){if(!remoteToken)return toast('Сначала создайте Remote-сессию');try{ownerStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});$('#ownerPreview').srcObject=ownerStream;ownerPc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});ownerStream.getTracks().forEach(t=>ownerPc.addTrack(t,ownerStream));ownerPc.onicecandidate=e=>{if(e.candidate)remoteRoom('send','ice',e.candidate.toJSON());};const offer=await ownerPc.createOffer();await ownerPc.setLocalDescription(offer);await remoteRoom('send','offer',ownerPc.localDescription.toJSON());$('#stTag').textContent='ожидание гостя';}catch(e){toast('Трансляция не запущена: '+e.message);}}
+async function stopOwnerBroadcast(){ownerStream?.getTracks().forEach(t=>t.stop());ownerStream=null;ownerPc?.close();ownerPc=null;$('#ownerPreview').srcObject=null;$('#stTag').textContent='выкл';if(remoteToken)await remoteRoom('send','hangup',{});}
+
+async function bpConnect(){const url=$('#bpUrl').value||'ws://127.0.0.1:12345';const d=await j('/api/intiface/connect',PJ({url}));if(!d?.ok)return bpState('ошибка');bpState('подключение…');for(let i=0;i<20;i++){await sleep(500);const s=await j('/api/intiface/status');if(s?.connected){renderBackendIntiface(s);return;}if(s?.last_error)return bpState('ошибка: '+s.last_error);}bpState('not_verified: таймаут');}
+async function bpDisconnect(){await j('/api/intiface/disconnect',PJ({}));renderBackendIntiface({connected:false,devices:[],value:0});}
+async function bpScan(){renderBackendIntiface(await j('/api/intiface/status')||{});}
+function renderBackendIntiface(s){BP.ready=!!s.connected;bpState(s.connected?'подключено':'отключено');$('#bpDevSel').innerHTML=(s.devices||[]).map((name,i)=>'<option value="'+i+'">'+esc(name)+'</option>').join('');$('#dDevName').textContent=(s.devices||[]).join(', ')||'—';$('#dBpTxt').textContent='Intiface: '+(s.connected?((s.devices||[]).length+' устр.'):'нет');$('#dBpDot').className='dot '+(s.connected?'ok':'bad');$('#bpDiag').textContent=s.connected?'backend IntifaceBridge · connected':(s.last_error||'не подключено');Dorch.current=(+s.value||0)/100;dUi();}
+async function dSend(v,src){v=Math.max(0,Math.min(1,v));const value=Math.round((Dorch.stopped?0:Math.min(v,Dorch.limit/100))*100);if(src)Dorch.source=src;const r=await api('/api/intiface/oscillate',PJ({value}));const d=r?await r.json().catch(()=>null):null;if(r?.ok&&d?.ok){Dorch.current=value/100;dUi();return true;}bpLog('RESULT rejected: '+(d?.error||r?.status||'нет ответа'));return false;}
+async function dStop(){
+  Dorch.stopped=true;Dorch.auto=false;
+  // Send the latched stop before any local producer cleanup can wait or fail.
+  const stopping=api('/api/xtoys/emergency-stop',PJ({}));
+  motionStop(true);plStop(true);$('#dAutoTag').textContent='выкл';
+  const response=await stopping;const data=response?await response.json().catch(()=>null):null;
+  Dorch.source='STOP';dUi();
+  toast(response?.ok&&data?.ok?'STOP отправлен. Проверьте физическую остановку.':'STOP не подтверждён — используйте физический пульт!');
+}
+async function xtDiscover(){const s=await j('/api/intiface/status');$('#xtMap').textContent='Intiface: '+(s?.connected?'connected':'not connected')+'\nRemote API: canonical session/room/control';}
+renderDorchPatterns();plRender();

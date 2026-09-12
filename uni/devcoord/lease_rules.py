@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import posixpath
 
-from uni.devcoord.workspace_models import ResourceType
+from uni.devcoord.workspace_models import AccessMode, ResourceType
 
 
 _PATH_TYPES = {ResourceType.FILE, ResourceType.TREE}
+
+
+def access_modes_conflict(left: AccessMode, right: AccessMode) -> bool:
+    """Return whether two overlapping resource claims are incompatible."""
+    return not (left is AccessMode.READ and right is AccessMode.READ)
+
+
+def access_mode_can_write(mode: AccessMode) -> bool:
+    return mode in {AccessMode.WRITE, AccessMode.EXCLUSIVE}
 
 
 def normalize_resource_key(resource_type: ResourceType, key: str) -> str:

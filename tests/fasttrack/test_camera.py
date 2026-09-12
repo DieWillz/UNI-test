@@ -59,6 +59,9 @@ class FakeExecutor:
     def __init__(self, events):
         self.events = events
 
+    def canonical_name(self, action):
+        return action
+
     async def execute(self, action, args=None):
         self.events.append(action)
         if action == "camera.snapshot":

@@ -1,0 +1,13 @@
+# Проверил живой код
+- `uni/webui/server.py` (4047 строк) — уже имеет маршрут `/app.js`→`js/app.js` (статика, 1308 строка), это не API
+- `js/app.js` — 599 строк, новые эндпоинты Dorch/STT/camera/roles, `/api/app` **отсутствует**
+- `mobile-control.js`, `chat-controls.js` — новые JS, `/api/app` не фигурирует
+- `remote.html`, `mobile-control.html`, `remote_session.py`, `verify_vision.py`, `chat_support.py` — новые файлы
+- Целевой маршрут `/api/app` отсутствует; добавить осмысленный GET `/api/app` → статус UNI
+
+# План
+1. Добавить GET /api/app в server.py → агрегат состояния (здоровье, Dorch, автономия, роль, возможности, TTS-провайдер, мозг, STT/TTS)
+2. Проверить, что маршрут работает (curl localhost:8787/api/app)
+3. Обновить js/app.js — добавить запрос /api/app и отобразить на панели статуса
+
+# Реализация

@@ -110,6 +110,139 @@ def test_round_collects_replies_signatures_and_artifacts(tmp_path):
     assert report.replies["Claude"].via == "browser"
 
 
+def test_round_ids_are_unique_with_same_timestamp(monkeypatch, tmp_path):
+    import uni.council.round as round_mod
+    from datetime import datetime
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 9, 10, 13, 30, 0)
+
+    monkeypatch.setattr(round_mod, "datetime", FixedDatetime)
+    participants = _make_participants()
+    first_round = CouncilRound(participants=participants, artifacts_dir=str(tmp_path))
+    second_round = CouncilRound(participants=participants, artifacts_dir=str(tmp_path))
+
+    async def go():
+        first = await first_round.run(topic="first", brief="one")
+        second = await second_round.run(topic="second", brief="two")
+        return first, second
+
+    first, second = asyncio.run(go())
+    assert first.round_id != second.round_id
+    assert Path(first.artifacts["report"]).exists()
+    assert Path(second.artifacts["report"]).exists()
+
+def test_participant_name_with_slashes_does_not_break_artifact_persistence(tmp_path):
+    name = "ChatGPT / GPT-5.6 Sol / UNI code improvement"
+    participant = Participant(name, "reviewer", "api", {})
+    participant.provider = _FakeProvider("participant answer")
+    round_ = CouncilRound(participants=[participant], artifacts_dir=str(tmp_path))
+
+    async def go():
+        return await round_.run(topic="safe artifact name", brief="test")
+
+    report = asyncio.run(go())
+    assert name in report.replies
+    artifact_path = Path(report.artifacts[name])
+    assert artifact_path.parent == tmp_path
+    assert artifact_path.exists()
+
+
+def test_round_isolates_unexpected_provider_exception(tmp_path):
+    class RaisingProvider(CouncilProvider):
+        scheme = "raising"
+
+        async def ask(self, participant, prompt, *, max_tokens=2000):
+            raise RuntimeError("provider boom")
+
+    ok = Participant("Ok", "x", "api", {})
+    ok.provider = _FakeProvider("ok answer")
+    bad = Participant("Bad", "x", "api", {})
+    bad.provider = RaisingProvider()
+    round_ = CouncilRound(participants=[ok, bad], artifacts_dir=str(tmp_path))
+
+    async def go():
+        return await round_.run(topic="t", brief="b")
+
+    report = asyncio.run(go())
+    assert report.replies["Ok"].text == "ok answer"
+    assert "provider boom" in report.errors["Bad"]
+    assert Path(report.artifacts["report"]).exists()
+
+
+def test_critic_exception_is_non_fatal_and_recorded(tmp_path):
+    class RaisingProvider(CouncilProvider):
+        scheme = "raising"
+
+        async def ask(self, participant, prompt, *, max_tokens=2000):
+            raise RuntimeError("critic boom")
+
+    ok = Participant("Ok", "x", "api", {})
+    ok.provider = _FakeProvider("ok answer")
+    critic = Participant("Critic", "critic", "api", {})
+    critic.provider = RaisingProvider()
+    round_ = CouncilRound(participants=[ok], artifacts_dir=str(tmp_path), timeout_seconds=0.1)
+
+    async def go():
+        return await round_.run(topic="t", brief="b", critic=critic)
+
+    report = asyncio.run(go())
+    assert report.replies["Ok"].text == "ok answer"
+    assert report.critic == ""
+    assert "critic boom" in report.errors["critic:Critic"]
+    assert Path(report.artifacts["report"]).exists()
+
+
+def test_coordinator_exception_is_non_fatal_and_recorded(tmp_path):
+    class RaisingProvider(CouncilProvider):
+        scheme = "raising"
+
+        async def ask(self, participant, prompt, *, max_tokens=2000):
+            raise RuntimeError("coordinator boom")
+
+    ok = Participant("Ok", "x", "api", {})
+    ok.provider = _FakeProvider("ok answer")
+    coordinator = Participant("Coordinator", "coordinator", "api", {})
+    coordinator.provider = RaisingProvider()
+    round_ = CouncilRound(participants=[ok], artifacts_dir=str(tmp_path), timeout_seconds=0.1)
+
+    async def go():
+        return await round_.run(topic="t", brief="b", coordinator=coordinator)
+
+    report = asyncio.run(go())
+    assert report.replies["Ok"].text == "ok answer"
+    assert report.synthesis == ""
+    assert "coordinator boom" in report.errors["coordinator:Coordinator"]
+    assert Path(report.artifacts["report"]).exists()
+
+
+def test_provider_cannot_spoof_participant_identity(tmp_path):
+    class SpoofingProvider(CouncilProvider):
+        scheme = "spoof"
+
+        async def ask(self, participant, prompt, *, max_tokens=2000):
+            return ParticipantReply(
+                participant="Victim",
+                text="spoofed answer",
+                via="api",
+                model="fake-model",
+            )
+
+    attacker = Participant("Attacker", "x", "api", {})
+    attacker.provider = SpoofingProvider()
+    round_ = CouncilRound(participants=[attacker], artifacts_dir=str(tmp_path))
+
+    async def go():
+        return await round_.run(topic="identity", brief="test")
+
+    report = asyncio.run(go())
+    assert "Attacker" in report.replies
+    assert "Victim" not in report.replies
+    assert report.replies["Attacker"].participant == "Attacker"
+
+
 def test_round_isolated_participant_failure_is_non_fatal(tmp_path):
     ok = Participant("Ok", "x", "api", {})
     ok.provider = _FakeProvider("Нормальный ответ.")

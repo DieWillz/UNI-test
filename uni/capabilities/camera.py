@@ -113,6 +113,20 @@ class CameraCapability(Capability):
                 "height": int(frame.shape[0]),
             }
 
+    def frame_base64(self) -> str:
+        """Capture one frame and return it as a JPEG base64 data URL."""
+        import base64 as _b64
+
+        from .camera import _frame_to_base64  # reuse encoder
+
+        with self._lock:
+            if self._capture is None or not self._capture.isOpened():
+                raise RuntimeError("Камера не включена")
+            success, frame = self._capture.read()
+            if not success:
+                raise RuntimeError("Не удалось получить кадр")
+            return _frame_to_base64(frame)
+
     async def snapshot(self, label: str = "camera") -> ToolResult:
         try:
             data = await asyncio.to_thread(self._snapshot_sync, label)

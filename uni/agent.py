@@ -20,12 +20,23 @@ from uni.event_loop import EventLoop
 from uni.roles.loader import RoleLoader, get_current_role
 from uni.session_log import SessionLogger
 from uni.tools import ToolExecutor
+from uni.operator.runtime import OperatorRuntime
 from uni.working_memory import WorkingMemory
 
 from uni.autonomous import AutonomousController
+from uni.tools.trajectory_store import save_trajectory
 from uni.tools.visual_action import VisualActionAgent
 
 console = Console()
+
+
+def autonomous_device_allowed(config: Config) -> bool:
+    """Persistent configuration gate for autonomous Dorch control.
+
+    Per-command/session owner acknowledgements are intentionally not part of
+    this predicate; STOP and hardware presence are enforced downstream.
+    """
+    return bool(config.autonomous.enabled and config.capabilities.xtoys.autonomous_physical)
 
 
 class Agent:
@@ -34,6 +45,7 @@ class Agent:
     def __init__(self, config: Config):
         self.config = config
         self.session_logger = SessionLogger(config.logging.directory, config.logging.enabled)
+        self._trajectory_sink = save_trajectory
         self.brain = Brain(config.brain, vision_model=config.capabilities.vision.model)
         self.memory = WorkingMemory(
             config.memory.path,
@@ -108,12 +120,45 @@ class Agent:
             url=xtoys_config.url,
             max_intensity=xtoys_config.max_intensity,
         )
+        from uni.intiface_bridge import IntifaceBridge
+        from uni.xtoys_control_coordinator import ToyControlCoordinator
+
+        self.toy_coordinator = ToyControlCoordinator(IntifaceBridge())
+        self.toy_coordinator.set_max_intensity(xtoys_config.max_intensity)
+        self.toy_coordinator.configure_autonomous(lambda: autonomous_device_allowed(self.config))
+        xtoys.coordinator = self.toy_coordinator
+
+        # 🤖 Единый контур управления (ТЗ: один источник истины, одна очередь,
+        # один исполнитель). Все пути (чат, автономная инициатива, ручной
+        # ползунок) идут через ControlQueue, а не через независимые контроллеры.
+        from uni.control_queue import ControlQueue
+
+        self.control_queue = ControlQueue(
+            coordinator=self.toy_coordinator,
+            max_intensity=xtoys_config.max_intensity,
+            allowed=lambda: autonomous_device_allowed(self.config),
+        )
+        self.control_queue.set_change_callback(self._on_control_change)
 
         self.capabilities = CapabilityRegistry()
         for capability in (speech, computer, camera, browser, vision, memory_capability, xtoys):
             self.capabilities.register(capability)
 
         self.tool_executor = ToolExecutor(self.capabilities)
+        from uni.operator.execution_policy import ExecutionPolicy, ExecutionMode
+        from uni.operator.visible_actions import VisibleDesktopDriver
+        execution_policy = ExecutionPolicy(mode=ExecutionMode.BALANCED_VISIBLE)
+        visible_driver = VisibleDesktopDriver(computer, badge_enabled=config.capabilities.computer.action_badge)
+        self.operator = OperatorRuntime(
+            brain=self.brain,
+            browser_session=self.browser_session,
+            computer=computer,
+            vision=vision,
+            tool_executor=self.tool_executor,
+            session_logger=self.session_logger,
+            execution_policy=execution_policy,
+            visible_driver=visible_driver,
+        )
         self.event_loop = EventLoop(
             brain=self.brain,
             capabilities=self.capabilities,
@@ -124,7 +169,21 @@ class Agent:
             session_logger=self.session_logger,
         )
         self.event_loop._agent_ref = self
-        self.autonomous = AutonomousController(self, config)
+        # 🤖 DEPRECATED by Hermes: AutonomousController оставлен совместимым
+        # адаптером поверх единой ControlQueue. Реальная логика — в control_queue.
+        self.autonomous = AutonomousController(self, config, control_queue=self.control_queue)
+
+    def _on_control_change(self, snapshot: dict) -> None:
+        """Callback очереди управления. Уведомляет сессию логирования."""
+        if self.session_logger.enabled:
+            try:
+                self.session_logger.log(
+                    "CONTROL_Q",
+                    {"rev": snapshot.get("queue_revision"), "epoch": snapshot.get("control_epoch"),
+                     "mode": snapshot.get("mode"), "cur": snapshot.get("current_step")},
+                )
+            except Exception:
+                pass
 
     async def initialize(self) -> None:
         healthcheck, speech_warmup = await asyncio.gather(
@@ -156,7 +215,7 @@ class Agent:
     async def run(self, command: Optional[str] = None):
         if command:
             return await self.event_loop.run_cycle(user_input=command)
-        acfg = getattr(self.config.agent, "autonomous", None)
+        acfg = self.config.autonomous
         # Hands-free: if enabled AND the device is allowed to move, start the session at once.
         device_allowed = bool(
             getattr(acfg, "enabled", False)
@@ -198,6 +257,7 @@ class Agent:
                 max_steps=max_steps,
                 log=lambda event, msg: self.session_logger.log(event, str(msg))
                 if self.session_logger.enabled else None,
+                trajectory_sink=getattr(self, "_trajectory_sink", None),
             )
             # сохраняем ссылку, чтобы /api/computer/stop мог прервать цикл
             Agent._last_visual_agent = agent
@@ -219,6 +279,22 @@ class Agent:
         except Exception:
             pass
         return result
+
+    async def run_operator(self, goal: str, *, external_effects: bool = False,
+                           critical: bool = False):
+        from uni.operator.permissions import MissionPermissions
+
+        permissions = MissionPermissions(
+            external_effects=bool(external_effects),
+            critical=bool(critical),
+        )
+        return await self.operator.run(goal, permissions=permissions)
+
+    def stop_operator(self) -> None:
+        self.operator.stop()
+
+    def resume_operator(self) -> None:
+        self.operator.resume()
 
     def update_board(self, action: str, result: str) -> None:
         """🤖 D6: авто-обновление UNI_BOARD.md после действия (P1.5)."""

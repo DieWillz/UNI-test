@@ -32,42 +32,42 @@ class ControlledTakeover:
     def prepare(self, stale_session_id: str, snapshot_ref: str) -> TakeoverRecord:
         if not snapshot_ref.strip():
             raise ValueError("snapshot reference is required")
-        session = self.store.get_session(stale_session_id)
-        if session.state is not SessionState.STALE:
-            raise ValueError("takeover requires a stale session")
-
         prepared_at = datetime.now(timezone.utc).isoformat()
         with self.store.transaction(immediate=True) as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM agent_sessions WHERE session_id=?",
+                (stale_session_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"unknown agent session: {stale_session_id}")
+            session = AgentSession.model_validate(json.loads(row[0]))
+            if session.state is not SessionState.STALE:
+                raise ValueError("takeover requires a stale session")
+
             rows = conn.execute(
-                "SELECT lease_id, payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
+                "SELECT payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
                 (stale_session_id, LeaseState.RELEASED.value),
             ).fetchall()
-            for lease_id, payload_json in rows:
-                lease = ResourceLease.model_validate(json.loads(payload_json)).model_copy(
+            for lease_row in rows:
+                lease = ResourceLease.model_validate(json.loads(lease_row[0])).model_copy(
                     update={"state": LeaseState.RELEASED, "released_at": prepared_at}
                 )
-                conn.execute(
-                    "UPDATE resource_leases SET state=?, payload_json=? WHERE lease_id=?",
-                    (LeaseState.RELEASED.value, lease.model_dump_json(), lease_id),
-                )
+                self.store.save_resource_lease(lease, conn=conn)
             stopped = session.model_copy(update={"state": SessionState.STOPPED})
-            conn.execute(
-                "UPDATE agent_sessions SET state=?, payload_json=? WHERE session_id=?",
-                (SessionState.STOPPED.value, stopped.model_dump_json(), stale_session_id),
+            self.store.save_session(stopped, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="takeover.prepared",
+                    task_id=session.task_id,
+                    session_id=stale_session_id,
+                    detail=snapshot_ref,
+                ),
+                conn=conn,
             )
 
-        record = TakeoverRecord(
+        return TakeoverRecord(
             stale_session_id=stale_session_id,
             task_id=session.task_id,
             snapshot_ref=snapshot_ref,
             prepared_at=prepared_at,
         )
-        self.store.append_event(
-            WorkspaceEvent(
-                event="takeover.prepared",
-                task_id=session.task_id,
-                session_id=stale_session_id,
-                detail=snapshot_ref,
-            )
-        )
-        return record

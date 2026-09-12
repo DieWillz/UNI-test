@@ -8,6 +8,7 @@ import json
 import socket
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -103,11 +104,17 @@ def _handle_health(handler) -> None:
         pids = json.loads((_ROOT / "runtime" / "pids.json").read_text(encoding="utf-8"))
     except Exception:
         pass
-    llama_running = _tcp_alive("127.0.0.1", 1235)
-    webui_running = _tcp_alive("127.0.0.1", 8787)
-    vlm_running = _tcp_alive("127.0.0.1", 1236)
-    moondream_running = _tcp_alive("127.0.0.1", 7860)
-    lmstudio_reachable = _tcp_alive("127.0.0.1", 1234)
+    ports = (1235, 8787, 1236, 7860, 1234)
+    # Probe independent localhost services concurrently. Sequential one-second
+    # connect timeouts made the health endpoint exceed client deadlines when
+    # all optional services were offline.
+    with ThreadPoolExecutor(max_workers=len(ports), thread_name_prefix="uni-health") as pool:
+        states = dict(zip(ports, pool.map(lambda port: _tcp_alive("127.0.0.1", port), ports)))
+    llama_running = states[1235]
+    webui_running = states[8787]
+    vlm_running = states[1236]
+    moondream_running = states[7860]
+    lmstudio_reachable = states[1234]
 
     llama_model = None
     if llama_running:

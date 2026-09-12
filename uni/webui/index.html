@@ -4,87 +4,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>UNI Platform · Unified</title>
-<link rel="stylesheet" href="css/admin.css">
+<title>Юни — Обзор</title>
+<link rel="stylesheet" href="css/admin.css?v=20260912-settings">
+<link rel="stylesheet" href="css/settings.css?v=20260912-settings">
 </head>
 <body>
+<a class="skip-link" href="#mainContent">Перейти к содержимому</a>
 
 <aside id="sidebar">
   <div class="logo">
     <img src="img/logo.png" alt="UNI" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
     <div class="uicon" style="display:none">U</div>
-    <div><b>UNI</b><small>Platform · Unified</small></div>
+    <div class="logo-txt"><b>Юни</b><small>Панель управления</small></div>
   </div>
 
-  <div class="sec">Основное</div>
-  <button class="nav act" data-page="overview">Обзор</button>
-  <button class="nav" data-page="participants">Участники</button>
-  <button class="nav" data-page="transfer">Передача данных</button>
-  <button class="nav nav-sub sub" data-page="transfer" data-tab="qwn">Пульт QWN</button>
-  <button class="nav nav-sub sub" data-page="transfer" data-tab="bridge">Файловый мост</button>
-  <button class="nav nav-sub sub" data-page="transfer" data-tab="logs">Логи сервера<span class="badge r" id="logBadge" style="display:none"></span></button>
-  <button class="nav" data-page="browser">Браузер</button>
-  <button class="nav" data-page="dorch">Dorch<span class="badge r">L4</span></button>
-  <button class="nav" data-page="settings">Настройки</button>
+  <nav class="nav-root" id="adminNavigation" aria-label="Разделы админки">
+    <div class="sec">Основное</div>
+    <button class="nav act" data-page="overview" aria-current="page">Обзор</button>
+    <button class="nav" data-page="transfer" data-keywords="логи logs сервер bridge">Данные и логи</button>
+    <button class="nav" data-page="browser">Браузер</button>
+    <button class="nav" data-page="dorch">Dorch<span class="badge r">L4</span></button>
+    <button class="nav" data-page="chat">Чат с Юни</button>
 
-  <div class="sec">Данные</div>
-  <button class="nav" data-page="tasks">Задачи и процессы</button>
-  <button class="nav" data-page="consensus">Журнал консенсуса</button>
-  <button class="nav" data-page="docs">Документы</button>
-  <button class="nav" data-page="stats">Аналитика</button>
+    <div class="sec">Данные и аналитика</div>
+    <button class="nav" data-page="participants">Участники</button>
+    <button class="nav" data-page="workspace" data-keywords="разработка workspace agents tasks sessions leases checkpoints owner review known good">Разработка / Workspace</button>
+    <button class="nav" data-page="consensus">Журнал консенсуса</button>
+    <button class="nav" data-page="docs">Документы</button>
+    <button class="nav" data-page="stats">Аналитика</button>
 
-  <div class="sec">Автоматизация</div>
-  <button class="nav" data-page="processes">Процессы</button>
-  <button class="nav" data-page="schedules">Расписания</button>
-  <button class="nav" data-page="rules">Правила</button>
-  <button class="nav" data-page="computer">Компьютер</button>
+    <div class="sec">Автоматизация</div>
+    <button class="nav" data-page="computer">Компьютер</button>
+    <button class="nav" data-page="vision">Зрение</button>
+    <button class="nav" data-page="auto">Автономность</button>
+    <button class="nav" data-page="memory">Память</button>
 
-  <div class="sec">Управление</div>
-  <button class="nav" data-page="chat">Чат с Юни</button>
-  <button class="nav" data-page="vision">Зрение</button>
-  <button class="nav" data-page="auto">Автономность</button>
-  <button class="nav" data-page="memory">Память</button>
-
-  <div class="sec">Разработка</div>
-  <button class="nav" data-page="tools">API-тестер</button>
-  <button class="nav" data-page="plugins">Эндпоинты</button>
-  <button class="nav" data-page="actions">Действия</button>
+    <div class="sec">Система</div>
+    <button class="nav" data-page="settings" data-keywords="модель голос микрофон config llm tts">Настройки</button>
+    <button class="nav" data-page="actions" data-keywords="перезапуск остановка тест упаковка">Обслуживание</button>
+    <button class="nav" data-page="plugins">Эндпоинты</button>
+    <button class="nav" data-page="tools">API-тестер</button>
+  </nav>
+  <div class="sidebar-footer">Локальная админка<br><span>Ваши настройки и инструменты</span></div>
 </aside>
+<button id="navBackdrop" type="button" aria-label="Закрыть меню" hidden></button>
 
 <header id="topbar">
-  <button class="btn ghost" id="burger">☰</button>
-  <span class="chip"><span class="dot" id="cLlm"></span><span id="cLlmLabel">LLM :1235</span></span>
-  <span class="chip"><span class="dot" id="cWeb"></span>WebUI :8787</span>
-  <span class="chip"><span class="dot" id="cDesk"></span>Desktop</span>
-  <span class="chip"><span class="dot" id="cMoon"></span>Moon :7861</span>
-  <span class="chip"><span class="dot" id="cBp"></span>Intiface :12345</span>
-  <span class="chip" id="cModel" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">LM: —</span>
-  <span class="chip">🌙 <span id="themeName">Dark</span></span>
-  <span class="sp"></span>
-  <button class="btn ghost" onclick="refreshStatus()">⟳</button>
-  <button class="btn red" onclick="stopAll()">■ STOP</button>
+  <button class="btn ghost icon-btn" id="burger" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <div class="brand">
+    <span class="brand-mark">U</span>
+    <span class="brand-name">Юни</span><span class="breadcrumb-separator" aria-hidden="true">/</span>
+    <span id="currentSection">Обзор</span>
+  </div>
+  <label class="topbar-search">
+    <span class="sr-only">Найти раздел</span>
+    <input id="navSearch" type="search" placeholder="Найти раздел: чат, модель, логи…" autocomplete="off" aria-controls="adminNavigation">
+    <kbd>Ctrl K</kbd>
+    <span id="navEmpty" class="topbar-search-empty" hidden>Раздел не найден</span>
+  </label>
+  <span class="connection-state" id="adminConnection" role="status"><span class="dot" aria-hidden="true"></span><span id="adminConnectionText">Статус ещё не получен</span></span>
+  <button class="icon-btn top-ico" id="themeBtn" title="Сменить тему" aria-label="Сменить тему">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+  </button>
+  <button class="icon-btn top-ico" id="settingsBtn" title="Настройки" aria-label="Настройки">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94a7.49 7.49 0 0 0 .06-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.49 7.49 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.4.31.6.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.2.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+  </button>
 </header>
 
-<main>
+<main class="main" id="mainContent" tabindex="-1">
 <!-- ═══ ОБЗОР ═══ -->
 <section class="page act" data-page="overview">
-  <h1>Обзор</h1><div class="sub">Живое состояние стека, железа и git</div>
+  <div class="overview-heading"><div><div class="eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</div><h1>Всё важное — перед вами</h1><div class="sub">Состояние Юни, быстрый доступ к чату и настройкам.</div></div>
+    <div class="overview-refresh"><button class="btn ghost" id="overviewRefresh" onclick="refreshStatus()">Обновить статус</button><small id="adminUpdated">Ожидаем данные сервера</small></div></div>
+  <div class="overview-shortcuts" aria-label="Быстрый переход">
+    <button class="shortcut" onclick="go('chat')"><span class="shortcut-icon" aria-hidden="true">↗</span><span><b>Поговорить с Юни</b><small>Сообщения, роль и голос</small></span><span aria-hidden="true">→</span></button>
+    <button class="shortcut" onclick="go('settings')"><span class="shortcut-icon" aria-hidden="true">≡</span><span><b>Настроить под себя</b><small>Модель и параметры</small></span><span aria-hidden="true">→</span></button>
+    <button class="shortcut" onclick="go('transfer','logs')"><span class="shortcut-icon" aria-hidden="true">⌁</span><span><b>Разобраться в ошибке</b><small>Журнал работы сервера</small></span><span aria-hidden="true">→</span></button>
+  </div>
+  <div class="section-caption"><h2>Компоненты Юни</h2><span>Статус компонентов — не подтверждение выполнения задачи</span></div>
+  <div class="card" id="runtimeOverview" style="margin-top:10px">
+    <h3>Текущее состояние <span class="tag g" id="runtimeOverviewStatus">Ожидание</span></h3>
+    <div class="grid g4" id="runtimeOverviewMetrics"><div class="note">Получаем состояние Юни…</div></div>
+  </div>
   <div class="grid g4" id="ovStack"></div>
   <div class="grid g2" style="margin-top:10px">
-    <div class="card"><h3>Железо <span class="tag g" id="hwTag">—</span></h3><div id="ovHw">загрузка…</div></div>
-    <div class="card"><h3>Git <span class="tag g" id="gitTag">—</span></h3><div id="ovGit">загрузка…</div>
+    <div class="card"><h3>Ресурсы компьютера <span class="tag g" id="hwTag">—</span></h3><div id="ovHw">Ожидаем данные…</div></div>
+    <div class="card"><h3>Версия проекта <span class="tag g" id="gitTag">—</span></h3><div id="ovGit">Ожидаем данные…</div>
       <details style="margin-top:6px"><summary>raw /api/admin/stack</summary><pre class="log" id="ovRaw" style="height:110px"></pre></details></div>
   </div>
   <div class="grid g2" style="margin-top:10px">
     <div class="card"><h3>Быстрые действия</h3><div class="row">
       <button class="btn" onclick="go('chat')">Чат</button>
-      <button class="btn ghost" onclick="go('vision');visionSnapshot()">Снимок</button>
-      <button class="btn ghost" onclick="speakTest()">Тест TTS</button>
+      <button class="btn ghost" onclick="go('vision')">Экран и камера</button>
+      <button class="btn ghost" onclick="go('settings')">Настройки голоса</button>
       <button class="btn ghost" onclick="go('computer')">Компьютер</button>
       <button class="btn ghost" onclick="go('dorch')">Dorch</button></div></div>
-    <div class="card"><h3>Справка</h3><div class="note">
-      Плавающий чат (кнопка справа внизу) доступен везде. Совместимый адрес админки: <a href="/v4/" target="_blank">/v4/</a>.
-      Файлы админки: index.html + css/admin.css + js/admin.js.
+    <div class="card"><h3>С чего начать</h3><div class="note">
+      Откройте чат, чтобы дать Юни задачу. Модель и голос выбираются в настройках. Если нет ответа — посмотрите данные и логи.
+      Кнопка чата справа внизу доступна из любого раздела. «Нет данных» означает, что состояние пока неизвестно.
     </div></div>
   </div>
 </section>
@@ -97,6 +114,28 @@
     <div class="card"><h3>Все участники</h3><div id="ptList">загрузка…</div></div>
     <div class="card"><h3>Heartbeats (bridge)</h3><div id="ptBeats">загрузка…</div></div>
   </div>
+</section>
+
+<!-- DEVELOPMENT / WORKSPACE -->
+<section class="page workspace-page" data-page="workspace">
+  <div class="workspace-titlebar">
+    <div><div class="eyebrow">РАЗРАБОТКА</div><h1>Разработка / Workspace</h1><div class="sub">Единый экран агентов, задач, Owner Review и Known Good checkpoints.</div></div>
+    <div class="workspace-title-actions"><span id="workspaceLastUpdate">Последнее обновление: —</span><span class="tag amb" id="workspaceStatus">ожидание</span><button class="btn ghost" onclick="loadWorkspaceAdmin()">Обновить</button></div>
+  </div>
+  <div class="workspace-source-note" id="workspaceCritical">Workspace state ещё не загружен.</div>
+  <div class="workspace-summary" id="workspaceSummary"></div>
+  <div class="workspace-layout">
+    <section class="workspace-panel"><div class="workspace-section-head"><div><span class="workspace-kicker">AGENTS</span><h2>Агенты</h2></div><small>Статус, текущая задача, progress, revision и ownership.</small></div><div class="workspace-agent-grid" id="workspaceAgents">загрузка…</div></section>
+    <section class="workspace-panel"><div class="workspace-section-head"><div><span class="workspace-kicker">TASKS</span><h2>Задачи</h2></div><small>Единые task cards вместо отдельного backlog-экрана.</small></div><div class="workspace-task-list" id="workspaceTasks">загрузка…</div></section>
+  </div>
+
+  <section class="workspace-panel workspace-review-panel"><div class="workspace-section-head"><div><span class="workspace-kicker">OWNER REVIEW</span><h2>Ожидает моей проверки</h2></div><small>100% доступно только после owner_verified=true.</small></div><div class="workspace-review-list" id="workspaceOwnerReview">загрузка…</div></section>
+  <section class="workspace-panel workspace-known-good-panel"><div class="workspace-section-head"><div><span class="workspace-kicker">KNOWN GOOD</span><h2>Безопасные версии</h2></div><small>Восстановление сначала формирует plan / diff.</small></div>
+    <div id="workspaceKnownGood">загрузка…</div>
+    <details class="workspace-checkpoint-history" open><summary>История checkpoints</summary><div id="workspaceCheckpointHistory">загрузка…</div></details>
+    <div class="workspace-restore-plan"><h3>Restore plan / diff</h3><div id="workspaceRestorePlan" class="workspace-empty">Выберите «Подготовить восстановление» у checkpoint.</div></div>
+  </section>
+  <details class="workspace-panel workspace-diagnostics"><summary>MAWC diagnostics: leases и события</summary><div id="workspaceDiagnostics">загрузка…</div></details>
 </section>
 
 <!-- ═══ ПЕРЕДАЧА ДАННЫХ (3 вкладки) ═══ -->
@@ -156,51 +195,28 @@
 
 <!-- ═══ DORCH ═══ -->
 <section class="page" data-page="dorch">
-  <h1>Dorch · Rotary Control <span class="tag red">L4</span></h1>
-  <div class="sub">Единый конвейер: manual → motion → pattern → auto · всё через лимит и STOP · ESC = авария</div>
-  <div class="row strip">
-    <span class="chip"><span class="dot" id="dBpDot"></span><span id="dBpTxt">Intiface: —</span></span>
-    <span class="chip">источник: <b id="dSrc">manual</b></span>
-    <span class="chip">сессия: <b id="dSes">выкл</b></span>
-    <span class="sp"></span>
-    <label>лимит <input id="dLimit" type="number" min="0" max="100" value="65" style="width:56px">%</label>
-    <button class="btn ghost" onclick="dSaveLimit()">сохранить</button>
-    <button class="btn red" onclick="dStop()">■ Стоп 0%</button></div>
-
-  <div class="grid g4" style="margin:10px 0">
-    <div class="card"><h3>Устройство</h3><div id="dDevName" style="font-weight:700">—</div><div class="note" id="dDevState">отключено</div></div>
-    <div class="card"><h3>Хендшейк</h3><div class="note" id="bpDiag">не подключено</div></div>
-    <div class="card"><h3>Интенсивность</h3><div style="font-size:17px;font-weight:800" id="dIntVal">0.0%</div><div class="bar"><div id="dIntBar"></div></div></div>
-    <div class="card"><h3>Авто-режим</h3><div style="font-weight:700;color:var(--lime)" id="dCtl">доступно</div><div class="note">синхронизация с речью Юни через Intiface</div></div>
+  <div class="dorch-title"><div><h1>Dorch</h1><div class="sub">Устройство, паттерны, плейлист и Remote в одном рабочем окне</div></div><button class="dorch-stop" onclick="dStop()">■ STOP 0%</button></div>
+  <div class="dorch-status"><span class="chip"><span class="dot" id="dBpDot"></span><span id="dBpTxt">Intiface: —</span></span><span class="chip">устройство: <b id="dDevName">—</b></span><span class="chip">режим: <b id="dSrc">STOP</b></span><span class="chip">remote: <b id="dSes">выкл</b></span><span class="chip">уровень: <b id="dIntVal">0.0%</b></span><label class="chip">лимит <input id="dLimit" type="number" min="0" max="100" value="65">%</label><button class="btn ghost" onclick="dSaveLimit()">Сохранить</button></div>
+  <div class="dorch-connect"><span><b>Первичное подключение Intiface</b><small id="bpDiag">не подключено</small></span><input id="bpUrl" value="ws://127.0.0.1:12345"><button class="btn" onclick="bpConnect()">Подключить</button><button class="btn ghost" onclick="bpScan()">Сканировать</button><select id="bpDevSel"></select><button class="btn ghost" onclick="bpDisconnect()">Отключить</button><span id="bpState">отключено</span><span id="dDevState" hidden></span><span id="bpFeats" hidden></span><input id="bpOsc" type="range" hidden><span id="dCtl" hidden></span><span id="dIntBar" hidden></span></div>
+  <div class="dorch-workspace">
+    <div class="dorch-control card"><div class="tabs dorch-tabs"><button class="tab act" data-dt="manual">Ручной</button><button class="tab" data-dt="patterns">Паттерны</button><button class="tab" data-dt="playlist">Плейлист <span id="plCount">0</span></button></div>
+      <div class="dorch-pane act" data-dt="manual"><div class="manual-value"><b id="dManVal">0%</b><span>ручное управление</span></div><input type="range" class="dorch-slider" id="dMan" min="0" max="100" value="0" oninput="dManual(this.value)"><div class="quick-levels"><button onclick="dSetManual(0)">0</button><button onclick="dSetManual(25)">25</button><button onclick="dSetManual(50)">50</button><button onclick="dSetManual(75)">75</button><button onclick="dSetManual(Dorch.limit)">MAX</button></div><div class="row"><button class="btn" onclick="dArmManual()">Активировать ручной режим</button><button class="btn ghost" onclick="dAutoToggle()">Юни auto</button><span class="tag g" id="dAutoTag">выкл</span></div></div>
+      <div class="dorch-pane" data-dt="patterns"><div class="pattern-toolbar"><input id="patSearch" placeholder="Найти паттерн" oninput="renderDorchPatterns()"><label>мощность <input id="pPow" type="number" value="70">%</label><label>время ×<input id="pScale" type="number" value="1" step="0.1"></label></div><div id="patBtns" class="pattern-catalog"></div><input id="pSecs" type="number" value="20" hidden></div>
+      <div class="dorch-pane" data-dt="playlist"><div class="playlist-add"><select id="plPat"></select><label>сек <input id="plSec" type="number" value="20"></label><label>max <input id="plPow" type="number" value="70">%</label><label>повтор <input id="plRepeat" type="number" value="1"></label><button class="btn" onclick="plAdd()">Добавить шаг</button></div><div id="plList" class="playlist-list">Плейлист пуст</div><div class="playlist-actions"><span id="plDuration">0 сек</span><button class="btn" onclick="plRun()">▶ Запустить</button><button class="btn ghost" onclick="plSave()">Сохранить preset</button><button class="btn red" onclick="plStop()">■ Стоп</button></div></div>
+    </div>
+    <div class="remote-workspace card">
+      <div class="remote-head"><div><h2>Remote session</h2><p>Трансляция, чат и полное управление гостя по защищённой ссылке</p></div><span class="tag g" id="rTag">выкл</span></div>
+      <div class="remote-setup"><label>Лимит гостя<span><input id="rMax" type="number" value="100">%</span></label><label>Длительность<span><input id="rMin" type="number" value="150"> мин</span></label><label>Юни в чате<select id="rUniMode"><option value="off">Off</option><option value="suggest" selected>добавить Юни чтобы она предлагала разные пошлые вещи</option><option value="assist">добавить Юни чтобы она предлагала и еще управляла машинкой</option></select></label><div class="remote-session-actions"><button class="btn" onclick="remoteCreate()">Создать сессию</button><button class="btn red" onclick="remoteEnd()">Завершить</button></div></div>
+      <div class="remote-links">
+        <div class="remote-link-row"><span><b>Локальная</b><small>для проверки на этом компьютере</small></span><input id="rLink" readonly placeholder="Сначала создайте сессию"><button class="icon-btn" onclick="copyVal('#rLink')" title="Копировать локальную ссылку">⧉</button></div>
+        <div class="remote-link-row"><span><b>Cloudflare</b><small>основная публичная ссылка</small></span><input id="rPub" readonly placeholder="Туннель не запущен"><button class="icon-btn" onclick="copyVal('#rPub')" title="Копировать Cloudflare ссылку">⧉</button></div>
+        <div class="remote-link-row"><span><b>ngrok</b><small>резервная публичная ссылка</small></span><input id="rNgrok" readonly placeholder="Туннель не запущен"><button class="icon-btn" onclick="copyVal('#rNgrok')" title="Копировать ngrok ссылку">⧉</button></div>
+        <div class="remote-public-actions"><button class="btn" onclick="remotePublic(true)">Открыть из интернета</button><button class="btn ghost" onclick="remotePublic(false)">Закрыть туннели</button><span class="note" id="rPubNote">Cloudflare и ngrok запускаются одновременно</span></div>
+      </div>
+      <div class="remote-live"><div class="broadcast"><div class="panel-title">Трансляция <span class="tag g" id="stTag">выкл</span></div><video id="ownerPreview" autoplay muted playsinline></video><img class="shot" id="camShot" alt=""><div class="row"><button class="btn" onclick="startOwnerBroadcast()">Камера + микрофон</button><button class="btn ghost" onclick="stopOwnerBroadcast()">Остановить</button></div></div><div class="owner-chat"><div class="panel-title">Чат с гостем и Юни</div><div class="chat-feed" id="remoteChatFeed">Сессия не запущена</div><div class="row"><input id="stMsg" placeholder="Сообщение гостю"><button class="btn" onclick="streamMsg()">Отправить</button></div></div></div>
+    </div>
   </div>
-
-  <div class="grid g3">
-    <div class="card"><h3>Intiface</h3>
-      <div class="row"><input id="bpUrl" value="ws://127.0.0.1:12345" style="flex:1"><button class="btn" onclick="bpConnect()">Подключить</button><button class="btn ghost" onclick="bpDisconnect()">Откл</button></div>
-      <div class="kv"><b>Статус</b><span id="bpState">отключено</span></div>
-      <div class="kv"><b>Устройства</b><select id="bpDevSel"></select></div>
-      <div class="row"><button class="btn ghost" onclick="bpScan()">Скан</button>
-        <label>osc <input type="range" class="slider" id="bpOsc" min="0" max="100" value="0" style="width:110px"></label>
-        <button class="btn ghost" onclick="bpApplyOsc()">применить</button></div>
-      <div class="note" id="bpFeats">команды появятся после подключения</div></div>
-
-    <div class="card"><h3>Управление Юни</h3>
-      <div class="row"><button class="btn" onclick="dAutoToggle()">Авто-режим</button><span class="tag g" id="dAutoTag">выкл</span><button class="btn red" onclick="dStop()">■</button></div>
-      <div class="kv"><b>manual</b><span id="dManVal">0%</span></div>
-      <input type="range" class="slider" id="dMan" min="0" max="100" value="0" oninput="dManual(this.value)">
-      <div class="row" id="patBtns" style="margin-top:5px">
-        <button class="patbtn" onclick="dPattern('ramp')">Ramp</button><button class="patbtn" onclick="dPattern('climb')">Climb</button>
-        <button class="patbtn" onclick="dPattern('pulse')">Pulse</button><button class="patbtn" onclick="dPattern('wave')">Wave</button>
-        <button class="patbtn" onclick="dPattern('hold')">Hold</button><button class="patbtn" onclick="dPattern('cooldown')">Cool</button></div>
-      <div class="row"><label>с <input id="pSecs" type="number" value="20" style="width:52px"></label><label>% <input id="pPow" type="number" value="70" style="width:52px"></label></div>
-      <div class="kv"><b>Плейлист</b><span id="plCount">0</span></div>
-      <div class="row"><select id="plPat"><option>ramp</option><option>climb</option><option>pulse</option><option>wave</option><option>hold</option><option>cooldown</option></select>
-        <input id="plSec" type="number" value="20" style="width:52px"><input id="plPow" type="number" value="70" style="width:52px">
-        <button class="btn ghost" onclick="plAdd()">+шаг</button></div>
-      <div class="row"><button class="btn" onclick="plRun()">▶ плейлист</button><button class="btn red" onclick="plStop()">■</button></div>
-      <div class="note" id="plList">пуст</div></div>
-
-    <div class="card"><h3>Motion → машинка</h3>
+  <details class="dorch-extra card"><summary>Motion input и диагностика</summary><div class="motion-compact"><div><h3>Motion → устройство</h3>
       <div class="row"><select id="mSource"><option value="screen">экран</option><option value="camera">камера</option></select>
         <button class="btn" onclick="motionStart()">▶</button><button class="btn red" onclick="motionStop()">■</button><span class="tag g" id="mTag">выкл</span></div>
       <div class="row"><label>X<input id="mX" type="number" value="0" style="width:52px"></label><label>Y<input id="mY" type="number" value="0" style="width:52px"></label>
@@ -210,75 +226,55 @@
       <div class="row"><label>гамма<input id="mGam" type="number" value="3.7" step="0.1" style="width:52px"></label><label>мс<input id="mInt" type="number" value="140" style="width:56px"></label>
         <label>max%<input id="mMax" type="number" value="70" style="width:52px"></label></div>
       <div class="kv"><b>сейчас</b><span id="mCur">0.0%</span></div>
-      <div class="note">Реальная оптика: разница кадров области экрана → интенсивность.</div></div>
-
-    <div class="card"><h3>Remote</h3>
-      <div class="row"><label>max%<input id="rMax" type="number" value="40" style="width:52px"></label><label>мин<input id="rMin" type="number" value="30" style="width:52px"></label>
-        <button class="btn" onclick="remoteCreate()">Создать ссылку</button><button class="btn red" onclick="remoteEnd()">Завершить</button><span class="tag g" id="rTag">выкл</span></div>
-      <div class="row"><input id="rLink" readonly placeholder="ссылка" style="flex:1"><button class="btn ghost" onclick="copyVal('#rLink')">копир</button></div>
-      <div class="row"><button class="btn" onclick="remotePublic(true)">Открыть из интернета</button><button class="btn ghost" onclick="remotePublic(false)">Закрыть</button></div>
-      <div class="row"><input id="rPub" readonly placeholder="публичная ссылка" style="flex:1"><button class="btn ghost" onclick="copyVal('#rPub')">копир</button></div>
-      <details><summary>карта /api/xtoys</summary><pre class="log" id="xtMap" style="height:110px"></pre></details></div>
-
-    <div class="card"><h3>Трансляция</h3>
-      <div class="row"><button class="btn ghost" onclick="camStart()">Камера</button><button class="btn ghost" onclick="camFrame()">Кадр</button><button class="btn red" onclick="camStop()">Выкл</button></div>
-      <img class="shot" id="camShot" alt="камера выключена" style="margin-top:6px;min-height:80px">
-      <div class="row" style="margin-top:6px"><button class="btn" onclick="streamToggle(true)">Трансляция</button><button class="btn ghost" onclick="streamToggle(false)">Стоп</button><span class="tag g" id="stTag">выкл</span></div>
-      <div class="row"><input id="stMsg" placeholder="сообщение участнику" style="flex:1"><button class="btn ghost" onclick="streamMsg()">отпр</button></div></div>
-  </div>
-
-  <div class="card" style="margin-top:10px"><h3>Журнал Dorch</h3><pre class="log" id="dLog" style="height:140px"></pre></div>
+      <div class="note">Разница кадров выбранной области преобразуется в интенсивность.</div></div><div><h3>Диагностика</h3><pre class="log" id="dLog"></pre><pre class="log" id="xtMap"></pre></div></div></details>
 </section>
 
 <!-- ═══ НАСТРОЙКИ ═══ -->
 <section class="page" data-page="settings">
-  <h1>Настройки</h1><div class="sub">Роль, голос, интерфейс, провайдеры</div>
-  <div class="grid g2">
-    <div class="card"><h3>Юни</h3>
-      <div class="kv"><b>Роль</b><select id="setRole"></select></div>
-      <div class="kv"><b>Движок TTS</b><select id="ttsProvider" onchange="loadTtsVoices()"><option value="silero">Silero</option><option value="piper">Piper</option><option value="browser">Браузер</option><option value="xtts">XTTS-v2</option><option value="fish">Fish Audio</option></select></div>
+  <div class="settings-head">
+    <div><h1>Настройки Юни</h1><div class="sub">Все пользовательские параметры config.yaml — без ручного редактирования файла</div></div>
+    <div class="settings-actions">
+      <button class="btn ghost" onclick="loadConfigSettings(true)">⟳ Перечитать</button>
+      <button class="btn ghost" id="configResetBtn" onclick="resetConfigSettings()" disabled>Отменить правки</button>
+      <button class="btn" id="configSaveBtn" onclick="saveConfigSettings()">Сохранить и применить</button>
+    </div>
+  </div>
+  <div class="settings-notice" id="configSettingsStatus">Загрузка config.yaml…</div>
+  <div class="settings-tools card">
+    <div class="kv"><b>Активная роль</b><select id="setRole"></select></div>
+    <button class="btn ghost" onclick="saveSettings()">Применить роль</button>
+    <label class="config-search"><span>Поиск настройки</span><input id="configSettingsSearch" placeholder="например: OCR, микрофон, модель, автономность"></label>
+    <button class="btn ghost" onclick="restartConfiguredLlm()">Перезапустить LLM</button>
+  </div>
+  <div class="settings-filterbar">
+    <label for="configCategory">Категория</label><select id="configCategory"><option value="">Все категории</option></select>
+    <span id="configFilterCount" role="status"></span>
+  </div>
+  <div id="configApplyBar" class="settings-applybar" hidden>
+    <div><b id="configDirtySummary">Есть несохранённые изменения</b><small>Сохраните их, чтобы Юни начала использовать новые значения.</small></div>
+    <div class="settings-apply-actions"><button class="btn ghost" onclick="resetConfigSettings()">Отменить</button><button class="btn" onclick="saveConfigSettings()">Сохранить и применить</button></div>
+  </div>
+  <div id="configSettingsGrid" class="config-settings-grid">Загрузка…</div>
+  <p id="configSettingsEmpty" class="settings-notice" role="status" hidden>Ничего не найдено. Попробуйте название раздела или часть имени параметра.</p>
+  <div class="grid g2 settings-quick">
+    <div class="card"><h3>Быстрая проверка TTS</h3>
+      <div class="kv"><b>Движок</b><select id="ttsProvider" onchange="loadTtsVoices()"><option value="silero">Silero</option><option value="piper">Piper</option><option value="browser">Браузер</option><option value="xtts">XTTS-v2</option><option value="fish">Fish Audio</option></select></div>
       <div class="kv"><b>Голос</b><select id="ttsVoice"></select></div>
       <div class="kv"><b>Endpoint</b><input id="ttsEndpoint" placeholder="для внешнего движка"></div>
-      <div class="kv"><b>Темп</b><input id="ttsRate" type="number" min="0.5" max="2" step="0.1" value="1" style="width:70px"></div>
-      <div class="kv"><b>Высота</b><input id="ttsPitch" type="number" min="-12" max="12" step="1" value="0" style="width:70px"></div>
-      <div class="kv"><b>Громкость</b><input id="ttsVolume" type="range" min="0" max="1" step="0.05" value="1" style="width:140px"></div>
+      <div class="kv"><b>Темп</b><input id="ttsRate" type="number" min="0.5" max="2" step="0.1" value="1"></div>
+      <div class="kv"><b>Высота</b><input id="ttsPitch" type="number" min="-12" max="12" step="1" value="0"></div>
+      <div class="kv"><b>Громкость</b><input id="ttsVolume" type="range" min="0" max="1" step="0.05" value="1"></div>
       <div class="kv"><b>Тестовый текст</b><input id="ttsTestText" value="Привет! Это Юни. Проверка голоса."></div>
-      <button class="btn" style="margin-top:8px" onclick="saveSettings();saveTtsSettings()">Сохранить</button>
-      <button class="btn ghost" onclick="testTtsSettings()" style="margin-top:8px;margin-left:6px">Проверить голос</button></div>
-    <div class="card"><h3>Интерфейс</h3>
-      <div class="kv"><b>Тема</b><select id="setTheme"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
-      <div class="kv"><b>Язык</b><select id="setLang"><option>ru</option><option>en</option></select></div>
-      <div class="kv"><b>Компактный режим</b><input id="setCompact" type="checkbox" checked style="width:auto"></div>
-      <div class="kv"><b>Прозрачность</b><input id="setOpacity" type="range" min="0.3" max="1" step="0.05" value="0.95" style="width:140px"></div></div>
-    <div class="card"><h3>Провайдеры</h3>
-      <div class="kv"><b>LM Studio URL</b><input id="provLM" value="http://127.0.0.1:1234"></div>
-      <div class="kv"><b>Hermes</b><input id="provHermes" value="http://127.0.0.1:8000"></div>
-      <div class="kv"><b>OpenRouter API</b><input id="provOR" type="password" placeholder="sk-…"></div>
-      <button class="btn ghost" style="margin-top:8px" onclick="checkProviders()">Проверить все</button></div>
-    <div class="card"><h3>Интеграции</h3><div id="intStatus">загрузка…</div></div>
-    <div class="card"><h3>Безопасность</h3>
-      <label class="kv"><b>XToys требует подтверждения</b><input type="checkbox" checked style="width:auto"></label>
-      <label class="kv"><b>Камера требует подтверждения</b><input type="checkbox" checked style="width:auto"></label>
-      <label class="kv"><b>Redact secrets в логах</b><input type="checkbox" checked style="width:auto"></label>
-      <label class="kv"><b>Уровень автономии</b><select id="setAuto"><option>off</option><option>observe</option><option>suggest</option><option>act</option></select></label></div>
-    <div class="card"><h3>Backend (требует Hermes)</h3>
-      <ul style="font-size:11px;color:var(--mute);line-height:1.7;padding-left:14px">
-        <li>admin_api: FileNotFoundError → пустые списки</li>
-        <li>council: таймауты timeout=10</li>
-        <li>/api/uni/logs?level=… на сервере</li>
-        <li>кэш admin_dev TTL 5с</li>
-        <li>v4 в корень + /classic/</li></ul></div>
+      <div class="row"><button class="btn ghost" onclick="testTtsSettings()">Проверить голос</button></div>
+    </div>
+    <div class="card"><h3>Состояние интеграций</h3><div id="intStatus">загрузка…</div></div>
   </div>
-</section>
-
-<!-- ═══ ЗАДАЧИ И ПРОЦЕССЫ ═══ -->
-<section class="page" data-page="tasks">
-  <h1>Задачи и процессы</h1><div class="sub">UNI_BOARD + backlog</div>
-  <div class="grid g2">
-    <div class="card"><h3>Backlog</h3><div id="blBody">загрузка…</div></div>
-    <div class="card"><h3>Фазы</h3><div id="phBody">загрузка…</div></div>
+  <div class="card settings-help">
+    <h3>Как работает применение</h3>
+    <p><b>Сразу:</b> политика агента, автономность, лимиты Dorch и другие параметры, которые runtime читает из общего Config.</p>
+    <p><b>После перезапуска:</b> модель, браузер, устройства ввода/вывода, STT/TTS, камера и Vision — они создаются при старте capability.</p>
+    <p>DOM/UIA и OCR используются раньше VLM. Vision остаётся резервным смысловым слоем для сцен, изображений и элементов без читаемого текста.</p>
   </div>
-  <div class="card" style="margin-top:10px"><h3>Блокировки</h3><pre class="log" id="locksBody" style="height:140px">загрузка…</pre></div>
 </section>
 
 <!-- ═══ КОНСЕНСУС ═══ -->
@@ -353,17 +349,45 @@
 
 <!-- ═══ ЧАТ С ЮНИ ═══ -->
 <section class="page" data-page="chat">
-  <h1>Чат с Юни</h1><div class="sub">Текст + голос + микрофон; ответ парсится из поля text</h1>
+  <h1>Чат с Юни</h1><div class="sub">Текст, голос, изображения и камера. Автономный Dorch работает через Intiface; STOP и жёсткий лимит мощности всегда активны.</div>
   <div id="chatWrap">
     <div class="card" style="padding:0">
       <div class="row hd"><b>Диалог</b><span class="sp"></span>
-        <select id="roleSel"></select>
+        <span class="role-badge">роль: <b id="roleNow">—</b></span>
+        <select id="roleSel" aria-label="Роль Юни"></select>
+        <button id="roleApply" class="btn" onclick="applyRole()">Применить роль</button>
+        <span class="role-badge" id="dorchBadge" role="status">🌀 Dorch: <b id="dorchVal">нет данных</b></span>
+        <button class="btn ghost" id="dorchAutoBtn" onclick="toggleDorchAuto()">Авто Dorch: …</button>
+        <span class="role-badge" id="cameraBadge" role="status">Камера: выключена</span>
+        <button class="btn ghost" id="camBtn" onclick="toggleCam()">📷 Камера</button>
+        <button class="btn ghost" onclick="pickImage()">📎 Картинка</button>
+        <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="sendImageFile(this)">
         <label><input type="checkbox" id="speakChk" checked> озвучка</label>
-        <select id="micMode"><option value="input">голос → в поле</option><option value="chat">голос → в чат</option></select>
+        <select id="micMode"><option value="input">голос → в поле</option><option value="chat">голос → в чат</option><option value="dialog">диалог постоянно</option></select>
         <button class="micbtn" id="micBtn">🎤</button>
         <button class="btn ghost" onclick="clearChat()">🗑</button></div>
-      <div id="chatBox" style="height:440px;overflow-y:auto;padding:10px"></div>
-      <div class="row hd"><input id="chatIn" placeholder="Сообщение Юни… (Enter)" style="flex:1"><button class="btn" onclick="sendFromInput()">➤</button></div>
+      <div id="chatDeviceStatus" class="sub" role="status" style="padding:8px 12px">Статус устройства загружается…</div>
+      <div id="dorchQueue" class="sub" role="status" style="padding:8px 12px;display:none">
+        <div id="dorchQueueNow"><b>Сейчас:</b> —</div>
+        <div id="dorchQueueNext"><b>Далее:</b> —</div>
+        <div id="dorchQueueTotal"><b>Всего:</b> —</div>
+        <div class="row" style="gap:6px;padding-top:6px">
+          <button class="btn ghost" id="dqClear" onclick="dqClearPending()">Очистить будущие</button>
+          <button class="btn ghost" id="dqStop" onclick="dqStop()">STOP</button>
+        </div>
+      </div>
+      <div class="row" style="padding:0 12px 8px">
+        <button id="dorchReset" class="btn ghost" onclick="resetDorchStop()">Снять аварийный STOP</button>
+        <button class="btn red" onclick="dStop()">STOP / ESC</button>
+      </div>
+      <div id="chatCameraPanel" hidden style="padding:10px">
+        <img id="chatCameraPreview" alt="Предпросмотр камеры" style="max-width:100%;max-height:200px">
+        <div id="chatCameraState" role="status"></div>
+        <button id="chatCameraSend" class="btn" onclick="sendCameraFrame()" disabled>Отправить кадр</button>
+      </div>
+      <div id="chatBox" style="height:440px;overflow-y:auto;padding:10px" aria-live="polite"></div>
+      <div id="chatRequestState" class="sub" role="status" style="padding:0 12px"></div>
+      <div class="row hd"><textarea id="chatIn" rows="2" placeholder="Сообщение Юни… Enter — отправить, Shift+Enter — новая строка" aria-label="Сообщение Юни" style="flex:1"></textarea><button id="chatSend" class="btn" onclick="sendFromInput()" aria-label="Отправить сообщение">➤</button></div>
     </div>
     <div class="grid" style="align-content:start">
       <div class="card"><h3>Контекст</h3><div id="ctxStatus">…</div></div>
@@ -448,20 +472,23 @@
 
 </main>
 
-<button id="chatFab" onclick="toggleDrawer()">💬</button>
+<button id="chatFab" onclick="toggleDrawer()" aria-label="Открыть или закрыть быстрый чат" title="Быстрый чат с Юни">💬</button>
 <section id="drawer" class="glass">
   <div class="hd"><b>Чат с Юни</b><span class="tag">везде</span><span class="sp"></span><button class="btn ghost" onclick="toggleDrawer()">✕</button></div>
   <div class="log" id="dwLog" style="height:auto;flex:1"></div>
-  <div class="in"><input id="dwIn" placeholder="Сообщение…"><button class="micbtn" id="dwMic">🎤</button><button class="btn" onclick="dwSend()">➤</button></div>
+  <div id="dwRequestState" class="sub" role="status"></div>
+  <div class="in"><input id="dwIn" placeholder="Сообщение…" aria-label="Сообщение Юни"><button class="micbtn" id="dwMic" aria-label="Микрофон">🎤</button><button class="btn" id="dwSendBtn" onclick="dwSend()" aria-label="Отправить сообщение">➤</button></div>
 </section>
 
 <div id="ageGate"><div class="card" style="max-width:360px;padding:18px">
   <h3>⚠ Раздел 18+</h3><p style="color:var(--mute);margin:6px 0">Управление физическими устройствами. ESC = стоп всегда.</p>
   <label><input type="checkbox" id="ageChk"> Мне есть 18, осознаю и согласен</label>
   <div class="row" style="margin-top:8px"><button class="btn" onclick="ageOk()">Войти</button><button class="btn ghost" onclick="ageNo()">Отмена</button></div></div></div>
-<div id="toast"></div>
-<script src="js/admin.js"></script>
-<script src="js/curves.js"></script>
-<script src="js/dorch.js"></script>
+<div id="toast" role="status" aria-live="polite" aria-atomic="false"></div>
+<script src="js/curves.js?v=20260817-restore"></script>
+<script src="js/chat-controls.js?v=20260911-admin"></script>
+<script src="js/settings.js?v=20260912-settings"></script>
+<script src="js/workspace.js?v=20260912-workspace"></script>
+<script src="js/admin.js?v=20260912-settings"></script>
 </body>
 </html>

@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_verifier_true_claim():
     v = Verifier(REPO_ROOT)
     res = v.verify_claim(
-        "функция _API_ALIASES уже существует в executors.py",
+        "DEFAULT_ACTION_REGISTRY уже существует в executors.py",
         file_hint="uni/tools/executors.py",
     )
     assert isinstance(res, ClaimVerificationResult)
@@ -105,7 +105,7 @@ async def test_coordinator_stores_verified(tmp_path: Path):
     provider.request = fake_request
 
     updated = await coord.run_next(
-        task.id, verify_claim="функция _API_ALIASES уже существует в executors.py"
+        task.id, verify_claim="DEFAULT_ACTION_REGISTRY уже существует в executors.py"
     )
     assert updated.results[-1].verified is not None
     assert updated.results[-1].verified.verified is True

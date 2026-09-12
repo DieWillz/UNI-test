@@ -96,6 +96,28 @@ class WorktreeManager:
             path=target,
         )
 
+    def discard(self, ref: WorktreeRef) -> None:
+        """Remove a failed-dispatch worktree and its task branch."""
+        agent = self._validate_segment(ref.agent_id, "agent id")
+        task = self._validate_segment(ref.task_id, "task id")
+        expected_branch = f"mawc/{agent}/{task}"
+        expected_path = (self.worktrees_root / agent / task).resolve()
+        target = ref.path.resolve()
+        if ref.branch != expected_branch or target != expected_path:
+            raise ValueError("worktree ref mismatch")
+        if self.worktrees_root not in target.parents:
+            raise ValueError("worktree path escapes configured root")
+        if target.exists():
+            result = self._git("worktree", "remove", "--force", str(target), check=False)
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout).strip()
+                raise RuntimeError(f"git worktree remove failed: {detail}")
+        if self._branch_exists(ref.branch):
+            result = self._git("branch", "-D", ref.branch, check=False)
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout).strip()
+                raise RuntimeError(f"git branch delete failed: {detail}")
+
     def snapshot(self, ref: WorktreeRef) -> "WorktreeSnapshot":
         if not ref.path.exists():
             raise FileNotFoundError(ref.path)

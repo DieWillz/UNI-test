@@ -71,3 +71,34 @@ def test_events_are_newest_first_and_limited(tmp_path: Path) -> None:
     events = WorkspaceStatus(store).events(limit=1)
 
     assert [event.event for event in events] == ["second"]
+
+def test_summary_counts_expired_active_session_as_stale(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    expired = _session("expired", SessionState.ACTIVE).model_copy(
+        update={"expires_at": "2000-01-01T00:00:00+00:00"}
+    )
+    store.save_session(expired)
+
+    summary = WorkspaceStatus(store).summary()
+
+    assert summary.active_sessions == 0
+    assert summary.stale_sessions == 1
+
+
+def test_summary_counts_expired_active_lease_as_stale(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    store.save_session(_session("active", SessionState.ACTIVE))
+    lease = ResourceLeaseManager(store).claim(
+        "task-active",
+        "active",
+        [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/live.py")],
+        ttl_seconds=600,
+    )[0]
+    store.save_resource_lease(lease.model_copy(
+        update={"expires_at": "2000-01-01T00:00:00+00:00"}
+    ))
+
+    summary = WorkspaceStatus(store).summary()
+
+    assert summary.active_leases == 0
+    assert summary.stale_leases == 1

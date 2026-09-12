@@ -231,7 +231,11 @@ async function loadRoles(){
 try{
 const r=await api(HRM+'/api/roles');const d=await r.json();
 if(!d.roles||!d.roles.length){return}
-const sel=$('uniRole');sel.innerHTML=d.roles.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+const sel=$('roleSel');if(!sel)return;
+const current=d.current||sel.value||'';
+sel.innerHTML=d.roles.map(n=>`<option value="${esc(n)}"${n===current?' selected':''}>${esc(n)}</option>`).join('');
+if(d.current)sel.value=d.current;
+updateRoleBadge(d.current||sel.value);
 if(d.current)sel.value=d.current;
 // жёстко подхватываем system-промпт выбранной роли из файла
 try{const pr=await api(HRM+'/api/role/prompt?role='+encodeURIComponent(sel.value));const pd=await pr.json();if(pd&&pd.prompt)currentRolePrompt=pd.prompt}catch(e){}
@@ -529,37 +533,76 @@ async function computerStop(){
     const st = document.getElementById('compStatus'); if(st) st.textContent='остановлено';
   }catch(e){ compLog('ошибка СТОП: ' + e.message, 'err'); }
 }
-
-// 🤖 Интеграция статуса (вместо удалённого admin-status.html)
 async function loadStatus(){
-  const el = document.getElementById('statusCards'); if(!el) return;
+  const el=document.getElementById('statusCards'); if(!el) return;
   try{
-    const r = await fetch('/api/uni/status'); const d = await r.json();
+    const r=await fetch('/api/app'); const a=await r.json();
+    const d=a&&a.app?a.app:{};
+    const safeSplit = v => (v||'').split(/[\/]/).pop() || v;
+    const items=[
+      ['LLM (llama)', !!(d.llama&&d.llama.running), d.llama&&d.llama.model ? 'model: '+safeSplit(d.llama.model) : 'порт '+(d.llama&&d.llama.port), 'startLlama','stopLlama'],
+      ['WebUI', !!(d.webui&&d.webui.running), 'порт 8787', 'startWebui','stopWebui'],
+      ['Desktop (overlay)', !!(d.desktop&&d.desktop.running), d.desktop&&d.desktop.pid ? 'pid '+d.desktop.pid : 'не запущен', null,null],
+      ['Moondream2', !!(d.moondream&&d.moondream.running), 'порт 7860', null,null],
+      ['LM Studio', !!(d.lmstudio&&d.lmstudio.reachable), 'порт 1234', null,null],
+      ['UNI App', true, d.status||'ok', null,null]
+    ];
+    const appState=[
+      ['Режим управления', d.control_mode||'—'],
+      ['Автономия', (d.autonomous&&d.autonomous.enabled?(d.autonomous.running?'запущено':'включена, не запущено'):'выключена')],
+      ['Dorch сессия', (d.dorch&&d.dorch.live_session?'активна':'не активна')],
+      ['Dorch петля', (d.dorch&&d.dorch.loop_running?'работает':'не запущена')],
+      ['Dorch поток', (d.dorch&&d.dorch.thread_alive?'трансляция':'нет')],
+      ['Motion', (d.dorch&&d.dorch.motion&&d.dorch.motion.running?'работает':'выкл')],
+      ['Intiface', (d.intiface&&d.intiface.connected?'подключён ('+(d.intiface.devices||[]).join(', ')+')':'отключён')],
+      ['Remote', (d.remote&&d.remote.active?'активно ('+(d.remote.open_rooms||[]).length+' сессий)':'выключено')],
+      ['Голос (микр.)', (d.voice&&d.voice.listening?'слушаю':'выкл')],
+      ['Роль', (d.roles&&d.roles.current?d.roles.current:'—')],
+      ['Агент', (d.chat&&d.chat.agent_ready?(d.chat.agent_loaded?'загружен':'инициализация…'):'не создан')]
+    ];
+    el.innerHTML=
+      items.map(([n,ok,sub,start,stop]) =>
+        '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'">          <div class="stat-icon">'+(ok?'🟢':'🔴')+'</div>          <div class="stat-info"><h4>'+n+'</h4><h2>'+(ok?'работает':'остановлен')+'</h2><p>'+(sub||'нет данных')+'</p>'+(start?'<div class="component-actions"><button class="tbtn primary" onclick="'+(ok?stop:start)+'()">'+(ok?'■ Остановить':'▶ Запустить')+'</button></div>':'')+        </div></div>').join('')+
+      '<div class="stat-card app-state"><div class="stat-info"><h4>Состояние приложения UNI</h4><ul class="app-state-list">'+
+        appState.map(([k,v]) => '<li><span class="app-state-key">'+k+'</span><span class="app-state-val">'+(typeof v==='string'?v:JSON.stringify(v))+'</span></li>').join('')+
+      '</ul></div></div>';
+    const top={dotLlama:!!d.llama?.running, dotWebui:!!d.webui?.running, dotMoon:!!d.moondream?.running, dotDesktop:!!d.desktop?.running};
+    Object.entries(top).forEach(([id,ok])=>{const x=document.getElementById(id); if(x) x.className='dot '+(ok?'on':'err');});
+    const logCards=document.getElementById('statusCardsLogs'); if(logCards) logCards.innerHTML=el.innerHTML;
+  }catch(e){
+    el.innerHTML='<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/app недоступен</p></div></div>';
+  }
+}
+;
     const items = [
       ['LLM (llama)', d.llama && d.llama.running, d.llama && d.llama.model ? 'model: ' + d.llama.model.split('\\').pop() : 'порт ' + (d.llama && d.llama.port), 'startLlama', 'stopLlama'],
       ['WebUI', d.webui && d.webui.running, 'порт 8787', 'startWebui', 'stopWebui'],
       ['Desktop (оверлей)', d.desktop && d.desktop.running, d.desktop && d.desktop.pid ? 'pid ' + d.desktop.pid : 'не запущен', null, null],
       ['Moondream2', d.moondream && d.moondream.running, 'порт 7860', null, null],
-      ['LM Studio', d.lmstudio && d.lmstudio.reachable, 'порт 1234', null, null]
+      ['LM Studio', d.lmstudio && d.lmstudio.reachable, 'порт 1234', null, null],
+      ['UNI App', true, d.status || 'ok', null, null]
     ];
-    el.innerHTML = items.map(([n, ok, sub, start, stop]) => '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || 'нет данных') + '</p>' + (start ? '<div class="component-actions"><button class="tbtn primary" onclick="'+(ok ? stop : start)+'()">'+(ok ? '■ Остановить' : '▶ Запустить')+'</button></div>' : '') + '</div></div>').join('');
+    const appState = [
+      ['Режим управления', d.control_mode || '—'],
+      ['Автономия', (d.autonomous && d.autonomous.enabled ? (d.autonomous.running ? 'запущено' : 'включена, не запущено') : 'выключена')],
+      ['Dorch сессия', (d.dorch && d.dorch.live_session ? 'активна' : 'не активна')],
+      ['Dorch петля', (d.dorch && d.dorch.loop_running ? 'работает' : 'не запущена')],
+      ['Dorch поток', (d.dorch && d.dorch.thread_alive ? 'трансляция' : 'нет')],
+      ['Motion', (d.dorch && d.dorch.motion && d.dorch.motion.running ? 'работает' : 'выкл')],
+      ['Intiface', (d.intiface && d.intiface.connected ? 'подключён (' + (d.intiface.devices || []).join(', ') + ')' : 'отключён')],
+      ['Remote', (d.remote && d.remote.active ? 'активно (' + (d.remote.open_rooms || []).length + ' сессий)' : 'выключено')],
+      ['Голос (микр.)', (d.voice && d.voice.listening ? 'слушаю' : 'выкл')],
+      ['Роль', (d.roles && d.roles.current ? d.roles.current : '—')],
+      ['Агент', (d.chat && d.chat.agent_ready ? (d.chat.agent_loaded ? 'загружен' : 'инициализация…') : 'не создан')],
+    ];
+    el.innerHTML = items.map(([n, ok, sub, start, stop]) => '<div class="stat-card component-status '+(ok?'is-ok':'is-error')+'\"><div class="stat-icon">' + (ok ? '🟢' : '🔴') + '</div><div class="stat-info"><h4>' + n + '</h4><h2>' + (ok ? 'работает' : 'остановлен') + '</h2><p>' + (sub || 'нет данных') + '</p>' + (start ? '<div class="component-actions"><button class="tbtn primary" onclick="'+(ok ? stop : start)+'()">'+(ok ? '■ Остановить' : '▶ Запустить')+'</button></div>' : '') + '</div></div>').join('') + '<div class="stat-card app-state"><div class="stat-info"><h4>Состояние приложения UNI</h4><ul class="app-state-list">' + appState.map(([k, v]) => '<li><span class="app-state-key">' + k + '</span><span class="app-state-val">' + (typeof v === 'string' ? v : JSON.stringify(v)) + '</span></li>').join('') + '</ul></div></div>';
     const top = {dotLlama: !!d.llama?.running, dotWebui: !!d.webui?.running, dotMoon: !!d.moondream?.running, dotDesktop: !!d.desktop?.running};
     Object.entries(top).forEach(([id, ok]) => { const x=document.getElementById(id); if(x) x.className='dot '+(ok?'on':'err'); });
     const logCards=document.getElementById('statusCardsLogs'); if(logCards) logCards.innerHTML=el.innerHTML;
   }catch(e){
-    el.innerHTML = '<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/uni/status недоступен</p></div></div>';
+    el.innerHTML = '<div class="stat-card"><div class="stat-info"><h4>Ошибка</h4><h2>нет связи</h2><p>/api/app недоступен</p></div></div>';
   }
 }
-async function restartLlama(){
-  const m = document.getElementById('statusMsg'); if(m) m.textContent = 'перезапуск LLM…';
-  try{ const r = await fetch('/api/admin/restart-llm', {method:'POST'}); const d = await r.json().catch(()=>({})); if(m) m.textContent = d.ok ? 'LLM перезапущен' : 'ошибка: ' + (d.error || r.status); }
-  catch(e){ if(m) m.textContent = 'ошибка: ' + e.message; }
-  setTimeout(loadStatus, 2500);
-}
-async function startLlama(){ return restartLlama(); }
-async function stopLlama(){ return componentAction('/api/admin/stop-llm','LLM остановлен'); }
-async function startWebui(){ return componentAction('/api/admin/start-webui','WebUI запускается'); }
-async function stopWebui(){ return componentAction('/api/admin/stop-webui','WebUI остановка запрошена'); }
 async function componentAction(path, okText){
   const m = document.getElementById('statusMsg'); if(m) m.textContent = 'выполняю…';
   try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||('HTTP '+r.status));if(m)m.textContent=okText;}
@@ -570,6 +613,25 @@ async function stopAll(){
   try{ const r = await fetch('/api/admin/stop', {method:'POST'}); const d = await r.json().catch(()=>({})); if(m) m.textContent = d.ok ? 'всё остановлено' : 'ошибка: ' + (d.error || r.status); }
   catch(e){ if(m) m.textContent = 'ошибка: ' + e.message; }
   setTimeout(loadStatus, 2500);
+}
+function updateRoleBadge(name){
+  const el = document.getElementById('roleNow'); if(el) el.textContent = name || '—';
+}
+async function applyRole(){
+  const sel = document.getElementById('roleSel'); const name = sel ? sel.value : '';
+  if(!name){ showToast('⚠ Сначала выберите роль'); return; }
+  try{
+    const r = await fetch(HRM+'/api/role/switch', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role:name})});
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok || !d.ok) throw new Error(d.error || ('HTTP '+r.status));
+    const pr = await fetch(HRM+'/api/role/prompt?role='+encodeURIComponent(name)); const pd = await pr.json().catch(()=>({}));
+    if(!pr.ok || !pd.prompt) throw new Error(pd.error || 'промпт роли не загружен');
+    currentRolePrompt = pd.prompt;
+    updateRoleBadge(name);
+    showToast('🎭 Роль применена: '+name);
+    const feed = document.getElementById('chatBox');
+    if(feed){ const m = document.createElement('div'); m.className='msg sys'; m.textContent='🎭 Роль Юни сменена на: '+name; feed.appendChild(m); feed.scrollTop = feed.scrollHeight; }
+  }catch(e){ showToast('⚠ Роль не применена: '+e.message); loadRoles(); }
 }
 
 showToast('UNI Platform v3.3: темы #c4e534/#032121 + авто-детект модели LM Studio');

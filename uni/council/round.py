@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from hashlib import sha256
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 from .participants import Participant, load_participants
 from .provider import ParticipantReply
@@ -16,6 +18,13 @@ from .provider import ParticipantReply
 _SIGNATURE_RE = re.compile(
     r"^\s*([A-Za-zА-Яа-яЁё][\wА-Яа-яЁё .\-]{1,40}?)\s*=\s*(.+)$", re.MULTILINE
 )
+
+def _safe_artifact_component(value: str) -> str:
+    clean = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str(value)).strip()
+    clean = clean.rstrip(". ") or "participant"
+    digest = sha256(str(value).encode("utf-8")).hexdigest()[:8]
+    return f"{clean[:80]}-{digest}"
+
 
 
 @dataclass
@@ -125,7 +134,26 @@ class CouncilRound:
                     participant=participant.name, text="", via=participant.transport,
                     model=None, error="timeout", latency_seconds=self.timeout_seconds,
                 )
+            except Exception as exc:
+                reply = ParticipantReply(
+                    participant=participant.name, text="", via=participant.transport,
+                    model=None, error=f"{type(exc).__name__}: {exc}"[:1000],
+                )
+        reply.participant = participant.name
         return reply
+
+    async def _ask_stage(self, participant: Participant, role: str, prompt: str) -> tuple[str, str | None]:
+        assert participant.provider is not None, f"{participant.name} has no provider"
+        try:
+            reply = await asyncio.wait_for(
+                participant.provider.ask(role, prompt),
+                timeout=self.timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            return "", "timeout"
+        except Exception as exc:
+            return "", f"{type(exc).__name__}: {exc}"[:1000]
+        return reply.text, None
 
     async def run(
         self,
@@ -148,7 +176,7 @@ class CouncilRound:
         """
         self._sema = asyncio.Semaphore(self.concurrency)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
-        round_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+        round_id = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:8]}"
         created = datetime.now().astimezone().isoformat(timespec="seconds")
         self._on_progress = on_progress
 
@@ -180,7 +208,7 @@ class CouncilRound:
                 if sig:
                     report.signatures[reply.participant] = sig
             # Save each raw reply as an artifact (local-first, no secrets).
-            path = self.artifacts_dir / f"{round_id}_{reply.participant}.md"
+            path = self.artifacts_dir / f"{round_id}_{_safe_artifact_component(reply.participant)}.md"
             path.write_text(
                 f"# {reply.participant} ({reply.via})\n\n{reply.text}\n", encoding="utf-8"
             )
@@ -204,8 +232,11 @@ class CouncilRound:
                 + "\n\nВыдели противоречия, риски, обязательные и рекомендуемые изменения. "
                 "Не принимай утверждения на веру — совпадение ответов не делает их фактом."
             )
-            creply = await critic.provider.ask("Critic", critic_prompt)
-            report.critic = creply.text
+            critic_text, critic_error = await self._ask_stage(critic, "Critic", critic_prompt)
+            if critic_error:
+                report.errors[f"critic:{critic.name}"] = critic_error
+            else:
+                report.critic = critic_text
 
         # 3) Coordinator/Synthesizer pass (local) — produces the merged conclusion.
         if coordinator is not None and coordinator.provider is not None:
@@ -218,8 +249,13 @@ class CouncilRound:
                 )
                 + (f"\n\nКритика:\n{report.critic}" if report.critic else "")
             )
-            sreply = await coordinator.provider.ask("Coordinator", synth_prompt)
-            report.synthesis = sreply.text
+            synthesis_text, coordinator_error = await self._ask_stage(
+                coordinator, "Coordinator", synth_prompt
+            )
+            if coordinator_error:
+                report.errors[f"coordinator:{coordinator.name}"] = coordinator_error
+            else:
+                report.synthesis = synthesis_text
 
         # 4) Persist the full report.
         report_path = self.artifacts_dir / f"{round_id}_report.md"
@@ -258,7 +294,18 @@ class CouncilRound:
         try:
             result = self._on_progress(event)
             if hasattr(result, "__await__"):
-                # Schedule the coroutine; don't block the round on UI streaming.
-                asyncio.ensure_future(result)
+                # Keep UI streaming non-blocking, but own the task so callback failures
+                # do not become "Task exception was never retrieved" warnings.
+                task = asyncio.ensure_future(result)
+                task.add_done_callback(self._consume_progress_task)
         except Exception:
             pass  # progress reporting must never break the round
+
+    @staticmethod
+    def _consume_progress_task(task: asyncio.Future) -> None:
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass  # progress reporting must never break or warn the round

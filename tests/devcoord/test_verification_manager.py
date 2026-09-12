@@ -123,3 +123,19 @@ def test_only_verifying_tasks_can_enter_verification(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="VERIFYING"):
         VerificationManager(store).verify("UNI-400")
+
+
+def test_final_verification_event_failure_rolls_back_task_state(tmp_path: Path) -> None:
+    store, _ = _setup(tmp_path, [[sys.executable, "-c", "pass"]])
+    with store.connection() as conn:
+        conn.execute(
+            "CREATE TRIGGER fail_verification_passed BEFORE INSERT ON workspace_events "
+            "WHEN NEW.event='verification.passed' BEGIN SELECT RAISE(ABORT, 'boom'); END"
+        )
+
+    with pytest.raises(Exception, match="boom"):
+        VerificationManager(store).verify("UNI-400")
+
+    assert store.get_workspace_task("UNI-400").state is WorkTaskState.VERIFYING
+    events = store.list_events(limit=20)
+    assert not any(event.event == "verification.passed" for event in events)

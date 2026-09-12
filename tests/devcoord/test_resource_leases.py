@@ -92,7 +92,7 @@ def test_multi_resource_claim_is_all_or_nothing(tmp_path: Path) -> None:
     assert active_keys == {"voice-runtime"}
 
 
-def test_read_claim_does_not_block_write_in_v1(tmp_path: Path) -> None:
+def test_read_claim_does_not_block_non_overlapping_write(tmp_path: Path) -> None:
     store = WorkspaceStore(tmp_path / "workspace.sqlite")
     _register(store, "reader", "UNI-1")
     _register(store, "writer", "UNI-2")
@@ -106,7 +106,7 @@ def test_read_claim_does_not_block_write_in_v1(tmp_path: Path) -> None:
     manager.claim(
         "UNI-2",
         "writer",
-        [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py", access_mode=AccessMode.WRITE)],
+        [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/agent.py", access_mode=AccessMode.WRITE)],
         ttl_seconds=600,
     )
 
@@ -181,3 +181,165 @@ Path(result_path).write_text(result, encoding="utf-8")
     results = sorted(path.read_text(encoding="utf-8") for path in result_paths)
     assert results == ["conflict", "ok"]
     assert len(ResourceLeaseManager(WorkspaceStore(db_path)).list_active()) == 1
+
+
+def test_read_read_allowed(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "reader-a", "READ-A")
+    _register(store, "reader-b", "READ-B")
+    manager = ResourceLeaseManager(store)
+    request = ResourceRequest(
+        resource_type=ResourceType.FILE,
+        resource_key="uni/brain.py",
+        access_mode=AccessMode.READ,
+    )
+    manager.claim("READ-A", "reader-a", [request])
+    manager.claim("READ-B", "reader-b", [request])
+    assert len(manager.list_active()) == 2
+
+
+def test_read_then_write_conflicts(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "reader", "READ")
+    _register(store, "writer", "WRITE")
+    manager = ResourceLeaseManager(store)
+    manager.claim(
+        "READ",
+        "reader",
+        [ResourceRequest(
+            resource_type=ResourceType.FILE,
+            resource_key="uni/brain.py",
+            access_mode=AccessMode.READ,
+        )],
+    )
+    with pytest.raises(LeaseConflictError):
+        manager.claim(
+            "WRITE",
+            "writer",
+            [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py")],
+        )
+
+
+def test_write_then_read_conflicts(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "writer", "WRITE")
+    _register(store, "reader", "READ")
+    manager = ResourceLeaseManager(store)
+    manager.claim(
+        "WRITE", "writer",
+        [ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py")],
+    )
+    with pytest.raises(LeaseConflictError):
+        manager.claim(
+            "READ", "reader",
+            [ResourceRequest(
+                resource_type=ResourceType.FILE,
+                resource_key="uni/brain.py",
+                access_mode=AccessMode.READ,
+            )],
+        )
+
+
+def test_exclusive_blocks_any_other_access(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    for session_id in ("owner", "reader", "writer"):
+        _register(store, session_id, session_id)
+    manager = ResourceLeaseManager(store)
+    manager.claim(
+        "owner", "owner",
+        [ResourceRequest(
+            resource_type=ResourceType.LOGIC,
+            resource_key="autonomous-loop",
+            access_mode=AccessMode.EXCLUSIVE,
+        )],
+    )
+    for session_id, mode in (("reader", AccessMode.READ), ("writer", AccessMode.WRITE)):
+        with pytest.raises(LeaseConflictError):
+            manager.claim(
+                session_id,
+                session_id,
+                [ResourceRequest(
+                    resource_type=ResourceType.LOGIC,
+                    resource_key="autonomous-loop",
+                    access_mode=mode,
+                )],
+            )
+
+
+def test_duplicate_requests_collapse_to_one_strongest_lease(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "owner", "OWNER")
+    manager = ResourceLeaseManager(store)
+    leases = manager.claim(
+        "OWNER",
+        "owner",
+        [
+            ResourceRequest(resource_type=ResourceType.FILE, resource_key="UNI\\brain.py", access_mode=AccessMode.READ),
+            ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py", access_mode=AccessMode.WRITE),
+            ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py", access_mode=AccessMode.READ),
+        ],
+    )
+
+    assert len(leases) == 1
+    assert leases[0].resource_key == "uni/brain.py"
+    assert leases[0].access_mode is AccessMode.WRITE
+    assert len(manager.list_active()) == 1
+
+
+def test_exact_same_owner_claim_is_idempotent(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "owner", "OWNER")
+    manager = ResourceLeaseManager(store)
+    request = ResourceRequest(resource_type=ResourceType.FILE, resource_key="uni/brain.py")
+
+    first = manager.claim("OWNER", "owner", [request])
+    second = manager.claim("OWNER", "owner", [request])
+
+    assert [lease.lease_id for lease in second] == [lease.lease_id for lease in first]
+    assert len(manager.list_active()) == 1
+
+
+def test_same_owner_can_upgrade_read_to_write_without_duplicate(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "owner", "OWNER")
+    manager = ResourceLeaseManager(store)
+    read = ResourceRequest(
+        resource_type=ResourceType.FILE,
+        resource_key="uni/brain.py",
+        access_mode=AccessMode.READ,
+    )
+    write = read.model_copy(update={"access_mode": AccessMode.WRITE})
+
+    first = manager.claim("OWNER", "owner", [read])
+    upgraded = manager.claim("OWNER", "owner", [write])
+
+    assert upgraded[0].lease_id == first[0].lease_id
+    assert upgraded[0].access_mode is AccessMode.WRITE
+    active = manager.list_active()
+    assert len(active) == 1
+    assert active[0].access_mode is AccessMode.WRITE
+
+
+def test_same_owner_upgrade_still_respects_other_reader(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.sqlite")
+    _register(store, "owner", "OWNER")
+    _register(store, "other", "OTHER")
+    manager = ResourceLeaseManager(store)
+    read = ResourceRequest(
+        resource_type=ResourceType.FILE,
+        resource_key="uni/brain.py",
+        access_mode=AccessMode.READ,
+    )
+    manager.claim("OWNER", "owner", [read])
+    manager.claim("OTHER", "other", [read])
+
+    with pytest.raises(LeaseConflictError):
+        manager.claim(
+            "OWNER",
+            "owner",
+            [read.model_copy(update={"access_mode": AccessMode.WRITE})],
+        )
+
+    active = manager.list_active()
+    assert len(active) == 2
+    assert all(lease.access_mode is AccessMode.READ for lease in active)

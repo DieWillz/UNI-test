@@ -4,6 +4,8 @@ import asyncio
 import json
 import re
 import threading
+import time
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -21,9 +23,11 @@ from uni.tools import ToolExecutor
 from uni.tools.definitions import get_tool_schemas
 from uni.working_memory import WorkingMemory
 from uni.visual_ui_operator import VisualUIOperator
+from uni.operator.routing import looks_like_operator_task
 from uni.workflows import AppLaunchWorkflow
 
 console = Console()
+RESPONSE_SPEECH_ENABLED = ContextVar("response_speech_enabled", default=True)
 
 
 @dataclass(frozen=True)
@@ -285,9 +289,16 @@ class EventLoop:
             ctrl.emergency_stop()
             return True
         # manual intensity -> adopt value and pause the auto timeline briefly
-        m = re.search(r"(?:интенсивность|скорость|speed)\s*{0,3}(\d{1,3})", user_input.casefold())
+        m = re.search(r"(?:интенсивность|скорость|speed)\s*(\d{1,3})", user_input.casefold())
         if m:
             value = max(0, min(100, int(m.group(1))))
+            # 🤖 Единый контур: ручной ползунок = передача управления владельцу
+            # (ТЗ §8). Идём в ControlQueue.manual_override, а не в браузерный xtoys.
+            cq = getattr(getattr(self, "_agent_ref", None), "control_queue", None)
+            if cq is not None:
+                await cq.manual_override(value)
+                await self._speak(f"Приняла, поставила {value}%. Управление теперь у тебя; скажи, если снова управлять.")
+                return True
             res = await ctrl._run_tool("xtoys.ramp_intensity", {"value": value, "steps": 3})
             if res.success:
                 ctrl.state.intensity = value
@@ -297,7 +308,7 @@ class EventLoop:
         return False
 
     async def _speak(self, text: str) -> bool:
-        if not text or not self.config.agent.speak_responses:
+        if not text or not self.config.agent.speak_responses or not RESPONSE_SPEECH_ENABLED.get():
             return False
         spoken = self._spoken_excerpt(text)
         self._log("SPEECH", spoken)
@@ -305,7 +316,15 @@ class EventLoop:
             console.print("[dim]Голосовой ответ сокращён; полный текст выше. Esc прерывает речь.[/dim]")
         async with self._audio_lock:
             self.state = AgentState.SPEAKING
-            result = await self.tool_executor.execute("speech.speak", {"text": spoken})
+            try:
+                result = await self.tool_executor.execute("speech.speak", {"text": spoken})
+            except Exception as exc:
+                # P0 (owner directive 2026-09-12): TTS failure must not break the
+                # browser task or the user-visible flow. Log it as a nudge and
+                # continue with the textual response.
+                console.print(f"[yellow]TTS: {exc}[/yellow]")
+                self._log("tts.unavailable", f"{type(exc).__name__}: {exc}")
+                return False
         if not result.success:
             console.print(f"[yellow]TTS: {result.message}[/yellow]")
         return result.success
@@ -500,6 +519,26 @@ class EventLoop:
         return f"Сообщение для {contact} отправлено."
 
     async def _run_tool(self, action: str, args: dict[str, Any]) -> ToolResult:
+        canonical = self.tool_executor.canonical_name(action)
+        if canonical == "browser.navigate":
+            # Direct commands and model tool-calls share this migration seam.
+            runtime = getattr(getattr(self, "_agent_ref", None), "operator", None)
+            if runtime is None:
+                return ToolResult(success=False, message="not_verified: Operator недоступен", error="OperatorUnavailable")
+            outcome = await runtime.run_action(canonical, args)
+            previous_unverified = any(not item.verified for item in self._current_actions)
+            self._current_actions.extend(outcome.actions)
+            self._current_observations.extend(outcome.observations)
+            self._current_verification = (
+                Verification(reason="earlier actions remain unverified")
+                if previous_unverified else outcome.verification
+            )
+            self._log("OPERATOR", {"status": outcome.status.value, "action": canonical})
+            return ToolResult(
+                success=bool(outcome.actions and outcome.actions[-1].success) or outcome.is_success,
+                message=f"{outcome.status.value}: {outcome.message}",
+                data=outcome.actions[-1].data if outcome.actions else None,
+            )
         self._log("ACTION", f"{action} {args}")
         async with self._tool_lock:
             result = await self.tool_executor.execute(action, args)
@@ -850,9 +889,7 @@ class EventLoop:
 
     async def _free_form(self, user_input: str) -> str:
         self.state = AgentState.THINKING
-        # 🤖 Фаза-3: системный промпт — ТОЛЬКО роль из assistant.md (без кухни).
-        # XToys/LM Studio/порты не упоминаются в пользовательской части промпта.
-        role_prompt = self.role_prompt or "Ты Юни, дружелюбная помощница за компьютером."
+        role_prompt = self.role_prompt
         system = (
             role_prompt
             + "\n\n## Общие правила\n"
@@ -870,7 +907,6 @@ class EventLoop:
             tools=get_tool_schemas(set(self.capabilities.get_names())),
         )
         if response.error:
-            # 🤖 Фаза-3: НЕ упоминаем LM Studio / порты — только по-пользовательски
             return "Сейчас не могу ответить — дай мне пару секунд и спроси ещё раз."
         if not response.tool_calls:
             answer = response.text or "Не удалось сформировать ответ."
@@ -892,6 +928,43 @@ class EventLoop:
         )
         answer = final.text if not final.error and final.text else compact
         return answer
+
+    async def _try_operator_mission(self, user_input: str, *, force: bool = False) -> str | None:
+        if not force and not looks_like_operator_task(user_input):
+            return None
+        agent = getattr(self, "_agent_ref", None)
+        if agent is None or not hasattr(agent, "run_operator"):
+            return None
+        outcome = await agent.run_operator(user_input)
+        self._current_actions.extend(outcome.actions)
+        self._current_observations.extend(outcome.observations)
+        self._current_verification = outcome.verification
+        self._log("OPERATOR", {"status": outcome.status.value, "message": outcome.message})
+        return outcome.message or f"Operator mission: {outcome.status.value}"
+
+    def _stop_operator_runtime(self) -> None:
+        agent = getattr(self, "_agent_ref", None)
+        stop = getattr(agent, "stop_operator", None)
+        if callable(stop):
+            stop()
+
+    async def _handle_stop_command(self) -> str:
+        """Stop every active execution surface through one emergency path."""
+        self._stop_operator_runtime()
+        ctrl = self._autonomous()
+        cq = getattr(getattr(self, "_agent_ref", None), "control_queue", None)
+        stopped_now = bool(cq is not None and cq.stopped) or bool(
+            ctrl is not None
+            and getattr(ctrl, "state", None) is not None
+            and getattr(ctrl.state, "stopped", False)
+        )
+        if ctrl is not None and getattr(ctrl, "device_allowed", False) and not stopped_now:
+            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
+            ctrl.emergency_stop()
+        self._running = False
+        await self._speak("До встречи")
+        self.state = AgentState.IDLE
+        return "stop"
 
     # 🤖 Голосовая/текстовая маршрутизация: «открой X» / «кликни X» / «нажми X»
     # -> замкнутый цикл зрение->действие->проверка (Agent.act_on_screen).
@@ -944,20 +1017,41 @@ class EventLoop:
             return f"Ошибка управления ПК: {type(exc).__name__}: {exc}"
 
     async def _process_input(self, user_input: str) -> str:
-        # Hands-free override has priority so stop/manual intensity are instant.
         if await self._maybe_autonomous_override(user_input):
             return "ok"
         self._log("USER", user_input)
-        # 🤖 маршрутизация управления ПК под зрением («открой X» и т.п.)
-        visual = await self._try_visual_command(user_input)
-        if visual is not None:
-            console.print(f"[green]UNI: {visual}[/green]")
-            self._log("ASSISTANT", visual)
-            await self._speak(visual)
-            return visual
         console.print(f"[bold]Команда:[/bold] {user_input}")
-        direct = self.parse_direct_command(user_input)
-        answer = await self._execute_direct(direct) if direct else await self._free_form(user_input)
+
+        mouse_request = bool(re.search(
+            r"(?:используй|используя|управляй|работай|открой|запусти|нажми|кликни).*?\bмыш(?:ь|ку|кой|ью)\b|"
+            r"\bмыш(?:ь|ку|кой|ью)\b.*?(?:открой|запусти|нажми|кликни)", user_input, re.I
+        )) and not bool(re.search(r"\bне\s+(?:используй|используя|управляй|работай).*?мыш", user_input, re.I))
+        existing_desktop_request = bool(re.search(
+            r"(?:\bмой\s+браузер|\bмо[её]м\s+браузер|\bбраузер\w*.*?\b(?:уже|прямо\s+сейчас)\s+открыт|"
+            r"\bадресн\w*\s+строк\w*)", user_input, re.I
+        ))
+        desktop_control_request = mouse_request or existing_desktop_request
+        direct = None if desktop_control_request else self.parse_direct_command(user_input)
+        if desktop_control_request:
+            previous = next((m['content'] for m in reversed(self._history) if m.get('role') == 'user'), '')
+            goal = user_input + ("\nПредыдущая просьба пользователя для уточнения цели: " + previous[:2000] if previous else '')
+            token = ToolExecutor.set_control_mode('mouse_only')
+            try:
+                answer = await self._try_operator_mission(goal, force=True)
+                if answer is None:
+                    answer = 'not_verified: Operator недоступен; браузерные инструменты вместо мыши не запускались.'
+            finally:
+                ToolExecutor.reset_control_mode(token)
+        elif direct is not None:
+            answer = await self._execute_direct(direct)
+        else:
+            operator_answer = await self._try_operator_mission(user_input)
+            if operator_answer is not None:
+                answer = operator_answer
+            else:
+                visual = await self._try_visual_command(user_input)
+                answer = visual if visual is not None else await self._free_form(user_input)
+
         answer = self._clean_answer(answer)
         self._history.extend(
             [{"role": "user", "content": user_input}, {"role": "assistant", "content": answer}]
@@ -967,7 +1061,7 @@ class EventLoop:
         if callable(append_exchange):
             append_exchange(user_input, answer)
         console.print(f"[green]UNI: {answer}[/green]")
-        self._log("ASSISTANT", answer)
+        self._log("uni", answer)
         await self._speak(answer)
         return answer
 
@@ -1042,8 +1136,7 @@ class EventLoop:
             while self._running:
                 _source, user_input = await queue.get()
                 if self.is_stop_command(user_input):
-                    self._running = False
-                    await self._speak("До встречи")
+                    await self._handle_stop_command()
                     break
                 self._schedule_input(user_input)
         finally:
@@ -1063,14 +1156,7 @@ class EventLoop:
         self._current_verification = Verification()
         self._log("COMMAND", user_input)
         if self.is_stop_command(user_input):
-            ctrl = self._autonomous()
-            if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
-                console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
-                ctrl.emergency_stop()
-            self._running = False
-            await self._speak("До встречи")
-            self.state = AgentState.IDLE
-            return "stop"
+            return await self._handle_stop_command()
         answer = await self._process_input(user_input)
         self.last_outcome = TaskOutcome.finalize(
             command=user_input,
@@ -1101,12 +1187,7 @@ class EventLoop:
                         await asyncio.sleep(0.05)
                         continue
                     if self.is_stop_command(user_input):
-                        ctrl = self._autonomous()
-                        if ctrl is not None and getattr(ctrl, "device_allowed", False) and not ctrl.state.stopped:
-                            console.print("[bold red]АВАРИЙНЫЙ СТОП — интенсивность 0[/bold red]")
-                            ctrl.emergency_stop()
-                        self._running = False
-                        await self._speak("До встречи")
+                        await self._handle_stop_command()
                         break
                     self._schedule_input(user_input)
                     await asyncio.sleep(0.05)

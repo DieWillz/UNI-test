@@ -91,3 +91,39 @@ def test_domain_models_expose_phase1_resource_vocabulary() -> None:
 def test_store_connections_enforce_foreign_keys(tmp_path: Path) -> None:
     store = WorkspaceStore(tmp_path / "workspace.sqlite")
     assert store.foreign_keys_enabled() is True
+
+def test_read_only_store_reads_existing_db_and_rejects_writes(tmp_path: Path) -> None:
+    db_path = tmp_path / "workspace.sqlite"
+    writable = WorkspaceStore(db_path)
+    session = AgentSession(session_id="session-ro", agent_id="reader", display_name="Reader")
+    writable.save_session(session)
+
+    readonly = WorkspaceStore(db_path, initialize=False, read_only=True)
+    assert readonly.get_session("session-ro") == session
+
+    try:
+        readonly.save_session(AgentSession(session_id="should-fail", agent_id="writer", display_name="Writer"))
+        assert False, "read-only WorkspaceStore must reject write transactions"
+    except RuntimeError as exc:
+        assert "read-only" in str(exc).lower()
+
+    assert [item.session_id for item in writable.list_sessions()] == ["session-ro"]
+
+def test_read_queries_close_sqlite_connection_explicitly(tmp_path: Path) -> None:
+    db_path = tmp_path / "workspace.sqlite"
+    store = WorkspaceStore(db_path)
+
+    class TrackingConnection(sqlite3.Connection):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+            super().close()
+
+    connection = sqlite3.connect(db_path, factory=TrackingConnection)
+    connection.row_factory = sqlite3.Row
+    store._connect = lambda: connection
+
+    store.list_sessions()
+
+    assert connection.closed is True

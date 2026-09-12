@@ -6,26 +6,42 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-from uni.devcoord.workspace_models import AgentSession, WorkspaceEvent, WorkspaceTask
+from uni.devcoord.workspace_models import AgentSession, ResourceLease, WorkspaceEvent, WorkspaceTask
 
 
 class WorkspaceStore:
     VERSION = 1
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(
+        self, path: str | Path, *, initialize: bool = True, read_only: bool = False
+    ) -> None:
         self.path = Path(path).resolve()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
+        self.read_only = read_only
+        if initialize:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=10.0)
+        target = f"{self.path.as_uri()}?mode=ro" if self.read_only else self.path
+        conn = sqlite3.connect(target, timeout=10.0, uri=self.read_only)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=10000")
         return conn
 
     @contextmanager
+    def connection(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    @contextmanager
     def transaction(self, *, immediate: bool = False) -> Iterator[sqlite3.Connection]:
+        if self.read_only and immediate:
+            raise RuntimeError("read-only WorkspaceStore cannot start write transactions")
         conn = self._connect()
         try:
             conn.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
@@ -38,7 +54,7 @@ class WorkspaceStore:
             conn.close()
 
     def _initialize(self) -> None:
-        with self._connect() as conn:
+        with self.connection() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(
                 """
@@ -107,130 +123,166 @@ class WorkspaceStore:
             )
 
     def journal_mode(self) -> str:
-        with self._connect() as conn:
+        with self.connection() as conn:
             row = conn.execute("PRAGMA journal_mode").fetchone()
         return str(row[0])
 
     def foreign_keys_enabled(self) -> bool:
-        with self._connect() as conn:
+        with self.connection() as conn:
             row = conn.execute("PRAGMA foreign_keys").fetchone()
         return bool(row[0])
 
-    def save_workspace_task(self, task: WorkspaceTask) -> None:
-        payload = task.model_dump_json()
-        with self.transaction(immediate=True) as conn:
-            conn.execute(
-                """
-                INSERT INTO workspace_tasks(
-                    task_id, state, priority, assigned_session_id,
-                    created_at, updated_at, payload_json
-                ) VALUES(?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(task_id) DO UPDATE SET
-                    state=excluded.state,
-                    priority=excluded.priority,
-                    assigned_session_id=excluded.assigned_session_id,
-                    updated_at=excluded.updated_at,
-                    payload_json=excluded.payload_json
-                """,
-                (
-                    task.id,
-                    task.state.value,
-                    task.priority,
-                    task.assigned_session_id,
-                    task.created_at,
-                    task.updated_at,
-                    payload,
-                ),
-            )
+    def save_workspace_task(
+        self, task: WorkspaceTask, *, conn: sqlite3.Connection | None = None
+    ) -> None:
+        if conn is None:
+            with self.transaction(immediate=True) as transaction:
+                self.save_workspace_task(task, conn=transaction)
+            return
+        conn.execute(
+            """
+            INSERT INTO workspace_tasks(
+                task_id, state, priority, assigned_session_id,
+                created_at, updated_at, payload_json
+            ) VALUES(?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(task_id) DO UPDATE SET
+                state=excluded.state,
+                priority=excluded.priority,
+                assigned_session_id=excluded.assigned_session_id,
+                updated_at=excluded.updated_at,
+                payload_json=excluded.payload_json
+            """,
+            (
+                task.id, task.state.value, task.priority, task.assigned_session_id,
+                task.created_at, task.updated_at, task.model_dump_json(),
+            ),
+        )
 
-    def get_workspace_task(self, task_id: str) -> WorkspaceTask:
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT payload_json FROM workspace_tasks WHERE task_id=?",
-                (task_id,),
-            ).fetchone()
+    def get_workspace_task(
+        self, task_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> WorkspaceTask:
+        if conn is None:
+            with self.connection() as connection:
+                return self.get_workspace_task(task_id, conn=connection)
+        row = conn.execute(
+            "SELECT payload_json FROM workspace_tasks WHERE task_id=?",
+            (task_id,),
+        ).fetchone()
         if row is None:
             raise KeyError(f"unknown workspace task: {task_id}")
         return WorkspaceTask.model_validate(json.loads(row[0]))
 
     def list_workspace_tasks(self) -> list[WorkspaceTask]:
-        with self._connect() as conn:
+        with self.connection() as conn:
             rows = conn.execute(
                 "SELECT payload_json FROM workspace_tasks ORDER BY rowid"
             ).fetchall()
         return [WorkspaceTask.model_validate(json.loads(row[0])) for row in rows]
 
-    def save_session(self, session: AgentSession) -> None:
-        payload = session.model_dump_json()
-        with self.transaction(immediate=True) as conn:
-            conn.execute(
-                """
-                INSERT INTO agent_sessions(
-                    session_id, agent_id, task_id, state,
-                    heartbeat_at, expires_at, payload_json
-                ) VALUES(?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(session_id) DO UPDATE SET
-                    agent_id=excluded.agent_id,
-                    task_id=excluded.task_id,
-                    state=excluded.state,
-                    heartbeat_at=excluded.heartbeat_at,
-                    expires_at=excluded.expires_at,
-                    payload_json=excluded.payload_json
-                """,
-                (
-                    session.session_id,
-                    session.agent_id,
-                    session.task_id,
-                    session.state.value,
-                    session.heartbeat_at,
-                    session.expires_at,
-                    payload,
-                ),
-            )
+    def save_session(
+        self, session: AgentSession, *, conn: sqlite3.Connection | None = None
+    ) -> None:
+        if conn is None:
+            with self.transaction(immediate=True) as transaction:
+                self.save_session(session, conn=transaction)
+            return
+        conn.execute(
+            """
+            INSERT INTO agent_sessions(
+                session_id, agent_id, task_id, state,
+                heartbeat_at, expires_at, payload_json
+            ) VALUES(?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(session_id) DO UPDATE SET
+                agent_id=excluded.agent_id,
+                task_id=excluded.task_id,
+                state=excluded.state,
+                heartbeat_at=excluded.heartbeat_at,
+                expires_at=excluded.expires_at,
+                payload_json=excluded.payload_json
+            """,
+            (
+                session.session_id, session.agent_id, session.task_id, session.state.value,
+                session.heartbeat_at, session.expires_at, session.model_dump_json(),
+            ),
+        )
 
-    def get_session(self, session_id: str) -> AgentSession:
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT payload_json FROM agent_sessions WHERE session_id=?",
-                (session_id,),
-            ).fetchone()
+    def get_session(
+        self, session_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> AgentSession:
+        if conn is None:
+            with self.connection() as connection:
+                return self.get_session(session_id, conn=connection)
+        row = conn.execute(
+            "SELECT payload_json FROM agent_sessions WHERE session_id=?",
+            (session_id,),
+        ).fetchone()
         if row is None:
             raise KeyError(f"unknown agent session: {session_id}")
         return AgentSession.model_validate(json.loads(row[0]))
 
     def list_sessions(self) -> list[AgentSession]:
-        with self._connect() as conn:
+        with self.connection() as conn:
             rows = conn.execute(
                 "SELECT payload_json FROM agent_sessions ORDER BY rowid"
             ).fetchall()
         return [AgentSession.model_validate(json.loads(row[0])) for row in rows]
 
-    def append_event(self, event: WorkspaceEvent) -> None:
-        payload = event.model_dump_json()
-        with self.transaction(immediate=True) as conn:
-            conn.execute(
-                """
-                INSERT INTO workspace_events(
-                    event_id, timestamp, event, task_id, session_id, lease_id,
-                    resource_type, resource_key, detail, payload_json
-                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event.event_id,
-                    event.timestamp,
-                    event.event,
-                    event.task_id,
-                    event.session_id,
-                    event.lease_id,
-                    event.resource_type.value if event.resource_type else None,
-                    event.resource_key,
-                    event.detail,
-                    payload,
-                ),
-            )
+    def append_event(
+        self, event: WorkspaceEvent, *, conn: sqlite3.Connection | None = None
+    ) -> None:
+        if conn is None:
+            with self.transaction(immediate=True) as transaction:
+                self.append_event(event, conn=transaction)
+            return
+        conn.execute(
+            """
+            INSERT INTO workspace_events(
+                event_id, timestamp, event, task_id, session_id, lease_id,
+                resource_type, resource_key, detail, payload_json
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.event_id, event.timestamp, event.event, event.task_id,
+                event.session_id, event.lease_id,
+                event.resource_type.value if event.resource_type else None,
+                event.resource_key, event.detail, event.model_dump_json(),
+            ),
+        )
+
+    def save_resource_lease(
+        self, lease: ResourceLease, *, conn: sqlite3.Connection | None = None
+    ) -> None:
+        if conn is None:
+            with self.transaction(immediate=True) as transaction:
+                self.save_resource_lease(lease, conn=transaction)
+            return
+        conn.execute(
+            """
+            INSERT INTO resource_leases(
+                lease_id, task_id, agent_session_id, resource_type, resource_key,
+                access_mode, state, heartbeat_at, expires_at, payload_json
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(lease_id) DO UPDATE SET
+                task_id=excluded.task_id,
+                agent_session_id=excluded.agent_session_id,
+                resource_type=excluded.resource_type,
+                resource_key=excluded.resource_key,
+                access_mode=excluded.access_mode,
+                state=excluded.state,
+                heartbeat_at=excluded.heartbeat_at,
+                expires_at=excluded.expires_at,
+                payload_json=excluded.payload_json
+            """,
+            (
+                lease.lease_id, lease.task_id, lease.agent_session_id,
+                lease.resource_type.value, lease.resource_key, lease.access_mode.value,
+                lease.state.value, lease.heartbeat_at, lease.expires_at,
+                lease.model_dump_json(),
+            ),
+        )
 
     def list_events(self, *, limit: int = 100) -> list[WorkspaceEvent]:
-        with self._connect() as conn:
+        with self.connection() as conn:
             rows = conn.execute(
                 """
                 SELECT payload_json FROM workspace_events

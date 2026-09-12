@@ -67,9 +67,7 @@ def test_save_trajectory_called_on_success(monkeypatch):
     def fake_save(goal, steps, history, status="verified", meta=None):
         saved["goal"] = goal; saved["status"] = status
         return {}
-    monkeypatch.setattr(ts, "save_trajectory", fake_save)
-
-    agent = VisualActionAgent(_Comp(), _Vis())
+    agent = VisualActionAgent(_Comp(), _Vis(), verify_delay=0, trajectory_sink=fake_save)
     import asyncio
     out = asyncio.run(agent.act_on_screen("открой блокнот"))
     assert out["status"] == "verified"

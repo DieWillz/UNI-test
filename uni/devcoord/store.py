@@ -3,21 +3,36 @@ from __future__ import annotations
 import json
 import os
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from uni.devcoord.models import CoordinatorEvent, DevelopmentTask
+from uni.utils.file_lock import acquire_lock, release_lock
 
 
 class CoordinationStore:
     VERSION = 1
+    LOCK_TIMEOUT_SECONDS = 5.0
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         if not self.path.exists():
-            self._write({"version": self.VERSION, "tasks": {}, "events": []})
+            with self._file_guard():
+                if not self.path.exists():
+                    self._write({"version": self.VERSION, "tasks": {}, "events": []})
+
+    @contextmanager
+    def _file_guard(self):
+        target = str(self.path)
+        if not acquire_lock(target, timeout=self.LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError(f"coordination store lock timeout: {self.path}")
+        try:
+            yield
+        finally:
+            release_lock(target)
 
     def _read(self) -> dict[str, Any]:
         data = json.loads(self.path.read_text(encoding="utf-8"))
@@ -32,9 +47,10 @@ class CoordinationStore:
 
     def save_task(self, task: DevelopmentTask) -> None:
         with self._lock:
-            data = self._read()
-            data["tasks"][task.id] = task.model_dump(mode="json")
-            self._write(data)
+            with self._file_guard():
+                data = self._read()
+                data["tasks"][task.id] = task.model_dump(mode="json")
+                self._write(data)
 
     def get_task(self, task_id: str) -> DevelopmentTask:
         with self._lock:
@@ -50,11 +66,12 @@ class CoordinationStore:
 
     def append_event(self, event: CoordinatorEvent) -> None:
         with self._lock:
-            data = self._read()
-            events = data["events"]
-            events.append(event.model_dump(mode="json"))
-            data["events"] = events[-5000:]
-            self._write(data)
+            with self._file_guard():
+                data = self._read()
+                events = data["events"]
+                events.append(event.model_dump(mode="json"))
+                data["events"] = events[-5000:]
+                self._write(data)
 
     def events_for(self, task_id: str) -> list[CoordinatorEvent]:
         with self._lock:

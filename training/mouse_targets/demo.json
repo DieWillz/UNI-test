@@ -1,0 +1,24 @@
+{
+  "name": "demo",
+  "created": "2026-08-17 16:50:53",
+  "screenshot": "none",
+  "screen_size": [
+    1920,
+    1080
+  ],
+  "targets": [
+    {
+      "id": 1,
+      "label": "btn",
+      "type": "click",
+      "shape": "rect",
+      "bbox": [
+        10,
+        10,
+        100,
+        50
+      ],
+      "order": 1
+    }
+  ]
+}

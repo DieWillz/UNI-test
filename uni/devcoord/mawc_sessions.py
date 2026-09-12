@@ -51,57 +51,66 @@ class AgentSessionManager:
             heartbeat_at=heartbeat_at,
             expires_at=expires_at,
         )
-        self.store.save_session(session)
-        self.store.append_event(
-            WorkspaceEvent(event="session.registered", task_id=task_id, session_id=session.session_id)
-        )
+        with self.store.transaction(immediate=True) as conn:
+            self.store.save_session(session, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="session.registered",
+                    task_id=task_id,
+                    session_id=session.session_id,
+                ),
+                conn=conn,
+            )
         return session
 
     def get(self, session_id: str) -> AgentSession:
         return self.store.get_session(session_id)
 
     def heartbeat(self, session_id: str, *, ttl_seconds: float = 600.0) -> AgentSession:
-        session = self.store.get_session(session_id)
-        if session.state is SessionState.STALE:
-            raise RuntimeError("stale session requires controlled takeover")
         heartbeat_at, expires_at = self._window(ttl_seconds)
-        next_state = (
-            SessionState.VERIFYING
-            if session.state is SessionState.VERIFYING
-            else SessionState.ACTIVE
-        )
-        refreshed = session.model_copy(
-            update={
-                "state": next_state,
-                "heartbeat_at": heartbeat_at,
-                "expires_at": expires_at,
-            }
-        )
-        self.store.save_session(refreshed)
-        self._refresh_leases(session_id, heartbeat_at, expires_at)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="session.heartbeat",
-                task_id=refreshed.task_id,
-                session_id=session_id,
-            )
-        )
-        return refreshed
-
-    def _refresh_leases(self, session_id: str, heartbeat_at: str, expires_at: str) -> None:
         with self.store.transaction(immediate=True) as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM agent_sessions WHERE session_id=?", (session_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"unknown agent session: {session_id}")
+            session = AgentSession.model_validate(json.loads(row[0]))
+            if session.state is SessionState.STALE:
+                raise RuntimeError("stale session requires controlled takeover")
+            if session.state is SessionState.STOPPED:
+                raise RuntimeError("stopped session requires explicit resume")
+            next_state = (
+                SessionState.VERIFYING
+                if session.state is SessionState.VERIFYING
+                else SessionState.ACTIVE
+            )
+            refreshed = session.model_copy(
+                update={
+                    "state": next_state,
+                    "heartbeat_at": heartbeat_at,
+                    "expires_at": expires_at,
+                }
+            )
+            self.store.save_session(refreshed, conn=conn)
             rows = conn.execute(
-                "SELECT lease_id, payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
+                "SELECT payload_json FROM resource_leases "
+                "WHERE agent_session_id=? AND state!=?",
                 (session_id, LeaseState.RELEASED.value),
             ).fetchall()
-            for lease_id, payload_json in rows:
-                lease = ResourceLease.model_validate(json.loads(payload_json)).model_copy(
+            for lease_row in rows:
+                lease = ResourceLease.model_validate(json.loads(lease_row[0])).model_copy(
                     update={"heartbeat_at": heartbeat_at, "expires_at": expires_at}
                 )
-                conn.execute(
-                    "UPDATE resource_leases SET heartbeat_at=?, expires_at=?, payload_json=? WHERE lease_id=?",
-                    (heartbeat_at, expires_at, lease.model_dump_json(), lease_id),
-                )
+                self.store.save_resource_lease(lease, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="session.heartbeat",
+                    task_id=refreshed.task_id,
+                    session_id=session_id,
+                ),
+                conn=conn,
+            )
+        return refreshed
 
     def mark_stale(self, *, now: datetime | None = None) -> list[AgentSession]:
         moment = now or datetime.now(timezone.utc)
@@ -117,30 +126,25 @@ class AgentSessionManager:
                     continue
                 stale = session.model_copy(update={"state": SessionState.STALE})
                 stale_sessions.append(stale)
-                conn.execute(
-                    "UPDATE agent_sessions SET state=?, payload_json=? WHERE session_id=?",
-                    (SessionState.STALE.value, stale.model_dump_json(), session_id),
-                )
+                self.store.save_session(stale, conn=conn)
                 lease_rows = conn.execute(
-                    "SELECT lease_id, payload_json FROM resource_leases WHERE agent_session_id=? AND state!=?",
+                    "SELECT payload_json FROM resource_leases "
+                    "WHERE agent_session_id=? AND state!=?",
                     (session_id, LeaseState.RELEASED.value),
                 ).fetchall()
-                for lease_id, lease_json in lease_rows:
-                    lease = ResourceLease.model_validate(json.loads(lease_json)).model_copy(
+                for lease_row in lease_rows:
+                    lease = ResourceLease.model_validate(json.loads(lease_row[0])).model_copy(
                         update={"state": LeaseState.STALE}
                     )
-                    conn.execute(
-                        "UPDATE resource_leases SET state=?, payload_json=? WHERE lease_id=?",
-                        (LeaseState.STALE.value, lease.model_dump_json(), lease_id),
-                    )
-        for stale in stale_sessions:
-            self.store.append_event(
-                WorkspaceEvent(
-                    event="session.stale",
-                    task_id=stale.task_id,
-                    session_id=stale.session_id,
+                    self.store.save_resource_lease(lease, conn=conn)
+                self.store.append_event(
+                    WorkspaceEvent(
+                        event="session.stale",
+                        task_id=stale.task_id,
+                        session_id=stale.session_id,
+                    ),
+                    conn=conn,
                 )
-            )
         return stale_sessions
 
     def attach_process(
@@ -163,16 +167,18 @@ class AgentSessionManager:
                 "last_observation": f"process started pid={process_id}",
             }
         )
-        self.store.save_session(attached)
-        self._set_lease_state(session_id, LeaseState.ACTIVE)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="session.process_attached",
-                task_id=attached.task_id,
-                session_id=session_id,
-                detail=f"pid={process_id}",
+        with self.store.transaction(immediate=True) as conn:
+            self.store.save_session(attached, conn=conn)
+            self._set_lease_state(session_id, LeaseState.ACTIVE, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="session.process_attached",
+                    task_id=attached.task_id,
+                    session_id=session_id,
+                    detail=f"pid={process_id}",
+                ),
+                conn=conn,
             )
-        )
         return attached
 
     def begin_verification(
@@ -188,30 +194,32 @@ class AgentSessionManager:
                 "last_observation": observation[:4000],
             }
         )
-        self.store.save_session(verifying)
-        self._set_lease_state(session_id, LeaseState.VERIFYING)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="session.verifying",
-                task_id=verifying.task_id,
-                session_id=session_id,
-                detail=observation[:4000],
+        with self.store.transaction(immediate=True) as conn:
+            self.store.save_session(verifying, conn=conn)
+            self._set_lease_state(session_id, LeaseState.VERIFYING, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event="session.verifying",
+                    task_id=verifying.task_id,
+                    session_id=session_id,
+                    detail=observation[:4000],
+                ),
+                conn=conn,
             )
-        )
         return verifying
 
-    def _set_lease_state(self, session_id: str, state: LeaseState) -> None:
-        with self.store.transaction(immediate=True) as conn:
-            rows = conn.execute(
-                "SELECT lease_id, payload_json FROM resource_leases "
-                "WHERE agent_session_id=? AND state!=?",
-                (session_id, LeaseState.RELEASED.value),
-            ).fetchall()
-            for lease_id, payload_json in rows:
-                lease = ResourceLease.model_validate(json.loads(payload_json)).model_copy(
-                    update={"state": state}
-                )
-                conn.execute(
-                    "UPDATE resource_leases SET state=?, payload_json=? WHERE lease_id=?",
-                    (state.value, lease.model_dump_json(), lease_id),
-                )
+    def _set_lease_state(self, session_id: str, state: LeaseState, *, conn=None) -> None:
+        if conn is None:
+            with self.store.transaction(immediate=True) as transaction:
+                self._set_lease_state(session_id, state, conn=transaction)
+            return
+        rows = conn.execute(
+            "SELECT payload_json FROM resource_leases "
+            "WHERE agent_session_id=? AND state!=?",
+            (session_id, LeaseState.RELEASED.value),
+        ).fetchall()
+        for row in rows:
+            lease = ResourceLease.model_validate(json.loads(row[0])).model_copy(
+                update={"state": state}
+            )
+            self.store.save_resource_lease(lease, conn=conn)

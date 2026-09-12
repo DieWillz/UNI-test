@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
+from uni.devcoord.workspace_models import AgentSession, LeaseState, ResourceLease, SessionState
+from uni.devcoord.workspace_status import _runtime_expired
 from uni.devcoord.workspace_store import WorkspaceStore
 
 
@@ -32,21 +35,34 @@ class DevelopmentReporter:
         self.store = store
 
     def snapshot(self) -> DevelopmentReport:
+        moment = datetime.now(timezone.utc)
         with self.store.transaction() as conn:
             session_rows = conn.execute(
-                "SELECT state FROM agent_sessions"
+                "SELECT payload_json FROM agent_sessions"
             ).fetchall()
             task_rows = conn.execute(
                 "SELECT state FROM workspace_tasks"
             ).fetchall()
             lease_rows = conn.execute(
-                "SELECT state FROM resource_leases"
+                "SELECT payload_json FROM resource_leases"
             ).fetchall()
 
         events = self.store.list_events(limit=5000)
-        session_counts = Counter(str(row[0]) for row in session_rows)
+        sessions = [AgentSession.model_validate_json(row[0]) for row in session_rows]
+        leases = [ResourceLease.model_validate_json(row[0]) for row in lease_rows]
+        session_counts = Counter(
+            SessionState.STALE.value
+            if item.state is not SessionState.STOPPED and _runtime_expired(item.expires_at, moment)
+            else item.state.value
+            for item in sessions
+        )
         task_counts = Counter(str(row[0]) for row in task_rows)
-        lease_counts = Counter(str(row[0]) for row in lease_rows)
+        lease_counts = Counter(
+            LeaseState.STALE.value
+            if item.state is not LeaseState.RELEASED and _runtime_expired(item.expires_at, moment)
+            else item.state.value
+            for item in leases
+        )
 
         return DevelopmentReport(
             session_counts=dict(session_counts),

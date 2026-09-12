@@ -1,19 +1,11 @@
 """Orchestration patterns for XToys devices (Fredorch Rotary et al.).
 
-This layer sits ON TOP of ``XToysCapability`` (the low-level primitives
-``set_intensity`` / ``ramp_intensity`` / ``select_pattern`` / ``read_intensity``
-that Codex maintains in ``uni/capabilities/xtoys.py``). It does NOT re-implement
-device control — it composes those primitives into time-based *scenarios* a
-automated session can trigger: ramp, climb, pulse, wave, hold, cooldown.
-
-Safety: every write is verified by reading the slider back (``read_intensity``).
-If the UI drift exceeds a tolerance the pattern halts and reports it. The
-physical-hardware cap (``max_intensity``) is enforced by the capability itself,
-so a pattern can never exceed what the user configured in config.yaml.
-
-Patterns are driven through an injected callable ``run_tool(name, args)`` (same
-contract ``AutonomousSession`` uses) so this module stays capability-agnostic —
-it works whether the backend is the XToys UI adapter or a direct buttplug bridge.
+DEPRECATED by Hermes (2026-08-29): этот модуль — legacy-адаптер поверх
+XToysCapability (браузерный путь). Единый серверный каталог паттернов и
+длительности теперь в uni/control_queue.py (PATTERN_CATALOG: chaos=27с,
+ramp=59с и т.д.). DEFAULT_DURATION=20 и отдельная _p_ramp здесь больше НЕ
+являются источником длительностей. Исполнение идёт через ToyControlCoordinator
+-> IntifaceBridge.oscillate, без браузера. Оставлено для обратной совместимости.
 """
 
 from __future__ import annotations

@@ -1,25 +1,40 @@
-"""Файловые lock-файлы (P1.4 / D4) — защита от конкурентных действий.
+﻿"""Файловые lock-файлы (P1.4 / D4) — защита от конкурентных действий.
 
-Простая реализация через .lock-файл рядом с целевым. Не блокирует
-поток (non-blocking): acquire_lock возвращает False, если lock уже есть.
+Lock создаётся атомарно через O_CREAT | O_EXCL. По умолчанию acquire_lock
+не блокирует; timeout > 0 позволяет кратко дождаться освобождения lock.
 """
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import time
 
 
 def acquire_lock(file_path: str, timeout: float = 0.0) -> bool:
-    """Попытаться занять lock. Возвращает True, если получилось."""
+    """Атомарно занять lock, ожидая до ``timeout`` секунд при необходимости."""
     lock_path = f"{file_path}.lock"
-    if Path(lock_path).exists():
-        return False
+    deadline = time.monotonic() + max(0.0, float(timeout))
+    while True:
+        try:
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            time.sleep(min(0.01, remaining))
+        except OSError:
+            return False
+
     try:
-        with open(lock_path, "w", encoding="utf-8") as f:
-            f.write("locked")
-        return True
-    except Exception:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write("locked")
+    except OSError:
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
         return False
+    return True
 
 
 def release_lock(file_path: str) -> None:
@@ -27,5 +42,5 @@ def release_lock(file_path: str) -> None:
     lock_path = f"{file_path}.lock"
     try:
         os.remove(lock_path)
-    except Exception:
+    except OSError:
         pass

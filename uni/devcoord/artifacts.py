@@ -24,7 +24,8 @@ class ArtifactCollector:
             raise ValueError(f"artifact escapes workspace: {value}") from exc
         if not candidate.is_file():
             raise FileNotFoundError(f"artifact not found: {relative.as_posix()}")
-        if candidate.name.casefold() in {".env", "credentials.json", "secrets.json"}:
+        name = candidate.name.casefold()
+        if name == ".env" or name.startswith(".env.") or name in {"credentials.json", "secrets.json"}:
             raise ValueError(f"secret-bearing artifact is not allowed: {relative.as_posix()}")
         content = candidate.read_bytes()
         media_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"

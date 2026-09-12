@@ -14,21 +14,89 @@ from .base import Capability
 
 
 class XToysCapability(Capability):
-    """Best-effort XToys UI adapter over the shared persistent browser session."""
+    """Compatibility tool names for direct, arbitrated Intiface control.
+
+    DEPRECATED by Hermes (2026-08-29): браузерный путь (page_for_host("xtoys.app"),
+    page.evaluate в DOM) более не используется для управления устройством. Единый
+    физический путь — ToyControlCoordinator -> IntifaceBridge.oscillate. Этот класс
+    оставлен совместимым адаптером (tool-имена xtoys.*), но set_intensity/ramp_intensity
+    должны идти через coordinator, а не через браузер. Никакого xtoys.app.
+    """
 
     name = "xtoys"
-    description = "Управление активной вкладкой XToys.app"
+    description = "Управление Dorch напрямую через Intiface"
 
     def __init__(self, session: BrowserSession, *, url: str, max_intensity: int = 50):
         self.session = session
         self.url = url
         self.max_intensity = max(0, min(100, max_intensity))
         self.verified_physical = False
-
-    async def _page(self):
-        return await self.session.page_for_host("xtoys.app", create_url=self.url)
+        self.coordinator = None
 
     async def open(self) -> ToolResult:
+        # DEPRECATED by Codex: browser-based device setup is forbidden.
+        return ToolResult(success=True, data={"status": "not_verified"},
+                          message="Dorch использует Intiface; браузер не открывается")
+
+    async def set_intensity(self, device: str = "", value: int = 0) -> ToolResult:
+        from uni.xtoys_control_coordinator import MANUAL
+        coordinator = self.coordinator
+        if coordinator is None:
+            return ToolResult(success=False, message="Координатор Intiface недоступен")
+        requested = max(0, min(self.max_intensity, int(value)))
+        # Persistent Dorch configuration is the authorization boundary. Manual
+        # and autonomous commands do not require a second per-command acknowledgement.
+        ok = await coordinator.set_intensity(MANUAL, requested)
+        return ToolResult(success=ok, data={
+            "value": coordinator.current_value, "requested_percent": requested,
+            "status": "not_verified", "verified_physical": False,
+        }, message=("Команда передана Intiface; физическое движение не подтверждено"
+                    if ok else "Intiface: команда отклонена координатором"))
+
+    async def get_status(self, device: str = "") -> ToolResult:
+        coordinator = self.coordinator
+        if coordinator is None:
+            return ToolResult(success=False, message="Координатор Intiface недоступен")
+        data = coordinator._bridge.status()
+        data.update(coordinator.status())
+        data.update(value=coordinator.current_value, status="not_verified",
+                    verified_physical=False)
+        return ToolResult(success=True, data=data,
+                          message="Статус Intiface; значение является последней командой")
+
+    async def read_intensity(self, device: str = "") -> ToolResult:
+        # Intiface has no independent physical intensity feedback.
+        return await self.get_status(device)
+
+    async def ramp_intensity(self, device: str = "", target: int = 0, *, steps: int = 5) -> ToolResult:
+        target = max(0, min(self.max_intensity, int(target)))
+        if target == 0:
+            return await self.set_intensity(device, 0)
+        if self.coordinator is None:
+            return ToolResult(success=False, message="Координатор Intiface недоступен")
+        current = self.coordinator.current_value
+        steps = max(1, min(int(steps), 20))
+        for step in range(1, steps + 1):
+            result = await self.set_intensity(device, round(current + (target - current) * step / steps))
+            if not result.success:
+                return result
+            if step < steps:
+                await asyncio.sleep(0.4)
+        return result
+
+    async def toggle(self, device: str = "") -> ToolResult:
+        return ToolResult(success=False, message="Используйте явные Connect/STOP в панели Intiface")
+
+    async def select_pattern(self, pattern: str, device: str = "") -> ToolResult:
+        return ToolResult(success=False, message="Выберите локальный паттерн в панели Dorch")
+
+    async def _page(self):
+        # DEPRECATED by Codex: retained API, fail closed; never open xtoys.app.
+        raise RuntimeError("Браузерное управление устройством запрещено владельцем")
+        # return await self.session.page_for_host("xtoys.app", create_url=self.url)
+
+    # DEPRECATED by Codex: historical browser implementations retained, not dispatched.
+    async def _deprecated_open(self) -> ToolResult:
         try:
             page = await self._page()
             return ToolResult(
@@ -77,6 +145,8 @@ class XToysCapability(Capability):
     }"""
 
     async def _find_speed(self, page, device: str) -> dict[str, Any]:
+        # DEPRECATED by Codex: no DOM interaction, even through legacy helpers.
+        return {"ok": False, "reason": "Браузерное управление запрещено"}
         try:
             return await page.evaluate(self._FIND_SPEED_JS, {"device": device})
         except Exception as exc:
@@ -92,6 +162,8 @@ class XToysCapability(Capability):
         number back to verify. The old geometry guard (height <= width) is gone —
         a wide panel is a perfectly valid control.
         """
+        # DEPRECATED by Codex: no mouse interaction through legacy helpers.
+        return {"ok": False, "reason": "Браузерное управление запрещено"}
         info = await self._find_speed(page, device)
         if not info.get("ok"):
             return {"ok": False, "reason": info.get("reason", "Не найден контрол Speed")}
@@ -117,7 +189,7 @@ class XToysCapability(Capability):
             "verified_ui": verified_ui,
         }
 
-    async def set_intensity(self, device: str = "", value: int = 0) -> ToolResult:
+    async def _deprecated_set_intensity(self, device: str = "", value: int = 0) -> ToolResult:
         requested = max(0, min(100, int(value)))
         try:
             page = await self._page()
@@ -184,7 +256,7 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка XToys intensity: {exc}")
 
-    async def toggle(self, device: str = "") -> ToolResult:
+    async def _deprecated_toggle(self, device: str = "") -> ToolResult:
         try:
             page = await self._page()
             buttons = page.get_by_role("button")
@@ -216,7 +288,7 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка XToys toggle: {exc}")
 
-    async def select_pattern(self, pattern: str, device: str = "") -> ToolResult:
+    async def _deprecated_select_pattern(self, pattern: str, device: str = "") -> ToolResult:
         if not pattern.strip():
             return ToolResult(success=False, message="Название паттерна не указано")
         try:
@@ -247,7 +319,7 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка выбора паттерна XToys: {exc}")
 
-    async def get_status(self, device: str = "") -> ToolResult:
+    async def _deprecated_get_status(self, device: str = "") -> ToolResult:
         try:
             page = await self._page()
             text = (await page.locator("body").inner_text(timeout=10_000)).strip()
@@ -264,7 +336,7 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка чтения XToys: {exc}")
 
-    async def read_intensity(self, device: str = "") -> ToolResult:
+    async def _deprecated_read_intensity(self, device: str = "") -> ToolResult:
         """Read the current slider value back from the live DOM (verification)."""
         try:
             page = await self._page()
@@ -305,7 +377,7 @@ class XToysCapability(Capability):
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка чтения XToys: {exc}")
 
-    async def ramp_intensity(self, device: str = "", target: int = 0, *, steps: int = 5) -> ToolResult:
+    async def _deprecated_ramp_intensity(self, device: str = "", target: int = 0, *, steps: int = 5) -> ToolResult:
         """Safely ramp intensity toward `target` in small increments (no sudden jumps)."""
         target = max(0, min(100, int(target)))
         try:
@@ -387,7 +459,12 @@ class XToysCapability(Capability):
         return await self._uni_xtoys_api("/api/xtoys/remote/status", method="GET")
 
     async def emergency_stop(self) -> ToolResult:
-        return await self._uni_xtoys_api("/api/xtoys/emergency-stop")
+        if self.coordinator is None:
+            return ToolResult(success=False, message="Координатор Intiface недоступен")
+        sent = await self.coordinator.emergency_stop()
+        return ToolResult(success=sent, data={"status": "not_verified"},
+                          message=("STOP отправлен через Intiface; проверьте физическую остановку" if sent
+                                   else "STOP не подтверждён Intiface; используйте физический пульт"))
 
     async def execute(self, action: str, **kwargs) -> ToolResult:
         device = str(kwargs.get("device", ""))

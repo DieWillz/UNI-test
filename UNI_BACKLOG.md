@@ -1,37 +1,60 @@
-# UNI Backlog
+# UNI Backlog — 2026-09-10
 
-## B-01 Настроить автономный режим управления устройством [ ]
-## B-02 Зафиксировать контракт vision capture (screen, не webcam) [V]
-## T-01 Собрать замкнутый контур «вижу → кликаю → проверяю» [V]
-## T-02 Подключить HumanMouseController к computer.py [V]
-## T-03 Цикл act_on_screen под зрением [V]
-## T-04 Админка v3: глобальное состояние [V]
-## T-05 Админка v3: задачи из backlog [V]
-## T-06 Админка v3: heartbeats участников [V]
-## T-07 Админка v3: журнал [V]
-## T-08 Админка v3: папки участников [V]
-## T-15 Кнопка экстренной остановки [V]
-## T-16 Валидация входных данных (path traversal) [V]
+Этот backlog заменяет устаревший список 2026-08-13. Приоритет — довести существующую архитектуру до надёжного автономного продукта, а не наращивать дублирующие подсистемы.
 
-- [x] FIX-AUDIT: устранить 5 пунктов внешнего аудита
-- [x] Vision contract: screen thumbnail из body вместо webcam
-- [ ] BONUS-01.1 Локализовать multi_acc_v3_package.py
+## P0 — стабилизация
 
-## INT-04 (Директива 2026-08-13, Дополнение №2): идеи из reuse-candidates
-# Источники: UNI-reuse-candidates/HERMES_ANALYSIS.md, NOTES.md.
-# Резюме: 3 модуля (tts_sentence_chunker, audio_env_detect, agent_heartbeat)
-# — это выжимки из Hermes tools. РЕШЕНИЕ: переиспользовать как каноничные
-# модули uni/utils/* (уже сделано: INT-02 tts_sentence_chunker, INT-03
-# audio_env_detect). agent_heartbeat → не импортировать hermes_* в uni
-# (нарушает инвариант 0.4), а реализовать локально через heartbeat_*.txt
-# (ADM-01 /api/admin/agents). README.md reuse-candidates — внутренний
-# справочник Hermes, НЕ копировать в канон.
+- [ ] Полный `pytest` должен завершаться exit 0.
+- [ ] Исправить ControlQueue manual takeover из autonomous режима.
+- [ ] Исправить STOP → reset → new command с реальным emergency latch Coordinator.
+- [ ] Проверить и при необходимости исправить `remove_pending`.
+- [ ] Добавить integration tests `ControlQueue + ToyControlCoordinator + fake Intiface bridge`.
+- [ ] Завершить Telegram retry/backoff contract.
+- [ ] Устранить оставшийся mojibake в runtime/WebUI сообщениях.
 
-## I-01 Интегрировать tts_sentence_chunker в speech.py [V] (INT-02)
-## I-02 Интегрировать audio_env_detect в /api/uni/status [V] (INT-03)
-## I-03 Heartbeat-модуль агентов: НЕ импортировать hermes agent_heartbeat;
-#        использовать uni-*/logs/heartbeat*.txt + bridge/heartbeat_*.txt [V] (ADM-01)
-## I-04 Справочник reuse-candidates/README.md: оставить как источник,
-#        не копировать в канон [V]
-# ПРОТИВОРЕЧИЙ МАНИФЕСТУ: нет (все идеи совпадают: reuse, fail-closed,
-# честные статусы, heartbeat-наблюдаемость).
+## P0 — единый контур исполнения
+
+- [ ] Свести DirectCommand, `_free_form()`, VisualActionAgent и Autonomous side effects к canonical Operator pipeline.
+- [ ] Каждый side effect: ActionRegistry → execute → fresh observation → Verification → TaskOutcome.
+- [ ] Не считать transport/action acknowledgement независимой проверкой результата.
+- [ ] Legacy paths удалять только после миграции call sites и regression tests.
+
+## P1 — perception
+
+- [x] Зафиксирован порядок: DOM/UIA → OCR → visual diff → VLM/Vision fallback.
+- [ ] Добавить significance threshold, ROI, debounce/cooldown для Screen Watch.
+- [ ] Превращать изменения экрана в semantic events, а не слать каждый кадр в VLM.
+- [ ] Добавить privacy/sensitive-region filtering для фонового наблюдения.
+## P1 — Operator E2E
+
+- [ ] Notepad: открыть → ввести текст → сохранить → проверить файл.
+- [ ] Calculator: UIA interaction → проверить результат.
+- [ ] Explorer: создать папку/файл → проверить filesystem state.
+- [ ] Browser: navigate/find/click → проверить DOM/url/title/state.
+- [ ] Multi-app copy/paste → проверить результат.
+- [ ] Recovery: element moved/disappeared, overlay, focus loss, UIA unavailable, stale reference.
+
+## P1 — автономность и голос
+
+- [ ] Universal runtime: OBSERVE → meaningful event → PLAN/REPLAN → ACT → VERIFY → MEMORY → CONTINUE.
+- [ ] Event priority, dedup, cooldown, stuck detection, bounded retry, user takeover/resume.
+- [ ] Whisper/quiet speech E2E на реальном микрофоне.
+- [ ] Исключить повторное распознавание собственного TTS.
+- [ ] Проверить interruption: пользователь перебивает TTS новой командой.
+## P1/P2 — интеграции и продукт
+
+- [ ] Dorch: один lifecycle ControlQueue/Coordinator для manual/remote/pattern/autonomous/STOP.
+- [ ] Remote/mobile: auth, reconnect, action routing, verification, phone E2E.
+- [ ] Telegram: реальный transport runtime, media/STT, retry/backoff.
+- [ ] AgentContext: current goal, mission, completed/failed steps, observations, pending events, recovery history.
+- [ ] WebUI: после стабилизации разбить монолит `server.py` на handlers.
+- [ ] Installer/portable + first-run diagnostics для GPU/audio/camera/LLM/STT/TTS.
+
+## Уже закрыто в текущей итерации
+
+- [x] Schema-driven админка `config.yaml`.
+- [x] Secret masking / protected verification setting / atomic validated save.
+- [x] Настройки основных capabilities доступны без ручного YAML.
+- [x] Исправлен circular import modular handlers registry.
+- [x] Исправлено перекрытие WebUI sidebar за счёт canonical `<main class="main">`.
+- [x] Config/TTS/chat/camera targeted regression suite зелёный.

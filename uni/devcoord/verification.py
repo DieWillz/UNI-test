@@ -65,15 +65,7 @@ class VerificationManager:
 
         if not task.verification_argv:
             detail = "no verification commands configured"
-            self._finish(task_id, WorkTaskState.FAILED, detail)
-            self.store.append_event(
-                WorkspaceEvent(
-                    event="verification.failed",
-                    task_id=task_id,
-                    session_id=session.session_id,
-                    detail=detail,
-                )
-            )
+            self._finish(task_id, WorkTaskState.FAILED, detail, "verification.failed", session.session_id)
             return VerificationOutcome(task_id, False, [], detail)
 
         results: list[VerificationCommandResult] = []
@@ -83,27 +75,11 @@ class VerificationManager:
             self._record_command(task_id, session.session_id, result)
             if result.return_code != 0:
                 detail = self._failure_detail(result)
-                self._finish(task_id, WorkTaskState.FAILED, detail)
-                self.store.append_event(
-                    WorkspaceEvent(
-                        event="verification.failed",
-                        task_id=task_id,
-                        session_id=session.session_id,
-                        detail=detail,
-                    )
-                )
+                self._finish(task_id, WorkTaskState.FAILED, detail, "verification.failed", session.session_id)
                 return VerificationOutcome(task_id, False, results, detail)
 
         detail = f"{len(results)} verification command(s) passed"
-        self._finish(task_id, WorkTaskState.VERIFIED, detail)
-        self.store.append_event(
-            WorkspaceEvent(
-                event="verification.passed",
-                task_id=task_id,
-                session_id=session.session_id,
-                detail=detail,
-            )
-        )
+        self._finish(task_id, WorkTaskState.VERIFIED, detail, "verification.passed", session.session_id)
         return VerificationOutcome(task_id, True, results, detail)
 
     def _run_command(
@@ -169,9 +145,24 @@ class VerificationManager:
             return result.error[:4000]
         return f"verification command failed rc={result.return_code}"[:4000]
 
-    def _finish(self, task_id: str, state: WorkTaskState, detail: str) -> None:
+    def _finish(
+        self,
+        task_id: str,
+        state: WorkTaskState,
+        detail: str,
+        event: str,
+        session_id: str,
+    ) -> None:
         current = self.store.get_workspace_task(task_id)
-        updated = current.model_copy(
-            update={"state": state, "updated_at": utc_now()}
-        )
-        self.store.save_workspace_task(updated)
+        updated = current.model_copy(update={"state": state, "updated_at": utc_now()})
+        with self.store.transaction(immediate=True) as conn:
+            self.store.save_workspace_task(updated, conn=conn)
+            self.store.append_event(
+                WorkspaceEvent(
+                    event=event,
+                    task_id=task_id,
+                    session_id=session_id,
+                    detail=detail,
+                ),
+                conn=conn,
+            )

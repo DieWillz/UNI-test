@@ -19,6 +19,7 @@ class ResourceType(str, Enum):
 class AccessMode(str, Enum):
     READ = "read"
     WRITE = "write"
+    EXCLUSIVE = "exclusive"
 
 
 class LeaseState(str, Enum):
@@ -60,6 +61,11 @@ class ResourceRequest(BaseModel):
     access_mode: AccessMode = AccessMode.WRITE
 
 
+class AcceptanceItem(BaseModel):
+    key: str = Field(min_length=1, max_length=300)
+    passed: bool = False
+
+
 class WorkspaceTask(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=300)
     title: str = Field(min_length=1, max_length=300)
@@ -68,6 +74,9 @@ class WorkspaceTask(BaseModel):
     required_capabilities: list[str] = Field(default_factory=list, max_length=100)
     requested_resources: list[ResourceRequest] = Field(default_factory=list, max_length=200)
     verification_argv: list[list[str]] = Field(default_factory=list, max_length=100)
+    acceptance_items: list[AcceptanceItem] = Field(default_factory=list, max_length=500)
+    owner_verified: bool = False
+    blockers: list[str] = Field(default_factory=list, max_length=100)
     state: WorkTaskState = WorkTaskState.PLANNED
     assigned_session_id: str | None = Field(default=None, max_length=300)
     created_at: str = Field(default_factory=utc_now)
@@ -100,6 +109,9 @@ class AgentSession(BaseModel):
     stdout_log_path: str | None = Field(default=None, max_length=2000)
     stderr_log_path: str | None = Field(default=None, max_length=2000)
     capabilities: list[str] = Field(default_factory=list, max_length=100)
+    direction_revision_ack: str | None = Field(default=None, max_length=128)
+    direction_synced_at: str | None = Field(default=None, max_length=100)
+    direction_stale: bool = False
     state: SessionState = SessionState.ACTIVE
     started_at: str = Field(default_factory=utc_now)
     heartbeat_at: str = Field(default_factory=utc_now)

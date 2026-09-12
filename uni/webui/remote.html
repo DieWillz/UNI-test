@@ -1,58 +1,576 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>UNI · Remote Control</title>
-<link rel="stylesheet" href="css/admin.css">
-<style>
-body{padding:14px;max-width:1200px;margin:0 auto}
-.rgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
-@media(max-width:900px){.rgrid{grid-template-columns:1fr}}
-#bigSlider{-webkit-appearance:none;width:100%;height:26px;border-radius:14px;background:rgba(141,152,154,.25)}
-#bigSlider::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:99px;background:var(--lime);border:3px solid var(--ink)}
-#bigVal{font-size:34px;font-weight:800}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNI Remote Control · Гость</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <style>
+    /* Базовые стили */
+    body {
+      padding: 0;
+      margin: 0;
+      max-width: 100%;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0B1115;
+      color: #F2F4EF;
+    }
+
+    /* Контейнер */
+    .guest-container {
+      display: grid;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Верхняя панель (статус) */
+    .guest-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(23, 32, 38, 0.9);
+      border-radius: 12px;
+      border: 1px solid rgba(141, 152, 154, 0.2);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .guest-header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .guest-status {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(141, 152, 154, 0.1);
+      border-radius: 99px;
+      font-size: 12px;
+    }
+
+    .status-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mute);
+    }
+
+    .status-chip.ok .dot {
+      background: var(--lime);
+    }
+
+    .status-chip.bad .dot {
+      background: var(--red);
+    }
+
+    /* Основная область: видео + чат */
+    .guest-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr);
+      gap: 16px;
+    }
+
+    /* Видео (трансляция) */
+    .guest-video {
+      background: rgba(23, 32, 38, 0.7);
+      border-radius: 12px;
+      border: 1px solid rgba(141, 152, 154, 0.2);
+      padding: 16px;
+    }
+
+    .guest-video h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .guest-video video {
+      width: 100%;
+      aspect-ratio: 16/9;
+      max-height: 500px;
+      object-fit: contain;
+      background: #000;
+      border-radius: 8px;
+    }
+
+    .video-status {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--mute);
+      text-align: center;
+    }
+
+    /* Чат */
+    .guest-chat {
+      background: rgba(23, 32, 38, 0.7);
+      border-radius: 12px;
+      border: 1px solid rgba(141, 152, 154, 0.2);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .guest-chat h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .chat-feed {
+      flex: 1;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      min-height: 300px;
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 12px;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px 12px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(141, 152, 154, 0.2);
+      background: rgba(11, 17, 21, 0.6);
+      color: var(--paper);
+    }
+
+    /* Слайдер управления */
+    .guest-controls {
+      background: rgba(23, 32, 38, 0.7);
+      border-radius: 12px;
+      border: 1px solid rgba(141, 152, 154, 0.2);
+      padding: 16px;
+    }
+
+    .guest-controls h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .slider-value {
+      font-size: 36px;
+      font-weight: 800;
+      min-width: 100px;
+    }
+
+    .guest-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 26px;
+      border-radius: 14px;
+      background: rgba(141, 152, 154, 0.25);
+    }
+
+    .guest-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 99px;
+      background: var(--lime);
+      border: 3px solid var(--ink);
+      cursor: pointer;
+    }
+
+    .slider-label {
+      font-size: 12px;
+      color: var(--mute);
+    }
+
+    /* Кнопки управления */
+    .control-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn.primary {
+      background: var(--lime);
+      color: var(--ink);
+    }
+
+    .btn.secondary {
+      background: rgba(141, 152, 154, 0.12);
+      color: var(--paper);
+    }
+
+    .btn.danger {
+      background: rgba(240, 68, 68, 0.2);
+      color: var(--red);
+      border: 1px solid rgba(240, 68, 68, 0.5);
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* Уведомления */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: rgba(184, 230, 29, 0.9);
+      color: #0B1115;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10000;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Адаптивность */
+    @media (max-width: 900px) {
+      .guest-main {
+        grid-template-columns: 1fr;
+      }
+
+      .guest-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
 </head>
 <body>
-<div class="row" style="margin-bottom:10px">
-  <b style="font-size:16px">UNI · Remote Control</b>
-  <span class="chip" id="rSes">сессия: —</span>
-  <span class="chip" id="rMax">max: —</span>
-  <span class="sp"></span>
-  <button class="btn red" style="font-size:14px;padding:10px 20px" onclick="rStop()">■ СТОП</button>
-</div>
-<div class="card" style="margin-bottom:12px">
-  <div class="row"><span id="bigVal">0%</span><span class="sp"></span><span class="tag g" id="rSrc">источник: гость</span></div>
-  <input type="range" id="bigSlider" min="0" max="100" value="0">
-  <div class="note" style="margin-top:6px">Большой слайдер скорости машинки. Значение ограничено лимитом сессии, заданным координатором.</div>
-</div>
-<div class="rgrid">
-  <div>
-    <div class="card"><h3>Паттерны</h3>
-      <div class="row"><label>мощность% <input id="pPow" type="number" value="70" style="width:56px"></label>
-      <label>×время <input id="pScale" type="number" value="1" step="0.1" style="width:56px"></label>
-      <button class="btn red" onclick="rStop()">■</button><span class="sp"></span><span class="tag g" id="patNow">—</span></div>
-      <div id="patGroups" style="margin-top:8px"></div>
-      <div class="kv" style="margin-top:8px"><b>Мой плейлист</b><span id="plCount">0</span></div>
-      <div class="row"><select id="plPat" style="max-width:160px"></select>
-        <label>% <input id="plPow" type="number" value="70" style="width:50px"></label>
-        <label>×<input id="plScale" type="number" value="1" step="0.1" style="width:50px"></label>
-        <button class="btn ghost" onclick="plAdd()">+ шаг</button>
-        <button class="btn" onclick="plRun()">▶ плейлист</button></div>
-      <div id="plList" class="note" style="margin-top:6px">пуст</div>
+  <div class="guest-container">
+    <!-- Верхняя панель -->
+    <div class="guest-header">
+      <h1>UNI Remote Control · Гость</h1>
+      <div class="guest-status">
+        <div class="status-chip" id="connectionStatus">
+          <span class="dot"></span>
+          <span>Подключение...</span>
+        </div>
+        <div class="status-chip" id="sessionStatus">
+          <span>Сессия: не активна</span>
+        </div>
+      </div>
     </div>
-    <div class="card" style="margin-top:12px"><h3>Видео и звук координатора</h3>
-      <video id="vid" autoplay playsinline style="width:100%;border-radius:10px;background:#000;min-height:140px"></video>
-      <div class="note" style="margin-top:6px" id="vidState">Трансляция появится, когда координатор нажмёт «Трансляция» и Hermes добавит WebRTC-сигналинг (директива в админке).</div>
+
+    <!-- Видео + Чат -->
+    <div class="guest-main">
+      <!-- Видео -->
+      <div class="guest-video">
+        <h2>Трансляция</h2>
+        <video id="guestVideo" autoplay playsinline controls poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%23111'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23888'%3EОжидание видеопотока%3C/text%3E%3C/svg%3E"></video>
+        <div class="video-status" id="videoStatus">Ожидание подключения...</div>
+      </div>
+
+      <!-- Чат -->
+      <div class="guest-chat">
+        <h2>Чат</h2>
+        <div class="chat-feed" id="chatFeed">
+          Добро пожаловать! Подождите, пока владелец активирует сессию.
+        </div>
+        <div class="chat-input">
+          <input id="chatMessage" placeholder="Введите сообщение..." disabled>
+          <button class="btn primary" onclick="sendMessage()" disabled id="sendButton">Отправить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Слайдер управления -->
+    <div class="guest-controls">
+      <h2>Управление устройством</h2>
+      <div class="slider-container">
+        <span class="slider-value" id="sliderValue">0%</span>
+        <input type="range" id="intensitySlider" class="guest-slider" min="0" max="100" value="0" disabled oninput="updateIntensity(this.value)">
+      </div>
+      <div class="slider-label">Установите интенсивность для устройства</div>
+      <div class="control-buttons">
+        <button class="btn secondary" onclick="setIntensity(0)" disabled id="zeroBtn">0%</button>
+        <button class="btn secondary" onclick="setIntensity(25)" disabled id="lowBtn">25%</button>
+        <button class="btn secondary" onclick="setIntensity(50)" disabled id="midBtn">50%</button>
+        <button class="btn secondary" onclick="setIntensity(75)" disabled id="highBtn">75%</button>
+        <button class="btn danger" onclick="setIntensity(0)" disabled id="stopBtn">СТОП</button>
+      </div>
     </div>
   </div>
-  <div class="card"><h3>Чат с координатором <span class="tag g" id="uniTag">Юни: —</span></h3>
-    <pre class="log" id="chatFeed" style="height:340px">…</pre>
-    <div class="row" style="margin-top:6px"><input id="chatIn" placeholder="сообщение…" style="flex:1"><button class="btn" onclick="chatSend()">➤</button></div>
-  </div>
-</div>
-<script src="js/curves.js"></script>
-<script src="js/remote.js"></script>
+
+  <script>
+    // Параметры сессии (извлекаем токен из URL)
+    const urlParams = new URLSearchParams(window.location.hash.substring(1));
+    const token = urlParams.get('token');
+    const role = urlParams.get('role') || 'guest';
+
+    // Состояние подключения
+    let isConnected = false;
+    let sessionActive = false;
+    let socket = null;
+    let currentIntensity = 0;
+
+    // === Инициализация ===
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!token) {
+        showNotification("❌ Нет токена сессии! Проверьте ссылку.", true);
+        document.getElementById('connectionStatus').innerHTML = '<span class="dot bad"></span><span>Ошибка: нет токена</span>';
+        return;
+      }
+
+      // Проверяем подключение к сессии
+      checkSessionStatus();
+
+      // Подключаемся к WebSocket для чата и управления
+      connectWebSocket();
+
+      // Обновляем статус каждые 5 секунд
+      setInterval(checkSessionStatus, 5000);
+    });
+
+    // === Проверка статуса сессии ===
+    async function checkSessionStatus() {
+      try {
+        const response = await fetch(`/api/xtoys/remote/room?token=${token}&role=${role}&action=poll`);
+        const data = await response.json();
+
+        if (response.ok && data.session) {
+          sessionActive = data.session.active;
+          isConnected = true;
+
+          // Обновляем UI
+          document.getElementById('connectionStatus').innerHTML = '<span class="dot ok"></span><span>Подключено</span>';
+          document.getElementById('sessionStatus').innerHTML = sessionActive
+            ? '<span class="dot ok"></span><span>Сессия активна</span>'
+            : '<span class="dot bad"></span><span>Сессия не активна</span>';
+
+          // Разрешаем управление, если сессия активна
+          if (sessionActive) {
+            enableControls();
+            document.getElementById('chatMessage').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.getElementById('chatFeed').textContent = "Сессия активна. Можно управлять устройством и писать в чат.";
+          } else {
+            disableControls();
+            document.getElementById('chatMessage').disabled = true;
+            document.getElementById('sendButton').disabled = true;
+          }
+        } else {
+          isConnected = false;
+          document.getElementById('connectionStatus').innerHTML = '<span class="dot bad"></span><span>Ошибка подключения</span>';
+        }
+      } catch (error) {
+        isConnected = false;
+        document.getElementById('connectionStatus').innerHTML = '<span class="dot bad"></span><span>Нет соединения</span>';
+        console.error("Ошибка проверки сессии:", error);
+      }
+    }
+
+    // === Подключение к WebSocket ===
+    function connectWebSocket() {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/xtoys/remote/room?token=${token}&role=${role}`;
+
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          console.log("WebSocket подключен!");
+          isConnected = true;
+          showNotification("✅ Подключено к чату!", false);
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleMessage(data);
+          } catch (e) {
+            console.error("Ошибка парсинга сообщения:", e);
+          }
+        };
+
+        socket.onclose = () => {
+          isConnected = false;
+          document.getElementById('connectionStatus').innerHTML = '<span class="dot bad"></span><span>Отключено</span>';
+          showNotification("⚠ Соединение разорвано. Пытаемся переподключиться...", false);
+          // Пытаемся переподключиться через 3 секунды
+          setTimeout(connectWebSocket, 3000);
+        };
+
+        socket.onerror = (error) => {
+          console.error("Ошибка WebSocket:", error);
+        };
+      } catch (error) {
+        console.error("Ошибка создания WebSocket:", error);
+      }
+    }
+
+    // === Обработка сообщений ===
+    function handleMessage(data) {
+      switch (data.type) {
+        case 'chat':
+          addChatMessage('Владелец', data.payload);
+          break;
+        case 'system':
+          addChatMessage('Система', data.payload);
+          break;
+        case 'intensity':
+          updateSliderValue(data.value * 100);
+          break;
+        case 'status':
+          if (data.active !== undefined) {
+            sessionActive = data.active;
+            document.getElementById('sessionStatus').innerHTML = sessionActive
+              ? '<span class="dot ok"></span><span>Сессия активна</span>'
+              : '<span class="dot bad"></span><span>Сессия не активна</span>';
+          }
+          break;
+        case 'video_status':
+          document.getElementById('videoStatus').textContent = data.message;
+          if (data.src) {
+            document.getElementById('guestVideo').src = data.src;
+          }
+          break;
+      }
+    }
+
+    // === Отправка сообщения в чат ===
+    function sendMessage() {
+      const input = document.getElementById('chatMessage');
+      const message = input.value.trim();
+
+      if (!message || !isConnected) return;
+
+      try {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'chat',
+            payload: message,
+            token: token,
+            role: role
+          }));
+          addChatMessage('Вы', message);
+          input.value = '';
+        } else {
+          showNotification("⚠ Соединение не активно. Попробуйте позже.", false);
+        }
+      } catch (error) {
+        showNotification("⚠ Не удалось отправить сообщение.", false);
+        console.error("Ошибка отправки сообщения:", error);
+      }
+    }
+
+    // === Добавление сообщения в чат ===
+    function addChatMessage(sender, message) {
+      const chatFeed = document.getElementById('chatFeed');
+      const timestamp = new Date().toLocaleTimeString().slice(0, 5);
+      chatFeed.innerHTML += `<br><strong>[${timestamp}] ${sender}:</strong> ${message}`;
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+
+    // === Обновление значения слайдера ===
+    function updateSliderValue(value) {
+      currentIntensity = value;
+      document.getElementById('sliderValue').textContent = `${Math.round(value)}%`;
+      document.getElementById('intensitySlider').value = value;
+    }
+
+    // === Установка интенсивности ===
+    function setIntensity(value) {
+      if (!sessionActive || !isConnected) {
+        showNotification("⚠ Сессия не активна!", false);
+        return;
+      }
+
+      try {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            type: 'intensity',
+            value: value / 100,
+            token: token,
+            role: role
+          }));
+          updateSliderValue(value);
+        } else {
+          showNotification("⚠ Соединение не активно.", false);
+        }
+      } catch (error) {
+        showNotification("⚠ Не удалось отправить команду.", false);
+        console.error("Ошибка отправки команды:", error);
+      }
+    }
+
+    // === Включение/отключение контролов ===
+    function enableControls() {
+      document.getElementById('intensitySlider').disabled = false;
+      document.getElementById('zeroBtn').disabled = false;
+      document.getElementById('lowBtn').disabled = false;
+      document.getElementById('midBtn').disabled = false;
+      document.getElementById('highBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = false;
+    }
+
+    function disableControls() {
+      document.getElementById('intensitySlider').disabled = true;
+      document.getElementById('zeroBtn').disabled = true;
+      document.getElementById('lowBtn').disabled = true;
+      document.getElementById('midBtn').disabled = true;
+      document.getElementById('highBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = true;
+    }
+
+    // === Уведомления ===
+    function showNotification(message, isError) {
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.className = 'notification';
+      if (isError) {
+        notification.style.background = 'rgba(240, 68, 68, 0.9)';
+        notification.style.color = '#fff';
+      }
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
+    }
+
+    // === Обработка нажатия Enter в чате ===
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.id === 'chatMessage') {
+        sendMessage();
+      }
+    });
+  </script>
 </body>
 </html>

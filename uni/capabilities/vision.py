@@ -169,7 +169,7 @@ class VisionCapability(Capability):
                 )
             async with self._gradio_lock:
                 return await asyncio.to_thread(self._gradio_predict, image.copy(), prompt)
-        if provider == "openai":
+        if provider in ("auto", "openai"):
             return await self.brain.vision(self._data_url(image), f"{prompt}\nОтвечай только по-русски.")
         raise ValueError(f"Неизвестный Vision provider: {provider}")
 

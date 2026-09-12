@@ -16,6 +16,7 @@ import win32api
 import win32process
 from comtypes.gen import UIAutomationClient as uia
 from uni.contracts import ToolResult
+from uni.utils.file_lock import acquire_lock, release_lock
 from .base import Capability
 
 # 🤖 Человеко-подобная мышь (win32api, траектории): отдельный движок рядом
@@ -539,6 +540,10 @@ class ComputerCapability(Capability):
 
     def _focus_app(self, app_name: str) -> tuple[bool, str]:
         key = app_name.casefold().strip()
+        # The planner sees executable names in list_visible_windows(). Accept
+        # those exact names as aliases; keep ambiguous-window rejection intact.
+        key = {"chrome.exe": "chrome", "msedge.exe": "edge",
+               "browser.exe": "yandex", "telegram.exe": "telegram"}.get(key, key)
         matches: list[tuple[int, str]] = []
         telegram_keys = {
             "telegram",
@@ -762,6 +767,284 @@ class ComputerCapability(Capability):
             return ToolResult(success=True, data=data, message=f"Фокус установлен на элемент {name!r}")
         except Exception as exc:
             return ToolResult(success=False, message=f"Ошибка фокуса Accessibility-элемента: {exc}")
+
+    @staticmethod
+    def _resolve_accessible_action_target_initialized(
+        name: str, control_type: str = "", automation_id: str = "",
+        x: float | None = None, y: float | None = None,
+        width: float | None = None, height: float | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
+        clean = lambda value: str(value or "").strip().strip(
+            "\u200e\u200f\u202a\u202b\u202c\u202d\u202e"
+        )
+        target = clean(name).casefold()
+        if not target:
+            raise ValueError("accessible_name_required")
+        role_ids = {
+            "button": uia.UIA_ButtonControlTypeId,
+            "menu_item": uia.UIA_MenuItemControlTypeId,
+            "link": uia.UIA_HyperlinkControlTypeId,
+            "tab": uia.UIA_TabItemControlTypeId,
+            "list_item": uia.UIA_ListItemControlTypeId,
+            "checkbox": uia.UIA_CheckBoxControlTypeId,
+            "radio": uia.UIA_RadioButtonControlTypeId,
+            "combobox": uia.UIA_ComboBoxControlTypeId,
+            "textbox": uia.UIA_EditControlTypeId,
+        }
+        wanted_type = role_ids.get(control_type.casefold().strip())
+        automation = comtypes.client.CreateObject(uia.CUIAutomation, interface=uia.IUIAutomation)
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            raise ValueError("foreground_window_missing")
+        root = automation.ElementFromHandle(hwnd)
+        elements = root.FindAll(uia.TreeScope_Subtree, automation.CreateTrueCondition())
+        expected_center = None
+        if None not in (x, y, width, height):
+            expected_center = (float(x) + float(width) / 2, float(y) + float(height) / 2)
+        vx, vy = win32api.GetSystemMetrics(76), win32api.GetSystemMetrics(77)
+        vw, vh = win32api.GetSystemMetrics(78), win32api.GetSystemMetrics(79)
+        candidates: list[tuple[float, float, Any, dict[str, Any]]] = []
+        for index in range(elements.Length):
+            element = elements.GetElement(index)
+            try:
+                if clean(element.CurrentName).casefold() != target or not element.CurrentIsEnabled:
+                    continue
+                if wanted_type is not None and element.CurrentControlType != wanted_type:
+                    continue
+                candidate_id = clean(element.CurrentAutomationId)
+                if automation_id and candidate_id != automation_id:
+                    continue
+                rect = element.CurrentBoundingRectangle
+                w, h = rect.right - rect.left, rect.bottom - rect.top
+                cx, cy = rect.left + w / 2, rect.top + h / 2
+                if w <= 0 or h <= 0 or not (vx <= cx < vx + vw and vy <= cy < vy + vh):
+                    continue
+                distance = 0.0
+                if expected_center is not None:
+                    distance = (cx - expected_center[0]) ** 2 + (cy - expected_center[1]) ** 2
+                data = {
+                    "name": clean(element.CurrentName),
+                    "automation_id": candidate_id,
+                    "control_type_id": int(element.CurrentControlType),
+                    "x": float(rect.left), "y": float(rect.top),
+                    "width": float(w), "height": float(h),
+                }
+                candidates.append((distance, float(w * h), element, data))
+            except (AttributeError, OSError, ValueError):
+                continue
+        if not candidates:
+            raise ValueError(f"accessible_target_not_found: {name}")
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        if expected_center is None and not automation_id and len(candidates) > 1:
+            raise ValueError(f"accessible_target_ambiguous: {name}")
+        return candidates[0][2], candidates[0][3]
+
+    @staticmethod
+    def _invoke_accessible_element(
+        name: str, control_type: str = "", automation_id: str = "",
+        x: float | None = None, y: float | None = None,
+        width: float | None = None, height: float | None = None,
+    ) -> dict[str, Any]:
+        comtypes.CoInitialize()
+        try:
+            clean = lambda value: str(value or "").strip().strip("\u200e\u200f\u202a\u202b\u202c\u202d\u202e")
+            target = clean(name).casefold()
+            if not target:
+                raise ValueError("accessible_name_required")
+            role_ids = {
+                "button": uia.UIA_ButtonControlTypeId, "menu_item": uia.UIA_MenuItemControlTypeId,
+                "link": uia.UIA_HyperlinkControlTypeId, "tab": uia.UIA_TabItemControlTypeId,
+                "list_item": uia.UIA_ListItemControlTypeId, "checkbox": uia.UIA_CheckBoxControlTypeId,
+                "radio": uia.UIA_RadioButtonControlTypeId,
+            }
+            wanted_type = role_ids.get(control_type.casefold().strip())
+            automation = comtypes.client.CreateObject(uia.CUIAutomation, interface=uia.IUIAutomation)
+            hwnd = win32gui.GetForegroundWindow()
+            if not hwnd:
+                raise ValueError("foreground_window_missing")
+            root = automation.ElementFromHandle(hwnd)
+            elements = root.FindAll(uia.TreeScope_Subtree, automation.CreateTrueCondition())
+            expected_center = None
+            if None not in (x, y, width, height):
+                expected_center = (float(x) + float(width) / 2, float(y) + float(height) / 2)
+            vx, vy = win32api.GetSystemMetrics(76), win32api.GetSystemMetrics(77)
+            vw, vh = win32api.GetSystemMetrics(78), win32api.GetSystemMetrics(79)
+            candidates = []
+            for index in range(elements.Length):
+                element = elements.GetElement(index)
+                try:
+                    if clean(element.CurrentName).casefold() != target or not element.CurrentIsEnabled:
+                        continue
+                    if wanted_type is not None and element.CurrentControlType != wanted_type:
+                        continue
+                    candidate_id = clean(element.CurrentAutomationId)
+                    if automation_id and candidate_id != automation_id:
+                        continue
+                    rect = element.CurrentBoundingRectangle
+                    w, h = rect.right - rect.left, rect.bottom - rect.top
+                    cx, cy = rect.left + w / 2, rect.top + h / 2
+                    if w <= 0 or h <= 0 or not (vx <= cx < vx + vw and vy <= cy < vy + vh):
+                        continue
+                    distance = 0.0 if expected_center is None else (cx-expected_center[0])**2 + (cy-expected_center[1])**2
+                    candidates.append((distance, float(w*h), element, {
+                        "name": clean(element.CurrentName), "automation_id": candidate_id,
+                        "control_type_id": int(element.CurrentControlType),
+                    }))
+                except (AttributeError, OSError, ValueError):
+                    continue
+            if not candidates:
+                raise ValueError(f"accessible_target_not_found: {name}")
+            candidates.sort(key=lambda item: (item[0], item[1]))
+            if expected_center is None and not automation_id and len(candidates) > 1:
+                raise ValueError(f"accessible_target_ambiguous: {name}")
+            element, data = candidates[0][2], candidates[0][3]
+            last_error = None
+            for pattern_id, interface, invoke in (
+                (uia.UIA_InvokePatternId, uia.IUIAutomationInvokePattern, lambda p: p.Invoke()),
+                (uia.UIA_LegacyIAccessiblePatternId, uia.IUIAutomationLegacyIAccessiblePattern, lambda p: p.DoDefaultAction()),
+            ):
+                try:
+                    invoke(element.GetCurrentPattern(pattern_id).QueryInterface(interface))
+                    time.sleep(0.1)
+                    data["invoked"] = True
+                    return data
+                except Exception as exc:
+                    last_error = exc
+            raise ValueError(f"accessible_target_not_invokable: {last_error}")
+        finally:
+            comtypes.CoUninitialize()
+
+    async def invoke_accessible_element(self, name: str, control_type: str = "", **identity: Any) -> ToolResult:
+        try:
+            data = await asyncio.to_thread(self._invoke_accessible_element, name, control_type, **identity)
+            return ToolResult(success=True, data=data, message=f"UIA Invoke выполнен: {name!r}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"UIA Invoke недоступен: {exc}")
+
+    @staticmethod
+    def _set_accessible_checked(
+        name: str, checked: bool, control_type: str = "checkbox", **identity: Any,
+    ) -> dict[str, Any]:
+        comtypes.CoInitialize()
+        try:
+            element, data = ComputerCapability._resolve_accessible_action_target_initialized(
+                name, control_type, **identity,
+            )
+            pattern = element.GetCurrentPattern(uia.UIA_TogglePatternId).QueryInterface(
+                uia.IUIAutomationTogglePattern
+            )
+            desired = bool(checked)
+            current = int(pattern.CurrentToggleState) == 1
+            if current != desired:
+                pattern.Toggle()
+                time.sleep(0.1)
+            observed = int(pattern.CurrentToggleState) == 1
+            if observed != desired:
+                raise ValueError("accessible_toggle_state_mismatch")
+            data["checked"] = observed
+            return data
+        finally:
+            comtypes.CoUninitialize()
+
+    @staticmethod
+    def _select_accessible_value(
+        name: str, value: str, control_type: str = "combobox", **identity: Any,
+    ) -> dict[str, Any]:
+        comtypes.CoInitialize()
+        try:
+            wanted = str(value)
+            if not wanted:
+                raise ValueError("accessible_selection_value_required")
+            element, data = ComputerCapability._resolve_accessible_action_target_initialized(
+                name, control_type, **identity,
+            )
+            last_error: Exception | None = None
+            try:
+                pattern = element.GetCurrentPattern(uia.UIA_ValuePatternId).QueryInterface(
+                    uia.IUIAutomationValuePattern
+                )
+                pattern.SetValue(wanted)
+                time.sleep(0.1)
+                if str(pattern.CurrentValue or "") == wanted:
+                    data["value"] = wanted
+                    return data
+            except Exception as exc:
+                last_error = exc
+            automation = comtypes.client.CreateObject(uia.CUIAutomation, interface=uia.IUIAutomation)
+            try:
+                expand = element.GetCurrentPattern(uia.UIA_ExpandCollapsePatternId).QueryInterface(
+                    uia.IUIAutomationExpandCollapsePattern
+                )
+                expand.Expand()
+                time.sleep(0.1)
+            except Exception as exc:
+                last_error = exc
+            root = automation.ElementFromHandle(win32gui.GetForegroundWindow())
+            elements = root.FindAll(uia.TreeScope_Subtree, automation.CreateTrueCondition())
+            matches: list[Any] = []
+            for index in range(elements.Length):
+                item = elements.GetElement(index)
+                try:
+                    if item.CurrentControlType != uia.UIA_ListItemControlTypeId:
+                        continue
+                    if str(item.CurrentName or "").strip() != wanted or not item.CurrentIsEnabled:
+                        continue
+                    matches.append(item)
+                except Exception:
+                    continue
+            if len(matches) != 1:
+                raise ValueError(f"accessible_selection_not_unique: {wanted}; last={last_error}")
+            item = matches[0]
+            try:
+                selection = item.GetCurrentPattern(uia.UIA_SelectionItemPatternId).QueryInterface(
+                    uia.IUIAutomationSelectionItemPattern
+                )
+                selection.Select()
+            except Exception:
+                legacy = item.GetCurrentPattern(uia.UIA_LegacyIAccessiblePatternId).QueryInterface(
+                    uia.IUIAutomationLegacyIAccessiblePattern
+                )
+                legacy.DoDefaultAction()
+            time.sleep(0.1)
+            try:
+                expand.Collapse()
+            except Exception:
+                pass
+            try:
+                current = element.GetCurrentPattern(uia.UIA_ValuePatternId).QueryInterface(
+                    uia.IUIAutomationValuePattern
+                )
+                observed = str(current.CurrentValue or "")
+            except Exception:
+                observed = wanted
+            if observed != wanted:
+                raise ValueError(f"accessible_selection_state_mismatch: {observed!r}")
+            data["value"] = observed
+            return data
+        finally:
+            comtypes.CoUninitialize()
+
+    async def set_accessible_checked(
+        self, name: str, checked: bool, control_type: str = "checkbox", **identity: Any,
+    ) -> ToolResult:
+        try:
+            data = await asyncio.to_thread(
+                self._set_accessible_checked, name, checked, control_type, **identity,
+            )
+            return ToolResult(success=True, data=data, message=f"UIA toggle подтверждён: {name!r}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"UIA toggle недоступен: {exc}")
+
+    async def select_accessible_value(
+        self, name: str, value: str, control_type: str = "combobox", **identity: Any,
+    ) -> ToolResult:
+        try:
+            data = await asyncio.to_thread(
+                self._select_accessible_value, name, value, control_type, **identity,
+            )
+            return ToolResult(success=True, data=data, message=f"UIA selection подтверждён: {name!r}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"UIA selection недоступен: {exc}")
 
     @staticmethod
     def _accessible_value(name: str, new_value: str | None = None) -> str:
@@ -1078,6 +1361,103 @@ class ComputerCapability(Capability):
             return ToolResult(success=False, message=f"Ошибка чтения текстовых полей: {exc}")
 
     @staticmethod
+    def _inspect_accessible_elements(max_elements: int = 120) -> dict[str, Any]:
+        """Return a bounded semantic UIA snapshot of the foreground window."""
+        comtypes.CoInitialize()
+        try:
+            automation = comtypes.client.CreateObject(uia.CUIAutomation, interface=uia.IUIAutomation)
+            hwnd = win32gui.GetForegroundWindow()
+            if not hwnd:
+                raise ValueError("foreground_window_missing")
+            root = automation.ElementFromHandle(hwnd)
+            elements = root.FindAll(uia.TreeScope_Subtree, automation.CreateTrueCondition())
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            vx = win32api.GetSystemMetrics(76)
+            vy = win32api.GetSystemMetrics(77)
+            vw = win32api.GetSystemMetrics(78)
+            vh = win32api.GetSystemMetrics(79)
+            roles = {
+                uia.UIA_ButtonControlTypeId: "button",
+                uia.UIA_EditControlTypeId: "textbox",
+                uia.UIA_HyperlinkControlTypeId: "link",
+                uia.UIA_CheckBoxControlTypeId: "checkbox",
+                uia.UIA_RadioButtonControlTypeId: "radio",
+                uia.UIA_ComboBoxControlTypeId: "combobox",
+                uia.UIA_ListItemControlTypeId: "list_item",
+                uia.UIA_MenuItemControlTypeId: "menu_item",
+                uia.UIA_TabItemControlTypeId: "tab",
+                uia.UIA_TreeItemControlTypeId: "tree_item",
+                uia.UIA_DataItemControlTypeId: "data_item",
+                uia.UIA_SliderControlTypeId: "slider",
+                uia.UIA_TextControlTypeId: "text",
+            }
+            out: list[dict[str, Any]] = []
+            limit = max(1, min(int(max_elements), 200))
+            for index in range(elements.Length):
+                if len(out) >= limit:
+                    break
+                element = elements.GetElement(index)
+                try:
+                    rect = element.CurrentBoundingRectangle
+                    width, height = rect.right - rect.left, rect.bottom - rect.top
+                    cx, cy = rect.left + width / 2, rect.top + height / 2
+                    if width <= 0 or height <= 0:
+                        continue
+                    if not (vx <= cx < vx + vw and vy <= cy < vy + vh):
+                        continue
+                    name = str(element.CurrentName or "").strip()
+                    role = roles.get(element.CurrentControlType, "unknown")
+                    automation_id = str(element.CurrentAutomationId or "").strip()
+                    class_name = str(element.CurrentClassName or "").strip()
+                    sensitive = bool(getattr(element, "CurrentIsPassword", False))
+                    value = None
+                    checked = None
+                    if not sensitive and role in {"textbox", "combobox", "slider"}:
+                        try:
+                            pattern = element.GetCurrentPattern(uia.UIA_ValuePatternId).QueryInterface(
+                                uia.IUIAutomationValuePattern
+                            )
+                            value = str(pattern.CurrentValue or "")[:4000]
+                        except Exception:
+                            pass
+                    if role in {"checkbox", "radio"}:
+                        try:
+                            pattern = element.GetCurrentPattern(uia.UIA_TogglePatternId).QueryInterface(
+                                uia.IUIAutomationTogglePattern
+                            )
+                            checked = int(pattern.CurrentToggleState) == 1
+                        except Exception:
+                            pass
+                    if not name and not automation_id and role == "unknown":
+                        continue
+                    out.append({
+                        "name": name, "text": name, "role": role,
+                        "x": float(rect.left), "y": float(rect.top),
+                        "width": float(width), "height": float(height),
+                        "enabled": bool(element.CurrentIsEnabled), "value": value, "checked": checked,
+                        "automation_id": automation_id, "class_name": class_name,
+                        "control_type_id": int(element.CurrentControlType), "sensitive": sensitive,
+                    })
+                except (AttributeError, OSError, ValueError):
+                    continue
+            return {
+                "active_window": {
+                    "title": win32gui.GetWindowText(hwnd), "hwnd": int(hwnd), "pid": int(pid),
+                    "class_name": win32gui.GetClassName(hwnd), "active": True,
+                },
+                "elements": out,
+            }
+        finally:
+            comtypes.CoUninitialize()
+
+    async def inspect_accessible_elements(self, max_elements: int = 120) -> ToolResult:
+        try:
+            data = await asyncio.to_thread(self._inspect_accessible_elements, max_elements)
+            return ToolResult(success=True, data=data, message=f"UIA elements: {len(data['elements'])}")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"Ошибка UIA snapshot: {exc}")
+
+    @staticmethod
     def _list_visible_windows() -> list[dict[str, Any]]:
         windows: list[dict[str, Any]] = []
 
@@ -1165,6 +1545,23 @@ class ComputerCapability(Capability):
                 str(kwargs.get("name", "")),
                 str(kwargs.get("control_type", "")),
             )
+        elif action == "invoke_accessible_element":
+            identity = {key: kwargs[key] for key in ("automation_id", "x", "y", "width", "height") if key in kwargs}
+            return await self.invoke_accessible_element(
+                str(kwargs.get("name", "")), str(kwargs.get("control_type", "")), **identity
+            )
+        elif action == "set_accessible_checked":
+            identity = {key: kwargs[key] for key in ("automation_id", "x", "y", "width", "height") if key in kwargs}
+            return await self.set_accessible_checked(
+                str(kwargs.get("name", "")), bool(kwargs.get("checked", False)),
+                str(kwargs.get("control_type", "checkbox")), **identity,
+            )
+        elif action == "select_accessible_value":
+            identity = {key: kwargs[key] for key in ("automation_id", "x", "y", "width", "height") if key in kwargs}
+            return await self.select_accessible_value(
+                str(kwargs.get("name", "")), str(kwargs.get("value", "")),
+                str(kwargs.get("control_type", "combobox")), **identity,
+            )
         elif action == "read_accessible_value":
             return await self.read_accessible_value(str(kwargs.get("name", "")))
         elif action == "set_accessible_value":
@@ -1181,6 +1578,8 @@ class ComputerCapability(Capability):
             return await self.read_accessible_text(int(kwargs.get("max_chars", 12000)))
         elif action == "read_focused_accessible_text":
             return await self.read_focused_accessible_text()
+        elif action == "inspect_accessible_elements":
+            return await self.inspect_accessible_elements(int(kwargs.get("max_elements", 120)))
         elif action == "list_accessible_fields":
             return await self.list_accessible_fields(int(kwargs.get("max_fields", 50)))
         elif action == "list_visible_windows":
